@@ -1,0 +1,9 @@
+{
+  "name": "tron-desktop-playwright-helper",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Local Playwright runtime controlled by the TRON desktop agent.",
+  "dependencies": {
+    "playwright": "1.55.0"
+  }
+}

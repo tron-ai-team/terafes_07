@@ -1,5 +1,7 @@
 # TRON AI — Ubuntu Core Server Deployment Guide
 
+> Release-safety update: deployment CLI, paths and release contracts below are historical. Follow [deploy/README.md](deploy/README.md) for the reviewed digest-bound paired-release protocol. Do not execute the legacy image-tag/rsync commands.
+
 > Integration update (2026-10-26): staging and production deployment workflows are manual-only.
 > Pushes and PRs run CI only. Do not enable automatic deploys, merge, or deploy until owner approval
 > and server verification. Earlier automatic-deployment descriptions below are future-state notes.

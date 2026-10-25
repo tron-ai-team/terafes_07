@@ -1,22 +1,10 @@
--- Run on the EXISTING MySQL server as an admin user.
--- Creates an isolated schema and least-privilege account for TRON AI.
--- Does NOT drop or modify other databases.
---
--- Replace REPLACE_WITH_STRONG_PASSWORD before running.
---
--- Example:
---   sudo mysql < /opt/tron-ai/deploy/scripts/mysql-init-tron.sql
-
-CREATE DATABASE IF NOT EXISTS tron_ai
-  CHARACTER SET utf8mb4
-  COLLATE utf8mb4_unicode_ci;
-
-CREATE USER IF NOT EXISTS 'tronai'@'localhost' IDENTIFIED BY 'REPLACE_WITH_STRONG_PASSWORD';
-CREATE USER IF NOT EXISTS 'tronai'@'%' IDENTIFIED BY 'REPLACE_WITH_STRONG_PASSWORD';
-
-GRANT SELECT, INSERT, UPDATE, DELETE, CREATE, ALTER, INDEX, REFERENCES, CREATE VIEW, SHOW VIEW
-  ON tron_ai.* TO 'tronai'@'localhost';
-GRANT SELECT, INSERT, UPDATE, DELETE, CREATE, ALTER, INDEX, REFERENCES, CREATE VIEW, SHOW VIEW
-  ON tron_ai.* TO 'tronai'@'%';
-
-FLUSH PRIVILEGES;
+-- Reviewed contract, not an executable placeholder-password initializer.
+-- Use an authenticated administrator session. Never reuse another application's account.
+-- CREATE DATABASE tron_ai CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+-- CREATE USER 'tronai_prod'@'localhost' IDENTIFIED BY <secure locally generated password>;
+-- GRANT SELECT, INSERT, UPDATE, DELETE, CREATE, ALTER, INDEX, REFERENCES,
+--       CREATE VIEW, SHOW VIEW ON tron_ai.* TO 'tronai_prod'@'localhost';
+-- The private proxy connects through the existing Unix socket, so no '%' account is needed.
+-- Staging uses ONLY tron_ai_staging and tronai_staging@localhost.
+-- Confirm schema/account absence before creation; never reset an existing account or schema.
+-- Do not paste generated SQL/passwords into shell history. Apply with a restricted input file.

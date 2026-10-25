@@ -83,4 +83,14 @@ class HealthEndpointTest {
                 .andExpect(jsonPath("$.database").value("reachable"))
                 .andExpect(jsonPath("$.ollama").value("unreachable"));
     }
+    @Test
+    void releaseReadinessIsPublicAndIndependentOfExternalAi() throws Exception {
+        when(aiProvider.isAvailable()).thenReturn(false);
+        when(objectStorageService.isAvailable()).thenReturn(true);
+        mockMvc.perform(get("/health/ready").accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("ready"))
+                .andExpect(jsonPath("$.database").value("reachable"));
+    }
+
 }

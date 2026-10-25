@@ -131,6 +131,18 @@ public class HealthController {
         }
     }
 
+    /** Release readiness deliberately excludes external inference nodes. */
+    @GetMapping(value = "/health/ready", produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<Map<String, Object>> releaseReadiness() {
+        boolean database = checkDatabase();
+        boolean storage = checkStorage();
+        Map<String, Object> body = Map.of(
+                "status", database && storage ? "ready" : "not_ready",
+                "database", database ? "reachable" : "unreachable",
+                "storage", storage ? "reachable" : "unreachable");
+        return ResponseEntity.status(database && storage ? 200 : 503).body(body);
+    }
+
     private boolean checkDatabase() {
         if (dataSource == null) {
             return false;

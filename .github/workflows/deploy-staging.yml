@@ -1,138 +1,55 @@
-# Staging deploy — manual only until Ubuntu/server secrets are verified.
-# Automatic push-to-develop deploy is disabled to avoid accidental SSH deploys.
+# Manual only. Publication is a separate validated-main workflow.
 name: Deploy staging
-
 on:
   workflow_dispatch:
     inputs:
-      image_tag:
-        description: "Optional existing image ref to redeploy (skips image rebuild)"
-        required: false
-        default: ""
-      confirm:
-        description: "Type deploy-staging to confirm"
+      release_run:
+        description: "Successful main Publish approved release run ID"
         required: true
-        default: ""
-
+      confirm:
+        description: "Type deploy-staging"
+        required: true
+permissions:
+  contents: read
+  deployments: read
 concurrency:
   group: deploy-staging
   cancel-in-progress: false
-
-permissions:
-  contents: read
-  packages: write
-
-env:
-  IMAGE_NAME: tron-ai-backend
-
 jobs:
-  guard:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Confirm staging deploy
-        run: |
-          if [ "${{ github.event.inputs.confirm }}" != "deploy-staging" ]; then
-            echo "Staging deploy requires confirm=deploy-staging"
-            exit 1
-          fi
-
-  test:
-    needs: [guard]
-    uses: ./.github/workflows/ci.yml
-
-  build-push:
-    name: Build push GHCR + frontend
-    needs: [test]
-    runs-on: ubuntu-latest
-    outputs:
-      image: ${{ steps.final.outputs.image }}
-    steps:
-      - uses: actions/checkout@v4
-      - uses: docker/setup-buildx-action@v3
-      - name: Login to GHCR
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Compute tags
-        id: meta
-        run: |
-          REPO_LC="$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')"
-          SHA_TAG="sha-${GITHUB_SHA::12}"
-          BASE="ghcr.io/${REPO_LC}/${IMAGE_NAME}"
-          echo "base=${BASE}" >> "$GITHUB_OUTPUT"
-          echo "sha_image=${BASE}:${SHA_TAG}" >> "$GITHUB_OUTPUT"
-      - name: Build and push image
-        if: ${{ github.event.inputs.image_tag == '' || github.event.inputs.image_tag == null }}
-        uses: docker/build-push-action@v6
-        with:
-          context: backend/backend-spring
-          file: backend/backend-spring/Dockerfile
-          push: true
-          tags: |
-            ${{ steps.meta.outputs.sha_image }}
-            ${{ steps.meta.outputs.base }}:staging
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-      - name: Resolve image ref
-        id: final
-        run: |
-          if [ -n "${{ github.event.inputs.image_tag }}" ]; then
-            echo "image=${{ github.event.inputs.image_tag }}" >> "$GITHUB_OUTPUT"
-          else
-            echo "image=${{ steps.meta.outputs.sha_image }}" >> "$GITHUB_OUTPUT"
-          fi
-      - name: Frontend production build
-        working-directory: frontend
-        env:
-          VITE_CORE_API_URL: ""
-          VITE_LEGACY_API_URL: ""
-        run: |
-          if [ -f package-lock.json ]; then npm ci; else npm install; fi
-          npm run build
-          tar -czf "$GITHUB_WORKSPACE/frontend-dist.tar.gz" -C dist .
-      - uses: actions/upload-artifact@v4
-        with:
-          name: frontend-dist-tgz
-          path: frontend-dist.tar.gz
-          retention-days: 7
-
   deploy:
-    name: SSH deploy staging
-    needs: [build-push]
     runs-on: ubuntu-latest
     environment: staging
     steps:
-      - uses: actions/download-artifact@v4
-        with:
-          name: frontend-dist-tgz
-      - name: Upload frontend archive
-        uses: appleboy/scp-action@v0.1.7
-        with:
-          host: ${{ secrets.STAGING_HOST }}
-          username: ${{ secrets.STAGING_USER }}
-          key: ${{ secrets.STAGING_SSH_KEY }}
-          port: ${{ secrets.STAGING_SSH_PORT || 22 }}
-          source: frontend-dist.tar.gz
-          target: /tmp/
-          overwrite: true
-      - name: Deploy release
-        uses: appleboy/ssh-action@v1.2.0
+      - name: Manual deployment gates
         env:
-          IMAGE: ${{ needs.build-push.outputs.image }}
-          GHCR_USER: ${{ secrets.GHCR_PULL_USER }}
-          GHCR_TOKEN: ${{ secrets.GHCR_PULL_TOKEN }}
-        with:
-          host: ${{ secrets.STAGING_HOST }}
-          username: ${{ secrets.STAGING_USER }}
-          key: ${{ secrets.STAGING_SSH_KEY }}
-          port: ${{ secrets.STAGING_SSH_PORT || 22 }}
-          script_stop: true
-          envs: IMAGE,GHCR_USER,GHCR_TOKEN
-          script: |
-            set -euo pipefail
-            if [ -n "${GHCR_TOKEN:-}" ]; then
-              echo "$GHCR_TOKEN" | docker login ghcr.io -u "${GHCR_USER}" --password-stdin
-            fi
-            /opt/tron-ai/deploy/scripts/deploy-release.sh "$IMAGE" /tmp/frontend-dist.tar.gz
+          CONFIRM: ${{ inputs.confirm }}
+          RELEASE_RUN: ${{ inputs.release_run }}
+          RELEASE_REF: ${{ github.ref }}
+        run: |
+          test "$RELEASE_REF" = refs/heads/main
+          test "$CONFIRM" = deploy-staging
+          [[ "$RELEASE_RUN" =~ ^[1-9][0-9]*$ ]]
+      - name: Require configured environment protection
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_ENVIRONMENT: staging
+        run: |
+          gh api "repos/$GITHUB_REPOSITORY/environments/$TARGET_ENVIRONMENT" > "$RUNNER_TEMP/environment.json"
+          python3 - <<'PY'
+          import json, os, pathlib
+          data = json.loads((pathlib.Path(os.environ['RUNNER_TEMP'])/'environment.json').read_text())
+          rules = data.get('protection_rules', [])
+          if not any(r['type'] == 'required_reviewers' and r.get('reviewers') and r.get('prevent_self_review') for r in rules):
+              raise SystemExit('Environment requires reviewers and prevention of self-review before deployment')
+          PY
+      - uses: actions/checkout@v4
+      - name: Deploy verified matched bundle over pinned SSH
+        env:
+          DEPLOY_HOST: ${{ secrets.STAGING_HOST }}
+          DEPLOY_USER: ${{ secrets.STAGING_USER }}
+          DEPLOY_KEY: ${{ secrets.STAGING_SSH_KEY }}
+          DEPLOY_PORT: ${{ secrets.STAGING_SSH_PORT }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.STAGING_SSH_KNOWN_HOSTS }}
+          RELEASE_RUN: ${{ inputs.release_run }}
+          DEPLOY_ENVIRONMENT: staging
+        run: bash deploy/scripts/ssh-deploy.sh

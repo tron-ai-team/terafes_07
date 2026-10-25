@@ -16,6 +16,19 @@ permissions:
   contents: read
 
 jobs:
+  deployment:
+    name: Deployment recovery tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Release transaction and provenance regressions
+        run: python3 -m unittest discover -s deploy/tests -v
+      - name: Shell syntax
+        run: |
+          for script in deploy/scripts/*.sh; do bash -n "$script"; done
+      - name: Render isolated production and staging Compose
+        run: python3 deploy/tests/validate_compose.py
+
   frontend:
     name: Frontend build
     runs-on: ubuntu-latest
@@ -97,6 +110,11 @@ jobs:
           context: backend/backend-spring
           file: backend/backend-spring/Dockerfile
           push: false
+          load: true
           tags: tron-ai-backend:ci
           cache-from: type=gha
           cache-to: type=gha,mode=max
+      - name: Install PDF inspection utility on disposable runner
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq poppler-utils
+      - name: Disposable Compose / MySQL / PDF runtime smoke
+        run: python3 deploy/tests/smoke_compose.py

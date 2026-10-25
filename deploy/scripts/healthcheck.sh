@@ -1,34 +1,10 @@
 #!/usr/bin/env bash
-# Post-deploy verification on the Ubuntu core server.
 set -euo pipefail
-
-BACKEND_PORT="${TRON_BACKEND_HOST_PORT:-18080}"
-DOMAIN="${TRON_PUBLIC_HOST:-}"
-
-echo "=== Docker containers ==="
-docker ps --filter name=tron-ai --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}'
-
-echo
-echo "=== Backend loopback health ==="
-curl -fsS "http://127.0.0.1:${BACKEND_PORT}/health" | head -c 500
-echo
-
-echo
-echo "=== Gotenberg (docker network only) ==="
-docker exec tron-ai-gotenberg curl -fsS http://127.0.0.1:3000/health | head -c 300
-echo
-
-echo
-echo "=== Nginx config test ==="
-sudo nginx -t
-
-if [[ -n "${DOMAIN}" ]]; then
-  echo
-  echo "=== Public HTTPS (via Cloudflare) ==="
-  curl -fsSI "https://${DOMAIN}/" | head -n 15
-  curl -fsS "https://${DOMAIN}/health" | head -c 300
-  echo
+environment="${1:?Usage: healthcheck.sh production|staging}"
+case "$environment" in production) port=18080 ;; staging) port=28080 ;; *) exit 1 ;; esac
+curl -fsS --max-time 5 "http://127.0.0.1:$port/health/ready"
+curl -fsS --max-time 5 "http://127.0.0.1:$((port+1))/" >/dev/null
+# Full dependency status is informational: an external AI outage must not revert a release.
+if ! curl -fsS --max-time 10 "http://127.0.0.1:$port/health"; then
+  echo 'External dependency degradation: check Ollama/STT/TTS independently.'
 fi
-
-echo
-echo "Healthcheck script finished."

@@ -12,6 +12,7 @@ import hashlib
 spec = importlib.util.spec_from_file_location('release_manager', Path(__file__).parents[1] / 'scripts/release-manager.py')
 m = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(m)
+REAL_COMMAND = m.command
 SHA = 'a' * 40
 IMAGE = m.IMAGE + '@sha256:' + 'b' * 64
 
@@ -207,7 +208,7 @@ class ReleaseTests(unittest.TestCase):
         failed = types.SimpleNamespace(returncode=1, stderr=b'synthetic-private-diagnostic', stdout=b'')
         with patch.object(m.subprocess, 'run', return_value=failed):
             with self.assertRaisesRegex(RuntimeError, 'restricted diagnostics') as error:
-                m.command(['docker'], diagnostics=log)
+                REAL_COMMAND(['docker'], diagnostics=log)
         self.assertNotIn('synthetic-private-diagnostic', str(error.exception))
         self.assertEqual(log.read_bytes(), b'synthetic-private-diagnostic')
         self.assertEqual(stat.S_IMODE(log.stat().st_mode), 0o600)

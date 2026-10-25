@@ -9,8 +9,8 @@ root = Path(__file__).resolve().parents[1]
 with tempfile.TemporaryDirectory() as temporary:
     directory = Path(temporary)
     runtime = directory / 'runtime.env'
-    text = (root / 'runtime.env.example').read_text().replace('REPLACE_WITH_GENERATED_SECRET', 'synthetic-test-value-with-more-than-32-characters').replace('AI_NODE_PRIVATE_IP', '192.0.2.1').replace('REPLACE_WITH_VERIFIED_DIGEST', 'a' * 64)
-    runtime.write_text(text+'\nTRON_MYSQL_SOCKET_DIR='+str(directory/'socket')+'\n')
+    text = (root / 'runtime.env.example').read_text().replace('REPLACE_WITH_GENERATED_SECRET', 'synthetic-test-value-with-more-than-32-characters').replace('AI_NODE_PRIVATE_IP', '192.0.2.1').replace('REPLACE_WITH_VERIFIED_DIGEST', 'a' * 64).replace('REPLACE_WITH_RELAY_GROUP_GID', '12345')
+    runtime.write_text(text.replace('TRON_MYSQL_SOCKET_DIR=/run/tron-ai-mysql', 'TRON_MYSQL_SOCKET_DIR='+str(directory/'socket')))
     runtime.chmod(0o600)
     renders = []
     for environment, port in [('production', 18080), ('staging', 28080)]:

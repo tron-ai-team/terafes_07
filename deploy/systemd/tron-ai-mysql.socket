@@ -1,0 +1,13 @@
+[Unit]
+Description=Private TRON MySQL relay socket (MySQL remains unchanged)
+After=systemd-tmpfiles-setup.service
+
+[Socket]
+ListenStream=/run/tron-ai-mysql/mysqld.sock
+SocketMode=0660
+SocketGroup=tron-db-access
+DirectoryMode=0750
+RemoveOnStop=true
+
+[Install]
+WantedBy=sockets.target

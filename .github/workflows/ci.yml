@@ -26,6 +26,8 @@ jobs:
       - name: Shell syntax
         run: |
           for script in deploy/scripts/*.sh; do bash -n "$script"; done
+      - name: Validate new relay unit syntax (never start it on CI host)
+        run: systemd-analyze verify deploy/systemd/tron-ai-mysql.socket deploy/systemd/tron-ai-mysql.service
       - name: Render isolated production and staging Compose
         run: python3 deploy/tests/validate_compose.py
 

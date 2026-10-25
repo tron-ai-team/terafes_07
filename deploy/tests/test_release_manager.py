@@ -139,7 +139,7 @@ class ReleaseTests(unittest.TestCase):
 
     def test_runtime_configuration_rejects_placeholders_permissions_and_wrong_schema(self):
         sample = (Path(__file__).parents[1] / 'runtime.env.example').read_text()
-        good = sample.replace('REPLACE_WITH_GENERATED_SECRET', 'synthetic-value-with-more-than-32-characters').replace('AI_NODE_PRIVATE_IP', '192.0.2.1').replace('REPLACE_WITH_VERIFIED_DIGEST', 'd' * 64)
+        good = sample.replace('REPLACE_WITH_GENERATED_SECRET', 'synthetic-value-with-more-than-32-characters').replace('AI_NODE_PRIVATE_IP', '192.0.2.1').replace('REPLACE_WITH_VERIFIED_DIGEST', 'd' * 64).replace('REPLACE_WITH_RELAY_GROUP_GID', '12345')
         runtime = self.root / 'runtime.env'
         runtime.write_text(good)
         runtime.chmod(0o600)

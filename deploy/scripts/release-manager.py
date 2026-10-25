@@ -102,7 +102,7 @@ def configuration(path, environment):
         result[key] = value
     required = ['DB_HOST', 'DB_NAME', 'DB_USERNAME', 'DB_PASSWORD', 'JWT_SECRET', 'CORS_ALLOWED_ORIGINS',
                 'TRON_FRONTEND_URL', 'TRON_PUBLIC_API_URL', 'OLLAMA_BASE_URL', 'TRON_OLLAMA_HEALTH_URL',
-                'TRON_GOTENBERG_IMAGE', 'TRON_FRONTEND_IMAGE', 'TRON_MYSQL_PROXY_IMAGE']
+                'TRON_GOTENBERG_IMAGE', 'TRON_FRONTEND_IMAGE', 'TRON_MYSQL_PROXY_IMAGE', 'TRON_MYSQL_SOCKET_GID']
     for key in required:
         value = result.get(key, '')
         require(value and not re.search(r'replace|placeholder|YOUR_|AI_NODE', value, re.I), f'Missing or placeholder setting: {key}')
@@ -110,6 +110,7 @@ def configuration(path, environment):
     require(len(result['JWT_SECRET']) >= 32, 'JWT_SECRET requires at least 32 characters')
     require(re.fullmatch(r'gotenberg/gotenberg@' + DIGEST, result['TRON_GOTENBERG_IMAGE']), 'Pin Gotenberg by digest')
     require(re.fullmatch(r'nginx@' + DIGEST, result['TRON_FRONTEND_IMAGE']), 'Pin frontend Nginx by digest')
+    require(re.fullmatch(r'[1-9][0-9]*', result['TRON_MYSQL_SOCKET_GID']), 'Set the administrator-created relay group numeric GID')
     require(result['DB_HOST'] == 'mysql-proxy', 'Use the private Unix-socket proxy; do not expose host MySQL')
     require(re.fullmatch(r'alpine/socat@' + DIGEST, result['TRON_MYSQL_PROXY_IMAGE']), 'Pin MySQL socket proxy by digest')
     for key, maximum in [('TRON_BACKEND_CPUS', 1.0), ('TRON_GOTENBERG_CPUS', 0.5)]:

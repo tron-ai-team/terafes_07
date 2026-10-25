@@ -25,9 +25,9 @@ with tempfile.TemporaryDirectory() as temporary:
     socket.mkdir(mode=0o777)
     socket.chmod(0o777)
     runtime = directory/'runtime.env'
-    text = (root/'runtime.env.example').read_text().replace('REPLACE_WITH_GENERATED_SECRET', 'synthetic-ci-secret-with-more-than-32-characters').replace('AI_NODE_PRIVATE_IP', '192.0.2.1')
+    text = (root/'runtime.env.example').read_text().replace('REPLACE_WITH_GENERATED_SECRET', 'synthetic-ci-secret-with-more-than-32-characters').replace('AI_NODE_PRIVATE_IP', '192.0.2.1').replace('REPLACE_WITH_RELAY_GROUP_GID', '65534')
     images = json.loads((root/'images.lock.json').read_text())
-    lines = [line for line in text.splitlines() if not line.startswith(('TRON_GOTENBERG_IMAGE=', 'TRON_FRONTEND_IMAGE=', 'TRON_MYSQL_PROXY_IMAGE='))]
+    lines = [line for line in text.splitlines() if not line.startswith(('TRON_GOTENBERG_IMAGE=', 'TRON_FRONTEND_IMAGE=', 'TRON_MYSQL_PROXY_IMAGE=', 'TRON_MYSQL_SOCKET_DIR='))]
     lines += ['TRON_GOTENBERG_IMAGE='+images['gotenberg'], 'TRON_FRONTEND_IMAGE='+images['nginx'], 'TRON_MYSQL_PROXY_IMAGE='+images['socat'], 'TRON_MYSQL_SOCKET_DIR='+str(socket)]
     runtime.write_text('\n'.join(lines)+'\n')
     runtime.chmod(0o600)
@@ -43,8 +43,9 @@ with tempfile.TemporaryDirectory() as temporary:
     rendered = json.loads(releases.compose(release, 'config', '--format', 'json'))
     assert rendered['services']['mysql-proxy']['volumes'][0]['source'] == str(socket), 'CI must never use the runner host database socket'
     mysql_name = 'tron-disposable-ci-mysql'
+    relay_name = 'tron-disposable-ci-relay'
     try:
-        run('docker', 'run', '-d', '--name', mysql_name, '--memory', '768m', '-e', 'MYSQL_ROOT_PASSWORD=synthetic-ci-root', '-v', str(socket)+':/var/run/mysqld', 'mysql:8.0')
+        run('docker', 'run', '-d', '--name', mysql_name, '--memory', '768m', '-e', 'MYSQL_ROOT_PASSWORD=synthetic-ci-root', 'mysql:8.0')
         for attempt in range(90):
             check = subprocess.run(['docker','exec','-e','MYSQL_PWD=synthetic-ci-root',mysql_name,'mysql','-uroot','-e','SELECT 1'],capture_output=True)
             if check.returncode == 0:
@@ -54,6 +55,17 @@ with tempfile.TemporaryDirectory() as temporary:
             raise RuntimeError('Disposable MySQL did not start')
         sql = "CREATE DATABASE tron_ai CHARACTER SET utf8mb4; CREATE USER 'tronai_prod'@'localhost' IDENTIFIED BY 'synthetic-ci-secret-with-more-than-32-characters'; GRANT SELECT,INSERT,UPDATE,DELETE,CREATE,ALTER,INDEX,REFERENCES,CREATE VIEW,SHOW VIEW ON tron_ai.* TO 'tronai_prod'@'localhost';"
         run('docker','exec','-i','-e','MYSQL_PWD=synthetic-ci-root',mysql_name,'mysql','-uroot',input=sql.encode())
+        # Same topology as systemd-socket-proxyd on the host: Unix -> loopback TCP,
+        # not Unix -> MySQL's native Unix socket (which changes authentication semantics).
+        run('docker','run','-d','--name',relay_name,'--network','container:'+mysql_name,
+            '--user','65534:65534','--cap-drop','ALL','--memory','32m',
+            '-v',str(socket)+':/relay','--entrypoint','socat',images['socat'],
+            'UNIX-LISTEN:/relay/mysqld.sock,fork,mode=0660', 'TCP:127.0.0.1:3306')
+        for _ in range(20):
+            if (socket/'mysqld.sock').exists():
+                break
+            time.sleep(1)
+        assert (socket/'mysqld.sock').exists(), 'Disposable TCP relay did not start'
         releases.compose(release, 'pull', 'gotenberg', 'mysql-proxy', 'frontend')
         releases.apply(release)
         base = 'http://127.0.0.1:18081'
@@ -93,4 +105,4 @@ with tempfile.TemporaryDirectory() as temporary:
         raise
     finally:
         releases.compose(release,'down','--volumes')  # Explicitly disposable CI-only resources.
-        subprocess.run(['docker','rm','-f',mysql_name],capture_output=True)
+        subprocess.run(['docker','rm','-f',relay_name,mysql_name],capture_output=True)

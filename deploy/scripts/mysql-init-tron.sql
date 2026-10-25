@@ -4,7 +4,8 @@
 -- CREATE USER 'tronai_prod'@'localhost' IDENTIFIED BY <secure locally generated password>;
 -- GRANT SELECT, INSERT, UPDATE, DELETE, CREATE, ALTER, INDEX, REFERENCES,
 --       CREATE VIEW, SHOW VIEW ON tron_ai.* TO 'tronai_prod'@'localhost';
--- The private proxy connects through the existing Unix socket, so no '%' account is needed.
+-- The private relay connects to existing loopback TCP; verify localhost account matching.
+-- Never weaken the authentication plugin or add a broad remote account.
 -- Staging uses ONLY tron_ai_staging and tronai_staging@localhost.
 -- Confirm schema/account absence before creation; never reset an existing account or schema.
 -- Do not paste generated SQL/passwords into shell history. Apply with a restricted input file.

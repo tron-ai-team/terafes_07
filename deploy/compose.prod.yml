@@ -81,18 +81,19 @@ services:
         max-size: "10m"
         max-file: "3"
 
-  # Authenticated TCP transport inside this project's bridge only. MySQL stays on loopback.
+  # Private bridge -> restricted Unix relay -> existing loopback TCP MySQL.
   mysql-proxy:
     image: ${TRON_MYSQL_PROXY_IMAGE:?Pin socket proxy by digest}
     entrypoint: ["socat"]
     command: ["TCP-LISTEN:3306,fork,reuseaddr", "UNIX-CONNECT:/run/mysqld/mysqld.sock"]
     user: "65534:65534"
+    group_add: ["${TRON_MYSQL_SOCKET_GID:?Administrator must configure relay socket group GID}"]
     read_only: true
     cap_drop: [ALL]
     security_opt: ["no-new-privileges:true"]
     restart: unless-stopped
     volumes:
-      - ${TRON_MYSQL_SOCKET_DIR:-/run/mysqld}:/run/mysqld:ro
+      - ${TRON_MYSQL_SOCKET_DIR:-/run/tron-ai-mysql}:/run/mysqld:ro
     networks:
       - tron_ai_internal
     mem_limit: 32m

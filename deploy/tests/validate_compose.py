@@ -10,7 +10,7 @@ with tempfile.TemporaryDirectory() as temporary:
     directory = Path(temporary)
     runtime = directory / 'runtime.env'
     text = (root / 'runtime.env.example').read_text().replace('REPLACE_WITH_GENERATED_SECRET', 'synthetic-test-value-with-more-than-32-characters').replace('AI_NODE_PRIVATE_IP', '192.0.2.1').replace('REPLACE_WITH_VERIFIED_DIGEST', 'a' * 64)
-    runtime.write_text(text)
+    runtime.write_text(text+'\nTRON_MYSQL_SOCKET_DIR='+str(directory/'socket')+'\n')
     runtime.chmod(0o600)
     renders = []
     for environment, port in [('production', 18080), ('staging', 28080)]:
@@ -21,6 +21,7 @@ with tempfile.TemporaryDirectory() as temporary:
         config = json.loads(result.stdout)
         assert 'ports' not in config['services']['gotenberg']
         assert 'ports' not in config['services']['mysql-proxy']
+        assert config['services']['mysql-proxy']['volumes'][0]['source'] == str(directory/'socket')
         for service in config['services'].values():
             assert 'container_name' not in service
             for published in service.get('ports', []):

@@ -9,6 +9,7 @@ import os
 from pathlib import Path
 import re
 import shutil
+import signal
 import stat
 import subprocess
 import sys
@@ -31,6 +32,7 @@ def require(ok, message):
 def command(args, **kwargs):
     # Do not echo commands/output: Compose and process errors can contain secrets.
     output = kwargs.pop('stdout', subprocess.PIPE)
+    kwargs.setdefault('timeout', 600)
     result = subprocess.run(args, stdout=output, stderr=subprocess.PIPE, **kwargs)
     require(result.returncode == 0, f'{args[0]} operation failed; inspect restricted operator logs')
     return result.stdout
@@ -125,6 +127,7 @@ class Releases:
         self.frontend_port = self.port + 1
         self.project = 'tron-ai-' + environment
         self.state = self.root / 'state.json'
+        self.journal = self.root / 'pending.json'
 
     def compose(self, release, *args, output=subprocess.PIPE):
         # Ambient CI/operator interpolation must not override a release's immutable pins.
@@ -159,18 +162,37 @@ class Releases:
         pending.write_text(json.dumps({'current': str(current), 'previous': str(previous) if previous else None}))
         pending.replace(self.state)
 
+    def recover_interrupted(self):
+        if not self.journal.exists():
+            return
+        pending = json.loads(self.journal.read_text())
+        target = Path(pending['target'])
+        previous = Path(pending['previous']) if pending['previous'] else None
+        committed = json.loads(self.state.read_text())['current'] if self.state.exists() else None
+        if committed == str(target):
+            self.apply(target)
+        elif previous:
+            self.apply(previous)
+        else:
+            self.compose(target, 'down')
+        self.journal.unlink()
+
     def transact(self, target, previous):
         # Pull and validate both artifacts before interrupting the working release.
         self.compose(target, 'config', '--quiet')
         self.compose(target, 'pull')
         manifest = json.loads((target / 'release.json').read_text())
         labels = json.loads(command(['docker', 'image', 'inspect', manifest['image'], '--format', '{{json .Config.Labels}}']))
+        require(isinstance(labels, dict), 'Backend provenance labels are absent')
         require(labels.get('org.opencontainers.image.revision') == manifest['sha']
                 and labels.get('org.opencontainers.image.source') == f'https://github.com/{REPO}', 'Pulled backend provenance labels do not match the approved manifest')
+        journal_temp = self.journal.with_suffix('.tmp')
+        journal_temp.write_text(json.dumps({'target': str(target), 'previous': str(previous) if previous else None}))
+        journal_temp.replace(self.journal)
         try:
             self.apply(target)
             self.record(target, previous)
-        except Exception as original:
+        except BaseException as original:
             try:
                 if previous:
                     self.apply(previous)
@@ -178,7 +200,9 @@ class Releases:
                     self.compose(target, 'down')  # This project's containers/network only; never volumes.
             except Exception as recovery:
                 raise RuntimeError('TRON recovery FAILED; operator intervention required. Database was not reverted.') from recovery
+            self.journal.unlink()
             raise RuntimeError('Release failed; previous frontend/backend restored (or first-release containers removed). Database was not reverted.') from original
+        self.journal.unlink()
 
     def deploy(self, run):
         sha, data = approved(run)
@@ -218,7 +242,12 @@ def main():
     require(root.is_dir(), f'Administrator must prepare writable isolated directory {root}')
     with (root / '.release.lock').open('w') as lock:
         fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        def interrupted(signum, frame):
+            raise RuntimeError('Release interrupted; matched-release recovery is required')
+        for signum in [signal.SIGTERM, signal.SIGHUP]:
+            signal.signal(signum, interrupted)
         releases = Releases(root, args.environment, runtime)
+        releases.recover_interrupted()
         if args.action == 'deploy':
             require(args.run, '--run is required for deployment')
             releases.deploy(args.run)

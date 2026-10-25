@@ -180,6 +180,27 @@ class ReleaseTests(unittest.TestCase):
         self.assertIn(b'Invalid publishing run', result.stdout)
         self.assertNotIn(b'unsafe', result.stdout)
 
+    def test_interrupted_transaction_restores_previous_pair_before_next_operation(self):
+        self.releases.journal.write_text(json.dumps({'target': str(self.target), 'previous': str(self.previous)}))
+        self.releases.recover_interrupted()
+        self.releases.apply.assert_called_once_with(self.previous)
+        self.assertFalse(self.releases.journal.exists())
+        self.assertEqual(self.current(), str(self.previous))
+
+    def test_committed_release_survives_interruption_before_journal_cleanup(self):
+        self.releases.record(self.target, self.previous)
+        self.releases.journal.write_text(json.dumps({'target': str(self.target), 'previous': str(self.previous)}))
+        self.releases.recover_interrupted()
+        self.releases.apply.assert_called_once_with(self.target)
+        self.assertEqual(self.current(), str(self.target))
+
+    def test_failed_record_write_recovers_previous_pair(self):
+        with patch.object(self.releases, 'record', side_effect=OSError('state write failed')):
+            with self.assertRaisesRegex(RuntimeError, 'previous frontend/backend restored'):
+                self.releases.transact(self.target, self.previous)
+        self.assertEqual(self.releases.apply.call_count, 2)
+        self.assertEqual(self.current(), str(self.previous))
+
 
 if __name__ == '__main__':
     unittest.main()

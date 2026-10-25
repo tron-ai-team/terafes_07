@@ -40,6 +40,8 @@ with tempfile.TemporaryDirectory() as temporary:
     (release/'nginx.conf').write_text((root/'nginx/private.conf').read_text())
     (release/'compose.env').write_text(f'TRON_ENV_FILE={runtime}\nTRON_BACKEND_IMAGE=tron-ai-backend:ci\nTRON_FRONTEND_DIR={release}/frontend\nTRON_NGINX_CONFIG={release}/nginx.conf\nTRON_BACKEND_HOST_PORT=18080\nTRON_FRONTEND_HOST_PORT=18081\n')
     releases = r.Releases(directory, 'production', runtime)
+    rendered = json.loads(releases.compose(release, 'config', '--format', 'json'))
+    assert rendered['services']['mysql-proxy']['volumes'][0]['source'] == str(socket), 'CI must never use the runner host database socket'
     mysql_name = 'tron-disposable-ci-mysql'
     try:
         run('docker', 'run', '-d', '--name', mysql_name, '--memory', '768m', '-e', 'MYSQL_ROOT_PASSWORD=synthetic-ci-root', '-v', str(socket)+':/var/run/mysqld', 'mysql:8.0')
@@ -70,12 +72,12 @@ with tempfile.TemporaryDirectory() as temporary:
         # Convert a minimal DOCX through actual LibreOffice, then extract English/Japanese text.
         docx = io.BytesIO()
         with zipfile.ZipFile(docx,'w') as document:
-            document.writestr('[Content_Types].xml','<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="xml" ContentType="application/xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/></Types>')
+            document.writestr('[Content_Types].xml','<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="xml" ContentType="application/xml"/><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/></Types>')
             document.writestr('_rels/.rels','<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>')
             document.writestr('word/document.xml','<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body><w:p><w:r><w:t>TRON English 日本語 テスト</w:t></w:r></w:p></w:body></w:document>')
         # Compose helper needs binary input, so pass through the same restricted argv/environment.
         cid = releases.compose(release, 'ps', '-q', 'gotenberg').decode().strip()
-        pdf = run('docker','exec','-i',cid,'curl','-fsS','-F','files=@-;filename=sample.docx','http://127.0.0.1:3000/forms/libreoffice/convert',input=docx.getvalue())
+        pdf = run('docker','exec','-i',cid,'curl','-fsS','--max-time','150','-F','files=@-;filename=sample.docx','http://127.0.0.1:3000/forms/libreoffice/convert',input=docx.getvalue())
         assert pdf.startswith(b'%PDF'), 'PDF response invalid'
         path = directory/'result.pdf'
         path.write_bytes(pdf)

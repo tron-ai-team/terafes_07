@@ -201,6 +201,17 @@ class ReleaseTests(unittest.TestCase):
         self.assertEqual(self.releases.apply.call_count, 2)
         self.assertEqual(self.current(), str(self.previous))
 
+    def test_operator_diagnostics_are_private_and_not_echoed(self):
+        import types, stat
+        log = self.root / 'operator-errors.log'
+        failed = types.SimpleNamespace(returncode=1, stderr=b'synthetic-private-diagnostic', stdout=b'')
+        with patch.object(m.subprocess, 'run', return_value=failed):
+            with self.assertRaisesRegex(RuntimeError, 'restricted diagnostics') as error:
+                m.command(['docker'], diagnostics=log)
+        self.assertNotIn('synthetic-private-diagnostic', str(error.exception))
+        self.assertEqual(log.read_bytes(), b'synthetic-private-diagnostic')
+        self.assertEqual(stat.S_IMODE(log.stat().st_mode), 0o600)
+
 
 if __name__ == '__main__':
     unittest.main()

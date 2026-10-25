@@ -32,9 +32,17 @@ def require(ok, message):
 def command(args, **kwargs):
     # Do not echo commands/output: Compose and process errors can contain secrets.
     output = kwargs.pop('stdout', subprocess.PIPE)
+    diagnostics = kwargs.pop('diagnostics', None)
     kwargs.setdefault('timeout', 600)
     result = subprocess.run(args, stdout=output, stderr=subprocess.PIPE, **kwargs)
-    require(result.returncode == 0, f'{args[0]} operation failed; inspect restricted operator logs')
+    if result.returncode != 0:
+        if diagnostics:
+            descriptor = os.open(diagnostics, os.O_WRONLY | os.O_APPEND | os.O_CREAT | os.O_NOFOLLOW, 0o600)
+            with os.fdopen(descriptor, 'ab') as evidence:
+                os.fchmod(evidence.fileno(), 0o600)
+                evidence.write(result.stderr or b'No diagnostic output\n')
+            raise RuntimeError(f'{args[0]} failed; restricted diagnostics: {diagnostics}')
+        raise RuntimeError(f'{args[0]} failed; verify authentication/tool access and inspect restricted service logs')
     return result.stdout
 
 
@@ -136,7 +144,7 @@ class Releases:
         env = {k: v for k, v in os.environ.items() if k not in runtime_keys and not k.startswith(('TRON_', 'COMPOSE_'))}
         return command(['docker', 'compose', '--project-name', self.project,
                         '--env-file', str(self.runtime), '--env-file', str(release / 'compose.env'),
-                        '-f', str(release / 'compose.yml'), *args], env=env, stdout=output)
+                        '-f', str(release / 'compose.yml'), *args], env=env, stdout=output, diagnostics=self.root / 'operator-errors.log')
 
     def health(self):
         for _ in range(40):

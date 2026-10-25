@@ -15,6 +15,8 @@ import com.tronai.agent.model.AgentAction;
 import com.tronai.agent.model.AgentState;
 import com.tronai.agent.model.AgentStepRecord;
 import com.tronai.agent.runner.AgentRunner;
+import com.tronai.career.entity.CareerJobEntity;
+import com.tronai.career.repo.CareerJobRepository;
 import com.tronai.cv.CvDocumentRepository;
 import com.tronai.interview.dto.InterviewConfigDto;
 import com.tronai.interview.dto.InterviewStartResponse;
@@ -46,6 +48,7 @@ public class AgentService {
     private final AgentStepRepository agentStepRepository;
     private final AgentResultRepository agentResultRepository;
     private final CvDocumentRepository cvDocumentRepository;
+    private final CareerJobRepository careerJobRepository;
     private final UserRepository userRepository;
     private final InterviewService interviewService;
     private final ObjectMapper objectMapper;
@@ -57,6 +60,7 @@ public class AgentService {
                         AgentStepRepository agentStepRepository,
                         AgentResultRepository agentResultRepository,
                         CvDocumentRepository cvDocumentRepository,
+                        CareerJobRepository careerJobRepository,
                         UserRepository userRepository,
                         InterviewService interviewService,
                         ObjectMapper objectMapper,
@@ -66,6 +70,7 @@ public class AgentService {
         this.agentStepRepository = agentStepRepository;
         this.agentResultRepository = agentResultRepository;
         this.cvDocumentRepository = cvDocumentRepository;
+        this.careerJobRepository = careerJobRepository;
         this.userRepository = userRepository;
         this.interviewService = interviewService;
         this.objectMapper = objectMapper;
@@ -80,7 +85,8 @@ public class AgentService {
                         UserRepository userRepository,
                         InterviewService interviewService,
                         ObjectMapper objectMapper) {
-        this(agentRunner, agentRunRepository, agentStepRepository, agentResultRepository, cvDocumentRepository, userRepository, interviewService, objectMapper, null);
+        this(agentRunner, agentRunRepository, agentStepRepository, agentResultRepository, cvDocumentRepository,
+                null, userRepository, interviewService, objectMapper, null);
     }
 
     /**
@@ -100,6 +106,27 @@ public class AgentService {
             }
         }
 
+        String companyName = request.getCompanyName();
+        String jobPosition = request.getJobPosition();
+        String jobDescription = request.getJobDescription();
+        if (request.getJobId() != null && !request.getJobId().isBlank() && careerJobRepository != null) {
+            CareerJobEntity job = careerJobRepository.findByIdAndUser_Id(request.getJobId(), userId)
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Career job not found"));
+            if (companyName == null || companyName.isBlank()) {
+                companyName = job.getCompany();
+            }
+            if (jobPosition == null || jobPosition.isBlank()) {
+                jobPosition = job.getTitle();
+            }
+            if (jobDescription == null || jobDescription.isBlank()) {
+                jobDescription = job.getDescriptionText() != null ? job.getDescriptionText() : job.getSourceUrl();
+            }
+        }
+        if (isBlank(companyName) || isBlank(jobPosition) || isBlank(jobDescription)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "companyName, jobPosition and jobDescription are required (or provide a valid jobId)");
+        }
+
         String runId = UUID.randomUUID().toString();
         com.tronai.ai.profile.AiProfile aiProfile = com.tronai.ai.profile.AiProfile.fromString(request.getAiProfile());
         String modelName = "tron-fast";
@@ -114,9 +141,9 @@ public class AgentService {
                 .runId(runId)
                 .userId(userId)
                 .goal(request.getGoal())
-                .companyName(request.getCompanyName())
-                .jobPosition(request.getJobPosition())
-                .jobDescription(request.getJobDescription())
+                .companyName(companyName)
+                .jobPosition(jobPosition)
+                .jobDescription(jobDescription)
                 .language(resolveLanguage(request.getLanguage()))
                 .cvId(request.getCvId())
                 .aiProfile(aiProfile)
@@ -340,5 +367,9 @@ public class AgentService {
                     "language must be " + com.tronai.language.ExperienceLanguage.supportedList());
         }
         return language.code();
+    }
+
+    private static boolean isBlank(String value) {
+        return value == null || value.isBlank();
     }
 }

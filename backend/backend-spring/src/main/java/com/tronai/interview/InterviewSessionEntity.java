@@ -40,6 +40,18 @@ public class InterviewSessionEntity implements org.springframework.data.domain.P
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
+    @Column(name = "cv_document_id")
+    private Long cvDocumentId;
+
+    @Column(name = "job_id", length = 36)
+    private String jobId;
+
+    @Column(name = "company_analysis_id", length = 36)
+    private String companyAnalysisId;
+
+    @Column(name = "language", length = 16)
+    private String language;
+
     @Column(name = "config_json", columnDefinition = "LONGTEXT", nullable = false)
     private String configJson;
 

@@ -127,8 +127,10 @@ public class AiModelRouter {
 
         switch (mode) {
             case FAST -> addRoute(routes, seen, tryOllamaFast(), tryGroqFast(), tryCloudflareFast());
+            // Stage A benchmark (2026-10-24): OPENROUTER 10/10 @ ~3.8s avg beat GROQ fallback mix
+            // and GEMINI (0/10 — keys/config unavailable). Prefer OpenRouter for SMART defaults.
             case SMART, QUALITY -> addRoute(routes, seen,
-                    tryGroqSmart(), tryMistralSmart(), tryOpenRouterSmart(), tryOllamaQuality(), tryOllamaFast());
+                    tryOpenRouterSmart(), tryGroqSmart(), tryMistralSmart(), tryOllamaQuality(), tryOllamaFast());
             case ULTRA -> addRoute(routes, seen, tryGeminiUltra(), tryOpenRouterUltra(), tryMistralUltra());
             case AUTO -> addRoute(routes, seen, orderedCandidates(autoMode(null)).toArray(new Route[0]));
             default -> { }

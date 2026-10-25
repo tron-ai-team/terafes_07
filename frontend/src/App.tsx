@@ -3,6 +3,9 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AppProvider } from './context/AppContext';
 import { AppLayout } from './components/layout/AppLayout';
 
+// Public Landing Page
+import { LandingPage } from './pages/LandingPage';
+
 // Core Modes
 import { AuthPage } from './pages/AuthPage';
 import { ChatModePage } from './pages/ChatModePage';
@@ -26,6 +29,9 @@ import { FeedbackPage } from './pages/FeedbackPage';
 import { HistoryPage } from './pages/HistoryPage';
 import { AgentPage } from './pages/AgentPage'; // Interview Preparation Agent
 import { CareerSearchAgentPage } from './pages/CareerSearchAgentPage'; // Job Finder
+import { CandidateProfilePage } from './pages/CandidateProfilePage';
+import { CvBuilderPage } from './pages/CvBuilderPage';
+import { CompanyAnalysisPage } from './pages/CompanyAnalysisPage';
 
 // Common Support & Settings Pages
 import { AIMentorPage } from './pages/AIMentorPage';
@@ -42,6 +48,13 @@ export function App() {
     <BrowserRouter>
       <AppProvider>
         <Routes>
+          {/* Public Root & Landing Page Routes */}
+          <Route path="/" element={<LandingPage />} />
+          <Route path="/landing" element={<LandingPage />} />
+          <Route path="/features" element={<LandingPage defaultSection="features" />} />
+          <Route path="/models" element={<LandingPage defaultSection="models" />} />
+          <Route path="/pricing" element={<LandingPage defaultSection="pricing" />} />
+
           {/* Standalone Auth & OAuth Callback Pages */}
           <Route path="/auth" element={<AuthPage />} />
           <Route path="/auth/callback" element={<AuthCallbackPage />} />
@@ -52,9 +65,6 @@ export function App() {
 
           {/* Main Layout containing Sidebar and TopBar */}
           <Route element={<AppLayout />}>
-            {/* Root redirect to Chat Mode */}
-            <Route path="/" element={<Navigate to="/chat" replace />} />
-
             {/* 1. CHAT MODE ROUTES */}
             <Route path="/chat" element={<ChatModePage />} />
             <Route path="/chat/:conversationId" element={<ChatModePage />} />
@@ -73,13 +83,16 @@ export function App() {
 
             {/* 4. CAREER CENTER ROUTES (SEPARATE DEDICATED PRODUCT SUITE) */}
             <Route path="/career" element={<CareerCenterPage />} />
+            <Route path="/career/profile" element={<CandidateProfilePage />} />
             <Route path="/career/jobs" element={<CareerSearchAgentPage />} />
             <Route path="/career/interview" element={<DashboardPage />} />
             <Route path="/career/interview/setup" element={<InterviewSetupPage />} />
             <Route path="/career/interview/room" element={<InterviewRoomPage />} />
             <Route path="/career/interview/feedback" element={<FeedbackPage />} />
             <Route path="/career/interview-agent" element={<AgentPage />} />
+            <Route path="/career/company-analysis" element={<CompanyAnalysisPage />} />
             <Route path="/career/cv" element={<CVManagementPage />} />
+            <Route path="/career/cv-builder" element={<CvBuilderPage />} />
             <Route path="/career/history" element={<HistoryPage />} />
 
             {/* Backward-Compatibility Redirects to Career Center */}
@@ -116,7 +129,7 @@ export function App() {
           </Route>
 
           {/* Fallback route */}
-          <Route path="*" element={<Navigate to="/chat" replace />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </AppProvider>
     </BrowserRouter>

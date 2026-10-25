@@ -82,6 +82,15 @@ ollama:
 tron:
   default-model: ${TRON_DEFAULT_MODEL:qwen3-8b}
   public-api-url: ${TRON_PUBLIC_API_URL:http://localhost:8080}
+  # CV PDF conversion — Gotenberg v8 (local Docker only; never public demos)
+  pdf:
+    engine: ${TRON_PDF_ENGINE:gotenberg}
+    allow-local-libre-office-fallback: ${TRON_PDF_ALLOW_LOCAL_LIBREOFFICE:true}
+    gotenberg:
+      base-url: ${GOTENBERG_URL:http://localhost:3000}
+      connect-timeout-ms: ${GOTENBERG_CONNECT_TIMEOUT_MS:5000}
+      read-timeout-ms: ${GOTENBERG_READ_TIMEOUT_MS:120000}
+      max-retries: ${GOTENBERG_MAX_RETRIES:1}
   ai:
     daily-ultra-credits: ${TRON_AI_DAILY_ULTRA_CREDITS:5}
     ultra-enabled: ${TRON_AI_ULTRA_ENABLED:true}

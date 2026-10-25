@@ -4,6 +4,7 @@ import com.tronai.desktopagent.DesktopAgentException;
 import com.tronai.desktopagent.approval.AgentApprovalEntity;
 import com.tronai.desktopagent.approval.AgentApprovalRepository;
 import com.tronai.desktopagent.approval.ApprovalService;
+import com.tronai.agentengine.NativeAgentOrchestrator;
 import com.tronai.desktopagent.connection.WebSocketAgentTransport;
 import com.tronai.desktopagent.device.DesktopDeviceEntity;
 import com.tronai.desktopagent.device.DeviceService;
@@ -34,6 +35,7 @@ public class TaskApplicationService {
     private final DeviceService devices;
     private final WebSocketAgentTransport transport;
     private final TaskOrchestrator orchestrator;
+    private final NativeAgentOrchestrator nativeOrchestrator;
     private final TaskControl control;
     private final ApprovalService approvalService;
     private final AgentEventBus events;
@@ -49,6 +51,7 @@ public class TaskApplicationService {
                                   DeviceService devices,
                                   WebSocketAgentTransport transport,
                                   TaskOrchestrator orchestrator,
+                                  NativeAgentOrchestrator nativeOrchestrator,
                                   TaskControl control,
                                   ApprovalService approvalService,
                                   AgentEventBus events,
@@ -63,6 +66,7 @@ public class TaskApplicationService {
         this.devices = devices;
         this.transport = transport;
         this.orchestrator = orchestrator;
+        this.nativeOrchestrator = nativeOrchestrator;
         this.control = control;
         this.approvalService = approvalService;
         this.events = events;
@@ -119,15 +123,16 @@ public class TaskApplicationService {
         tasks.save(task);
         conversation.append(task, MessageRole.USER, task.getGoal(), "ACCEPTED");
         String taskId = task.getId();
+        // V5: coding/automation uses native OpenCode/OpenClaw — never DesktopAgentPlanner.
         if (TransactionSynchronizationManager.isSynchronizationActive()) {
             TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
                 @Override
                 public void afterCommit() {
-                    orchestrator.start(taskId);
+                    nativeOrchestrator.start(taskId);
                 }
             });
         } else {
-            orchestrator.start(taskId);
+            nativeOrchestrator.start(taskId);
         }
         return detail(userId, task.getId());
     }
@@ -217,26 +222,16 @@ public class TaskApplicationService {
             throw new DesktopAgentException(HttpStatus.CONFLICT, "Device is offline");
         }
         AgentTaskMessageEntity saved = conversation.append(task, MessageRole.USER, message, "ACCEPTED");
-        boolean continuePhrase = DesktopAgentPlanner.isContinue(message);
-        task.setTurnStepIndex(steps.countByTaskId(taskId));
-        task.setStatus(TaskStatus.PLANNING);
+        task.setStatus(TaskStatus.RUNNING);
         task.setControlMode(ControlMode.AGENT);
         task.setFinishedAt(null);
-        task.setNeedsReinspect(continuePhrase || browserSessions.findFirstByTaskIdOrderByCreatedAtDesc(taskId)
-                .filter(session -> session.getState() != BrowserControlState.CLOSED)
-                .isPresent() && !message.toLowerCase().contains("http"));
         tasks.save(task);
-        boolean stillRunning = orchestrator.isRunning(taskId);
         String resumedId = task.getId();
+        String msg = message;
         TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
             @Override
             public void afterCommit() {
-                if (stillRunning) {
-                    control.resume(resumedId);
-                    orchestrator.notifyResumed(resumedId);
-                } else {
-                    orchestrator.start(resumedId);
-                }
+                nativeOrchestrator.continueWithMessage(resumedId, msg);
             }
         });
         publish(task);
@@ -246,6 +241,7 @@ public class TaskApplicationService {
         ack.put("role", MessageRole.USER.name());
         ack.put("status", "ACCEPTED");
         ack.put("taskStatus", task.getStatus().name());
+        ack.put("executionModel", "NATIVE_OPENCODE_CONTINUE");
         return ack;
     }
 
@@ -287,6 +283,7 @@ public class TaskApplicationService {
         task.setSummary("Task stopped");
         tasks.save(task);
         control.stop(taskId);
+        nativeOrchestrator.cancel(taskId);
         orchestrator.notifyStopped(taskId);
         publish(task);
         return summary(task);

@@ -60,4 +60,26 @@ public class CvController {
         cvService.deleteUserDocument(userId, cvId);
         return ResponseEntity.ok(Map.of("detail", "CV document deleted successfully"));
     }
+
+    @PostMapping(value = "/api/v1/cv/{cvId}/primary", produces = MediaType.APPLICATION_JSON_VALUE)
+    @Operation(summary = "Mark CV as primary for the authenticated user")
+    public ResponseEntity<Map<String, String>> setPrimary(@PathVariable("cvId") Long cvId) {
+        cvService.setPrimaryCv(SecurityUtils.getRequiredUserId(), cvId);
+        return ResponseEntity.ok(Map.of("detail", "Primary CV updated"));
+    }
+
+    @PutMapping(value = "/api/v1/cv/{cvId}/profile", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
+    @Operation(summary = "Edit extracted CV profile fields")
+    public ResponseEntity<CvDocumentDetailDto> updateProfile(@PathVariable("cvId") Long cvId,
+                                                             @RequestBody com.tronai.cv.dto.CvProfileUpdateRequest request) {
+        return ResponseEntity.ok(cvService.updateProfile(SecurityUtils.getRequiredUserId(), cvId, request));
+    }
+
+    @GetMapping(value = "/api/v1/cv/{cvId}/suggestions", produces = MediaType.APPLICATION_JSON_VALUE)
+    @Operation(summary = "CV improvement suggestions")
+    public ResponseEntity<com.tronai.cv.dto.CvSuggestionsResponse> suggestions(@PathVariable("cvId") Long cvId,
+                                                                               @RequestParam(required = false) String jobId,
+                                                                               @RequestParam(required = false) String language) {
+        return ResponseEntity.ok(cvService.suggestions(SecurityUtils.getRequiredUserId(), cvId, jobId, language));
+    }
 }

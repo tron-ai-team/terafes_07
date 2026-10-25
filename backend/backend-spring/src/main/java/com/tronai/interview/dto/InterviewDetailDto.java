@@ -15,6 +15,10 @@ import java.util.List;
 public class InterviewDetailDto {
     private String id;
     private InterviewConfigDto config;
+    private Long cvDocumentId;
+    private String jobId;
+    private String companyAnalysisId;
+    private String language;
     private int currentQuestionIndex;
     private int questionCount;
     private boolean finished;
@@ -24,4 +28,5 @@ public class InterviewDetailDto {
     private Instant startedAt;
     private Instant completedAt;
     private List<TranscriptMessageDto> transcript;
+    private InterviewAnalysisResultDto analysis;
 }

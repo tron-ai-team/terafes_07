@@ -19,5 +19,7 @@ public class CvDocumentSummaryDto {
     private int pageCount;
     private int textCharacters;
     private String status;
+    private boolean primary;
+    private String versionLabel;
     private Instant createdAt;
 }

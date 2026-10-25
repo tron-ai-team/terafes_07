@@ -207,7 +207,8 @@ class ChatEndpointTest {
     @Test
     @DisplayName("Local AI unavailable with cloud fallback disabled returns the privacy error")
     void ollamaUnavailableReturns503() throws Exception {
-        when(aiProvider.generate(any())).thenThrow(new AiProviderUnavailableException("Connection refused"));
+        when(aiProvider.generate(any())).thenThrow(
+                new AiProviderUnavailableException(com.tronai.ai.FallbackAiProvider.LOCAL_UNAVAILABLE_DETAIL));
 
         ChatRequest request = ChatRequest.builder()
                 .messages(List.of(
@@ -220,7 +221,8 @@ class ChatEndpointTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isServiceUnavailable())
-                .andExpect(jsonPath("$.detail").value("Local AI is unavailable and cloud fallback is disabled."));
+                .andExpect(jsonPath("$.detail").value(
+                        com.tronai.ai.FallbackAiProvider.LOCAL_UNAVAILABLE_DETAIL));
     }
 
     @Test

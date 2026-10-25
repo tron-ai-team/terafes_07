@@ -97,8 +97,21 @@ class AiModelRouterTest {
     }
 
     @Test
-    @DisplayName("SMART prefers Groq smart model")
-    void smartPrefersGroq() {
+    @DisplayName("SMART prefers OpenRouter when configured, else Groq smart")
+    void smartPrefersOpenRouterThenGroq() {
+        properties.setOpenrouterModelSmart("or-smart");
+        when(providerRegistry.find(GatewayProviderId.OPENROUTER)).thenReturn(Optional.of(groqProvider));
+        when(groqProvider.isConfigured()).thenReturn(true);
+        when(groqProvider.health()).thenReturn(ProviderHealthStatus.CONFIGURED);
+        AiRequestContext context = AiRequestContext.builder().feature(AiFeature.CV_REVIEW).build();
+        AiModelRouter.Route route = router.resolveRoute(context, AiMode.SMART);
+        assertThat(route.provider()).isEqualTo(GatewayProviderId.OPENROUTER);
+        assertThat(route.modelId()).isEqualTo("or-smart");
+    }
+
+    @Test
+    @DisplayName("SMART falls back to Groq when OpenRouter unavailable")
+    void smartFallsBackToGroq() {
         AiRequestContext context = AiRequestContext.builder().feature(AiFeature.CV_REVIEW).build();
         AiModelRouter.Route route = router.resolveRoute(context, AiMode.SMART);
         assertThat(route.provider()).isEqualTo(GatewayProviderId.GROQ);

@@ -1,0 +1,11 @@
+# Example only. Do not put a tunnel token or credential file in git.
+# Install cloudflared on the core node and keep the credentials file outside the repo,
+# for example /etc/cloudflared/credentials.json with mode 600.
+
+tunnel: tron-ai-api
+credentials-file: /etc/cloudflared/credentials.json
+
+ingress:
+  - hostname: api.example.com
+    service: http://127.0.0.1:80
+  - service: http_status:404

@@ -20,6 +20,7 @@ interface CareerJobCardProps {
   rank?: number;
   onViewDetails: (job: CareerJobResult) => void;
   onPrepareInterview: (job: CareerJobResult) => void;
+  onToggleSave?: (job: CareerJobResult) => void;
   uiLanguage?: string;
   isDemo?: boolean;
 }
@@ -29,6 +30,7 @@ export const CareerJobCard: React.FC<CareerJobCardProps> = ({
   rank,
   onViewDetails,
   onPrepareInterview,
+  onToggleSave,
   uiLanguage = 'en',
   isDemo = false,
 }) => {
@@ -212,6 +214,25 @@ export const CareerJobCard: React.FC<CareerJobCardProps> = ({
         </a>
 
         <div className="flex items-center gap-2">
+          {onToggleSave && (
+            <button
+              type="button"
+              onClick={() => onToggleSave(job)}
+              className={`px-3.5 py-2 rounded-xl text-xs font-bold border shadow-2xs transition-all active:scale-[0.98] ${
+                job.saved
+                  ? 'bg-amber-50 border-amber-300 text-amber-800'
+                  : 'bg-white hover:bg-slate-50 border-slate-200 text-slate-700'
+              }`}
+            >
+              {job.saved
+                ? uiLanguage === 'ja'
+                  ? '保存済み'
+                  : 'SAVED'
+                : uiLanguage === 'ja'
+                  ? 'ブックマーク'
+                  : 'BOOKMARK'}
+            </button>
+          )}
           {/* View Details Drawer CTA */}
           <button
             type="button"

@@ -34,6 +34,15 @@ public class CvProfileEntity {
     @Column(name = "extraction_notes_json", columnDefinition = "LONGTEXT")
     private String extractionNotesJson;
 
+    @Column(name = "languages_json", columnDefinition = "LONGTEXT")
+    private String languagesJson;
+
+    @Column(name = "summary_text", columnDefinition = "LONGTEXT")
+    private String summaryText;
+
+    @Column(name = "raw_text_excerpt", columnDefinition = "LONGTEXT")
+    private String rawTextExcerpt;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 

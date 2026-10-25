@@ -7,7 +7,7 @@ import { AiProfileSelector } from '../components/common/AiProfileSelector';
 import { CareerJobCard } from '../components/career/CareerJobCard';
 import { CareerJobDetailsDrawer } from '../components/career/CareerJobDetailsDrawer';
 import { CareerAgentTrace } from '../components/career/CareerAgentTrace';
-import { careerAgentClient } from '../services/careerAgentClient';
+import { careerCenterClient } from '../services/careerCenterClient';
 import { authApi } from '../services/httpClient';
 import {
   CareerJobResult,
@@ -43,13 +43,10 @@ import {
 } from 'lucide-react';
 
 const INITIAL_STEPS: CareerAgentStep[] = [
-  { step: 1, title: 'Reading candidate profile', status: 'pending' },
-  { step: 2, title: 'Opening target website', status: 'pending' },
-  { step: 3, title: 'Discovering job postings', status: 'pending' },
-  { step: 4, title: 'Reading job requirements', status: 'pending' },
-  { step: 5, title: 'Removing duplicates', status: 'pending' },
-  { step: 6, title: 'Matching jobs to candidate', status: 'pending' },
-  { step: 7, title: 'Ranking opportunities', status: 'pending' },
+  { step: 1, title: 'Validate Mynavi / CareerMap target', status: 'pending' },
+  { step: 2, title: 'Query Career V1 job search API', status: 'pending' },
+  { step: 3, title: 'Filter official source URLs', status: 'pending' },
+  { step: 4, title: 'Check provider ops status', status: 'pending' },
 ];
 
 import { resolveLanguage } from '../utils/languageResolver';
@@ -60,8 +57,23 @@ export const CareerSearchAgentPage: React.FC = () => {
 
   const langDef = resolveLanguage(selectedLanguage);
 
+  // Official Career Center providers only: Mynavi + CareerMap
+  const PROVIDERS = [
+    {
+      id: 'mynavi',
+      label: 'Mynavi',
+      url: 'https://job.mynavi.jp/',
+    },
+    {
+      id: 'careermap',
+      label: 'CareerMap',
+      url: 'https://careermap.jp/',
+    },
+  ] as const;
+
   // Core Form State
-  const [websiteUrl, setWebsiteUrl] = useState('https://www.lycorp.co.jp/ja/careers/jobs');
+  const [providerId, setProviderId] = useState<'mynavi' | 'careermap' | 'custom'>('mynavi');
+  const [websiteUrl, setWebsiteUrl] = useState('https://job.mynavi.jp/');
   const [targetRole, setTargetRole] = useState('Backend Engineer');
   const [location, setLocation] = useState('Tokyo');
   const [keywords, setKeywords] = useState('Java, Spring Boot, SQL, REST API');
@@ -69,6 +81,11 @@ export const CareerSearchAgentPage: React.FC = () => {
   const [maxResults, setMaxResults] = useState<number>(10);
   const [selectedCvId, setSelectedCvId] = useState<number | undefined>(undefined);
   const [selectedProfile, setSelectedProfile] = useState<AiProfile>(preferredAiProfile);
+  const [providerStatusNote, setProviderStatusNote] = useState<string | null>(null);
+  /** Truthful search outcome — never treat HTTP 200 empty as fake discovery success */
+  const [searchOutcome, setSearchOutcome] = useState<
+    'IDLE' | 'SEARCHING' | 'RESULTS_FOUND' | 'NO_RESULTS' | 'SOURCE_UNAVAILABLE' | 'AUTHORIZATION_REQUIRED' | 'ERROR'
+  >('IDLE');
 
   // Advanced Filters State
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
@@ -97,6 +114,7 @@ export const CareerSearchAgentPage: React.FC = () => {
   // Load user CVs on mount
   useEffect(() => {
     loadUserCvs();
+    void loadProviderStatus();
   }, []);
 
   const loadUserCvs = async () => {
@@ -111,27 +129,88 @@ export const CareerSearchAgentPage: React.FC = () => {
     }
   };
 
+  const loadProviderStatus = async () => {
+    try {
+      const ops = await careerCenterClient.getOpsStatus();
+      const providers = ops.providers || [];
+      if (providers.length > 0) {
+        setProviderStatusNote(
+          providers
+            .map((p) => `${p.name || p.id}: ${p.status || p.detail || p.message || 'unknown'}`)
+            .join(' · ')
+        );
+      }
+    } catch {
+      setProviderStatusNote(null);
+    }
+  };
+
+  const isOfficialProviderUrl = (url: string): boolean => {
+    try {
+      const host = new URL(url).hostname.toLowerCase();
+      return host.includes('mynavi.jp') || host.includes('careermap.jp');
+    } catch {
+      return false;
+    }
+  };
+
   // URL Validation helper
   const validateUrl = (url: string): boolean => {
     const trimmed = url.trim();
     return trimmed.startsWith('http://') || trimmed.startsWith('https://');
   };
 
-  // Run Career Search Agent
+  const handleSelectProvider = (id: 'mynavi' | 'careermap') => {
+    const p = PROVIDERS.find((x) => x.id === id);
+    if (!p) return;
+    setProviderId(id);
+    setWebsiteUrl(p.url);
+  };
+
+  const handleToggleSave = async (job: CareerJobResult) => {
+    if (isDemoData) {
+      addToast('Demo fixtures cannot be bookmarked on the server.', 'warning');
+      return;
+    }
+    try {
+      const next = !(job.saved === true);
+      const resp = await careerCenterClient.toggleSaveJob(job.id, next);
+      setResults((prev) =>
+        prev.map((j) => (j.id === job.id ? { ...j, saved: resp.saved } : j))
+      );
+      addToast(resp.saved ? 'Job bookmarked' : 'Bookmark removed', 'success');
+    } catch (err: any) {
+      addToast(err?.detail || err?.message || 'Failed to save job', 'error');
+    }
+  };
+
+  /** Authoritative Career V1 search only — never call /agents/career-search/run */
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage(null);
     setBlockedNotice(null);
+    setSearchOutcome('SEARCHING');
 
     const trimmedUrl = websiteUrl.trim();
     if (!validateUrl(trimmedUrl)) {
       setErrorMessage('Please enter a valid website URL starting with https:// or http://');
       addToast('Invalid URL scheme. Must start with http:// or https://', 'warning');
+      setSearchOutcome('ERROR');
+      return;
+    }
+
+    if (!isOfficialProviderUrl(trimmedUrl)) {
+      setErrorMessage(
+        'Official Career Center search supports Mynavi (mynavi.jp) and CareerMap (careermap.jp) only. Other sites are not searched.'
+      );
+      addToast('Only Mynavi and CareerMap are supported.', 'warning');
+      setSearchOutcome('ERROR');
       return;
     }
 
     if (!targetRole.trim()) {
       addToast('Please specify a target role.', 'warning');
+      setSearchOutcome('IDLE');
       return;
     }
 
@@ -141,81 +220,124 @@ export const CareerSearchAgentPage: React.FC = () => {
     setMetrics(null);
     setIsDemoData(false);
 
-    // Initialize stepper
-    setSteps(
-      INITIAL_STEPS.map((s, idx) => ({
-        ...s,
-        status: idx === 0 ? 'running' : 'pending',
-      }))
-    );
+    const truthfulSteps: CareerAgentStep[] = [
+      { step: 1, title: 'Validate Mynavi / CareerMap target', status: 'running' },
+      { step: 2, title: 'Query Career V1 job search API', status: 'pending' },
+      { step: 3, title: 'Filter official source URLs', status: 'pending' },
+      { step: 4, title: 'Check provider ops status', status: 'pending' },
+    ];
+    setSteps(truthfulSteps);
 
-    // Dynamic step progression interval
-    const stepInterval = setInterval(() => {
-      setCurrentStepIndex((prev) => {
-        const next = prev < 7 ? prev + 1 : prev;
-        setSteps((prevSteps) =>
-          prevSteps.map((s) => {
-            if (s.step < next) return { ...s, status: 'completed' };
-            if (s.step === next) return { ...s, status: 'running' };
-            return { ...s, status: 'pending' };
-          })
-        );
-        return next;
-      });
-    }, 2200);
+    const kw = keywords.split(',').map((k) => k.trim()).filter(Boolean);
+    const started = Date.now();
 
     try {
-      const resp = await careerAgentClient.runCareerSearch({
-        websiteUrl: trimmedUrl,
-        targetRole,
+      setSteps((prev) =>
+        prev.map((s) =>
+          s.step === 1 ? { ...s, status: 'completed' } : s.step === 2 ? { ...s, status: 'running' } : s
+        )
+      );
+
+      const jobs = await careerCenterClient.searchJobs({
+        query: targetRole,
         location,
-        keywords: keywords.split(',').map((k) => k.trim()).filter(Boolean),
-        minimumMatch,
-        maxResults,
-        cvId: selectedCvId,
-        language: selectedLanguage,
-        aiProfile: selectedProfile,
+        keywords: kw,
         employmentType: employmentType !== 'any' ? employmentType : undefined,
         newGraduateOnly,
-        japaneseLevel: japaneseLevel !== 'any' ? japaneseLevel : undefined,
+        maxResults,
+        language: selectedLanguage || 'ja',
       });
 
-      clearInterval(stepInterval);
-      // Never fall back to demo steps/results for a live run.
-      setSteps(resp.steps || []);
-      setResults(resp.results || []);
-      setMetrics(resp.metrics || null);
-      setIsDemoData(false);
-      setCurrentStepIndex(Math.max(0, (resp.steps?.length || 1) - 1));
+      setSteps((prev) =>
+        prev.map((s) =>
+          s.step === 2 ? { ...s, status: 'completed' } : s.step === 3 ? { ...s, status: 'running' } : s
+        )
+      );
 
-      if (resp.status === 'blocked') {
+      const filtered = (Array.isArray(jobs) ? jobs : []).filter((j) => {
+        if (!j?.sourceUrl) return false;
+        return isOfficialProviderUrl(j.sourceUrl);
+      });
+
+      setSteps((prev) =>
+        prev.map((s) =>
+          s.step === 3 ? { ...s, status: 'completed' } : s.step === 4 ? { ...s, status: 'running' } : s
+        )
+      );
+
+      let opsNote = providerStatusNote;
+      let authRequired = false;
+      let sourceIssue = false;
+      try {
+        const ops = await careerCenterClient.getOpsStatus();
+        const providers = ops.providers || [];
+        opsNote = providers
+          .map((p) => `${p.name || p.id}: ${p.status || p.detail || p.message || 'unknown'}`)
+          .join(' · ');
+        setProviderStatusNote(opsNote);
+        authRequired = providers.some((p) =>
+          String(p.status || p.message || '')
+            .toUpperCase()
+            .includes('AUTH')
+        );
+        sourceIssue = providers
+          .filter((p) => {
+            const id = String(p.id || p.name || '').toLowerCase();
+            return id.includes('mynavi') || id.includes('careermap');
+          })
+          .every((p) => {
+            const st = String(p.status || '').toUpperCase();
+            return st.includes('BLOCKED') || st.includes('EMPTY') || st === 'UNAVAILABLE';
+          });
+      } catch {
+        // ops optional
+      }
+
+      setSteps((prev) => prev.map((s) => ({ ...s, status: 'completed' as const })));
+      setResults(filtered);
+      setMetrics({
+        jobsDiscovered: filtered.length,
+        jobsAnalyzed: filtered.length,
+        jobsMatched: filtered.filter((j) => (j.matchScore || 0) >= minimumMatch).length,
+        durationMs: Date.now() - started,
+        aiProfile: selectedProfile,
+      });
+      setIsDemoData(false);
+      setCurrentStepIndex(truthfulSteps.length - 1);
+
+      if (filtered.length > 0) {
+        setSearchOutcome('RESULTS_FOUND');
+        addToast(`Found ${filtered.length} Mynavi/CareerMap job(s).`, 'success');
+      } else if (authRequired) {
+        setSearchOutcome('AUTHORIZATION_REQUIRED');
         setBlockedNotice(
-          resp.blockedReason ||
-            'TRON encountered a login wall or CAPTCHA on this website. TRON only inspects public career pages without authentication.'
+          opsNote ||
+            'A provider requires OAuth / school-linked authorization. TRON does not invent vacancies.'
         );
-      } else if ((resp.results?.length || 0) > 0) {
-        addToast(
-          `Career Search Agent discovered ${resp.results.length} matching jobs.`,
-          'success'
+        addToast('No listings — authorization required for at least one provider.', 'warning');
+      } else if (sourceIssue) {
+        setSearchOutcome('SOURCE_UNAVAILABLE');
+        setBlockedNotice(
+          opsNote ||
+            'Approved providers returned no usable public listings (blocked, empty, or unavailable).'
         );
+        addToast('No listings — source unavailable or empty scrape.', 'info');
       } else {
-        addToast('Career Search finished with zero matches.', 'info');
+        setSearchOutcome('NO_RESULTS');
+        addToast('Search finished with zero matches (genuine empty state).', 'info');
       }
     } catch (err: any) {
-      clearInterval(stepInterval);
-      const status = err?.status ?? err?.statusCode;
       const detailMsg =
-        status === 404
-          ? 'Career Search API is not available yet (backend route missing). This page will not invent job results.'
-          : err?.detail || err?.message || 'Career Search backend service is offline or not yet deployed.';
+        err?.detail || err?.message || 'Career job search failed. TRON will not invent job results.';
       setErrorMessage(detailMsg);
       setResults([]);
       setMetrics(null);
       setIsDemoData(false);
+      setSearchOutcome('ERROR');
       setSteps([
         {
           step: 1,
-          title: 'Career Search Unavailable',
+          title: 'Career Job Search Error',
           description: detailMsg,
           status: 'failed',
         },
@@ -243,6 +365,7 @@ export const CareerSearchAgentPage: React.FC = () => {
     setResults(DEMO_CAREER_RESULTS);
     setMetrics(DEMO_CAREER_METRICS);
     setIsDemoData(true);
+    setSearchOutcome('IDLE');
 
     addToast('Loaded DEMO career UI fixtures (not live job results).', 'warning');
   };
@@ -314,7 +437,7 @@ export const CareerSearchAgentPage: React.FC = () => {
               TRON Career Search Agent
             </h1>
             <p className="text-sm md:text-base text-slate-500 mt-1 max-w-2xl leading-relaxed">
-              Search a job website, analyze opportunities, and rank the best matches for your profile.
+              Official sources: Mynavi and CareerMap only. TRON finds and recommends jobs — you apply on the original site.
             </p>
           </div>
 
@@ -373,28 +496,57 @@ export const CareerSearchAgentPage: React.FC = () => {
               </h2>
 
               <form onSubmit={handleSearch} className="space-y-4">
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 font-mono mb-1.5">
+                    Official providers
+                  </label>
+                  <div className="flex flex-wrap gap-2">
+                    {PROVIDERS.map((p) => (
+                      <button
+                        key={p.id}
+                        type="button"
+                        disabled={isRunning}
+                        onClick={() => handleSelectProvider(p.id)}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-all ${
+                          providerId === p.id
+                            ? 'bg-cyan-600 text-white border-cyan-600'
+                            : 'bg-white text-slate-700 border-slate-200 hover:border-cyan-300'
+                        }`}
+                      >
+                        {p.label}
+                      </button>
+                    ))}
+                  </div>
+                  {providerStatusNote && (
+                    <p className="text-[10px] text-slate-500 mt-1.5 leading-relaxed">{providerStatusNote}</p>
+                  )}
+                </div>
+
                 {/* Job Website URL Field */}
                 <div>
                   <div className="flex items-center justify-between mb-1.5">
                     <label className="text-xs font-bold uppercase tracking-wider text-slate-700 font-mono">
                       Job Website
                     </label>
-                    <span className="text-[10px] text-slate-400 font-mono">Public pages only</span>
+                    <span className="text-[10px] text-slate-400 font-mono">mynavi.jp / careermap.jp</span>
                   </div>
                   <div className="relative">
                     <Globe className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
                     <input
                       type="url"
                       value={websiteUrl}
-                      onChange={(e) => setWebsiteUrl(e.target.value)}
+                      onChange={(e) => {
+                        setWebsiteUrl(e.target.value);
+                        setProviderId('custom');
+                      }}
                       required
                       disabled={isRunning}
-                      placeholder="https://company.example/jobs"
+                      placeholder="https://job.mynavi.jp/ or https://careermap.jp/"
                       className="w-full pl-10 pr-3.5 py-2.5 text-xs rounded-xl bg-white border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all shadow-2xs font-mono"
                     />
                   </div>
                   <p className="text-[11px] text-slate-400 mt-1 leading-relaxed">
-                    TRON will inspect public job listings from this website.
+                    Live search is limited to Mynavi and CareerMap. Empty results are shown honestly — TRON never invents vacancies.
                   </p>
                 </div>
 
@@ -674,6 +826,11 @@ export const CareerSearchAgentPage: React.FC = () => {
               <h2 className="text-xl font-extrabold text-slate-900 font-display">
                 Recommended Opportunities
               </h2>
+              {searchOutcome !== 'IDLE' && !isDemoData && (
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold uppercase tracking-wider border bg-white text-slate-600 border-slate-200">
+                  {searchOutcome}
+                </span>
+              )}
               {results.length > 0 && (
                 <span className="px-2.5 py-0.5 rounded-full text-xs font-extrabold bg-blue-100 text-blue-700 font-mono">
                   {filteredResults.length} / {results.length} Jobs
@@ -735,6 +892,7 @@ export const CareerSearchAgentPage: React.FC = () => {
                     rank={idx + 1}
                     onViewDetails={setSelectedJobForDetails}
                     onPrepareInterview={handlePrepareInterview}
+                    onToggleSave={handleToggleSave}
                     uiLanguage={uiLanguage}
                     isDemo={isDemoData}
                   />
@@ -748,29 +906,48 @@ export const CareerSearchAgentPage: React.FC = () => {
               )}
             </div>
           ) : !isRunning ? (
-            /* Clean Empty State */
+            /* Honest empty / status state — never invent jobs */
             <div className="p-12 text-center rounded-3xl bg-white/80 border border-[#D6E6F7] shadow-xs space-y-4 max-w-xl mx-auto my-6">
               <div className="w-12 h-12 rounded-2xl bg-blue-50 border border-blue-200 text-blue-600 flex items-center justify-center mx-auto shadow-xs">
                 <Search className="w-6 h-6" />
               </div>
               <div className="space-y-1">
                 <h3 className="text-lg font-bold text-slate-800 font-display">
-                  Find jobs that fit you
+                  {searchOutcome === 'NO_RESULTS'
+                    ? 'No matching jobs found'
+                    : searchOutcome === 'SOURCE_UNAVAILABLE'
+                      ? 'Job source unavailable'
+                      : searchOutcome === 'AUTHORIZATION_REQUIRED'
+                        ? 'Authorization required'
+                        : searchOutcome === 'ERROR'
+                          ? 'Search failed'
+                          : 'Find jobs that fit you'}
                 </h3>
                 <p className="text-xs text-slate-500 max-w-md mx-auto leading-relaxed">
-                  Enter a job website and let TRON analyze the opportunities against your profile.
+                  {errorMessage ||
+                    blockedNotice ||
+                    (searchOutcome === 'NO_RESULTS'
+                      ? 'Providers returned no listings for this query. TRON does not invent results.'
+                      : 'Search Mynavi or CareerMap. Results come only from approved providers.')}
                 </p>
+                {searchOutcome !== 'IDLE' && (
+                  <p className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400 pt-1">
+                    Status: {searchOutcome}
+                  </p>
+                )}
               </div>
-              <div className="pt-2">
-                <button
-                  type="button"
-                  onClick={handleLoadDemoData}
-                  className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-50 text-blue-700 font-bold text-xs hover:bg-blue-100 transition-colors"
-                >
-                  <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-                  <span>Preview with verified Japanese IT demo postings</span>
-                </button>
-              </div>
+              {searchOutcome === 'IDLE' && (
+                <div className="pt-2">
+                  <button
+                    type="button"
+                    onClick={handleLoadDemoData}
+                    className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-50 text-blue-700 font-bold text-xs hover:bg-blue-100 transition-colors"
+                  >
+                    <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                    <span>Preview with verified Japanese IT demo postings</span>
+                  </button>
+                </div>
+              )}
             </div>
           ) : null}
         </div>

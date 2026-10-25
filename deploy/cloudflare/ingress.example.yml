@@ -1,0 +1,17 @@
+# Example Cloudflare Tunnel ingress fragment for TRON AI.
+# Merge into the EXISTING tunnel config — do not replace other hostnames.
+# Replace YOUR_DOMAIN.tech with the purchased domain.
+# Do not commit tunnel tokens or credentials.json.
+
+# tunnel: <existing-tunnel-id-or-name>
+# credentials-file: /etc/cloudflared/credentials.json
+
+ingress:
+  # Keep all existing project hostnames above this entry.
+  - hostname: YOUR_DOMAIN.tech
+    service: http://127.0.0.1:80
+  # Optional www
+  # - hostname: www.YOUR_DOMAIN.tech
+  #   service: http://127.0.0.1:80
+  # Catch-all must remain last in the full config:
+  # - service: http_status:404

@@ -22,6 +22,7 @@ export const TopBar: React.FC = () => {
   const {
     user,
     isAuthenticated,
+    t,
     selectedLanguage,
     setSelectedLanguage,
     uiLocale,
@@ -191,7 +192,7 @@ export const TopBar: React.FC = () => {
           >
             <MessageCircle className="w-4 h-4 shrink-0" />
             <span className="whitespace-nowrap">
-              {uiLocale === 'ja' ? 'チャット' : 'Chat'}
+              {t.topbar.chat}
             </span>
           </button>
 
@@ -208,7 +209,7 @@ export const TopBar: React.FC = () => {
           >
             <Mic className="w-4 h-4 shrink-0" />
             <span className="whitespace-nowrap">
-              {uiLocale === 'ja' ? '音声' : 'Voice'}
+              {t.topbar.voice}
             </span>
           </button>
 
@@ -225,7 +226,7 @@ export const TopBar: React.FC = () => {
           >
             <LayoutGrid className="w-4 h-4 shrink-0" />
             <span className="whitespace-nowrap">
-              {uiLocale === 'ja' ? 'ワークスペース' : 'Workspace'}
+              {t.topbar.workspace}
             </span>
           </button>
         </div>
@@ -244,7 +245,7 @@ export const TopBar: React.FC = () => {
         >
           <Briefcase className={`w-4 h-4 shrink-0 ${currentMode === 'career' ? 'text-white' : 'text-blue-600'}`} />
           <span className="whitespace-nowrap font-display tracking-tight">
-            {uiLocale === 'ja' ? 'キャリアセンター' : 'Career Center'}
+            {t.topbar.careerCenter}
           </span>
         </button>
       </div>

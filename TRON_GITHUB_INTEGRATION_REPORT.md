@@ -52,3 +52,20 @@ Evidence is outside Git at `/tmp/tron-resume-final` and `/dev/shm/tron-*`; tempo
 PR review and green CI are required before merge. No merge or production deployment was performed. Before a separately authorized deployment: inspect resources and available ports; configure protected GitHub Environments and SSH/GHCR secrets; supply the real domain, OAuth redirects and private Ollama endpoint; create the dedicated TRON schema/user; secure runtime environment and storage; add the TRON Nginx site and Cloudflare hostname while preserving existing configuration; verify HTTPS, auth, PDF conversion, persistence and rollback. Live desktop, Gotenberg, provider and Career journey tests require their documented external services.
 
 Existing production applications, Docker services, MySQL databases, Nginx sites and Cloudflare configuration were not modified. No deployment workflow was dispatched.
+
+## PR #3 CI repair follow-up (2026-10-26)
+
+The preceding validation table records the original integration attempt. Follow-up triage reproduced the latest run, 40211960313: backend 247 tests / 20 failures, frontend install/build and security successful, Docker skipped behind the backend gate.
+
+Root causes and repairs:
+
+- Chat, profile-lock, ownership, persistence and voice tests mocked `AiProvider` but left the newer `HybridRoutingService` health probe live. On CI without Ollama this selected an unconfigured cloud gateway before reaching the mock. These endpoint fixtures now explicitly select local inference and acquire a slot, with cloud fallback disabled. All existing success, timeout, privacy, locking, persistence and isolation assertions remain intact. Real routing behavior remains covered by the hybrid service and chat routing unit tests.
+- The storage health test expected HTTP 200 without providing a healthy core AI dependency. It now supplies a mocked healthy provider; production health requirements remain intact.
+- CommandPolicyEngine tests used `C:/Dev` as an absolute path. On Linux it is relative, so alleged outside paths were resolved inside the workspace. Native temporary directories now exercise actual absolute escapes, sibling-prefix rejection and deletion approval on each OS. Policy rules are unchanged.
+- Voice inference unavailability surfaced as HTTP 400 via the generic IllegalStateException handler. VoiceService now maps inference state failures to HTTP 503 and quota failures to HTTP 429, preserving explicit provider statuses. A new regression checks unavailable inference returns 503 without generation or synthesis.
+
+Initial targeted validation: all 44 tests in the seven affected classes passed, no failures/errors/skips. The complete CI suite retains the same live-service exclusions and adds one voice regression (248 total expected). No existing test was removed, skipped, weakened or newly excluded. No CI security check, workflow dependency or production deployment gate changed.
+
+Local Git metadata was recovered from a full-history remote clone after an empty HEAD object was discovered. Working files were preserved and verified clean against remote integration HEAD before edits; the corrupt original metadata is retained outside the repository at `/tmp/tron-original-git-corrupt`. Commit identity remains Thushan Theekshana <243481452+tt25304025-dev@users.noreply.github.com>. No force push or history rewrite is used.
+
+The exact final head, CI job conclusions and review readiness are recorded on existing PR #3 and in the final CI repair report delivered with this task. Docker validation runs on GitHub runners only. No production services, infrastructure or volumes were changed, and no merge or deployment was performed.

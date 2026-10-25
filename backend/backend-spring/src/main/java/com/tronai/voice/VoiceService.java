@@ -210,7 +210,14 @@ public class VoiceService {
 
         int answerBudget = effectiveProfile == AiProfile.QUALITY || effectiveProfile == AiProfile.ULTRA ? 128 : 96;
         long llmStarted = System.currentTimeMillis();
-        ChatGenerationResult genResult = generateVoiceReply(effectiveProfile, messages, answerBudget);
+        ChatGenerationResult genResult;
+        try {
+            genResult = generateVoiceReply(effectiveProfile, messages, answerBudget);
+        } catch (com.tronai.ai.gateway.AiQuotaExceededException ex) {
+            throw new ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS, ex.getMessage());
+        } catch (IllegalStateException ex) {
+            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, ex.getMessage());
+        }
         int llmMs = (int) (System.currentTimeMillis() - llmStarted);
 
         String replyText = genResult.getText().trim();

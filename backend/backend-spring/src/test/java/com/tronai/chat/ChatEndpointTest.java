@@ -37,6 +37,9 @@ class ChatEndpointTest {
     @MockitoBean
     private AiProvider aiProvider;
 
+    @MockitoBean
+    private com.tronai.hybrid.HybridRoutingService hybrid;
+
     @Autowired
     private com.tronai.auth.JwtService jwtService;
 
@@ -47,6 +50,10 @@ class ChatEndpointTest {
 
     @org.junit.jupiter.api.BeforeEach
     void setUp() {
+        // Provider generation is mocked: keep routing hermetic too.
+        org.mockito.Mockito.when(hybrid.selectInferenceRoute()).thenReturn("LOCAL_OLLAMA");
+        org.mockito.Mockito.when(hybrid.tryAcquireAiSlot()).thenReturn(true);
+        org.mockito.Mockito.when(hybrid.allowsCloudInference()).thenReturn(false);
         lenient().when(aiProvider.getProviderName()).thenReturn("ollama");
         lenient().when(aiProvider.isAvailable()).thenReturn(true);
         // JWT filter loads User from DB for suspension checks — seed a real enabled user.

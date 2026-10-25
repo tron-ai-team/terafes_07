@@ -46,6 +46,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ collapsed, setCollapsed }) => 
     user,
     isAuthenticated,
     logout,
+    t,
     uiLanguage,
     chatSessions,
     activeChatId,
@@ -473,24 +474,29 @@ export const Sidebar: React.FC<SidebarProps> = ({ collapsed, setCollapsed }) => 
           <div className="pt-3 border-t border-slate-100 space-y-0.5">
             {[
               {
-                title: uiLanguage === 'ja' ? '製品情報' : 'About',
+                title: t.nav.home,
+                path: '/',
+                icon: <Compass className="w-4 h-4" />,
+              },
+              {
+                title: t.sidebar.about,
                 path: '/about',
                 icon: <Info className="w-4 h-4" />,
               },
               {
-                title: uiLanguage === 'ja' ? 'ヘルプ' : 'Help',
+                title: t.sidebar.help,
                 path: '/help',
                 icon: <HelpCircle className="w-4 h-4" />,
               },
               {
-                title: uiLanguage === 'ja' ? '設定' : 'Settings',
+                title: t.sidebar.settings,
                 path: '/settings',
                 icon: <Settings className="w-4 h-4" />,
               },
               ...((user?.role === 'ADMIN' || user?.role === 'OWNER')
                 ? [
                     {
-                      title: uiLanguage === 'ja' ? '管理' : 'Admin',
+                      title: t.sidebar.admin,
                       path: '/admin',
                       icon: <Shield className="w-4 h-4" />,
                     },
@@ -540,7 +546,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ collapsed, setCollapsed }) => 
               <button
                 onClick={logout}
                 className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-colors"
-                title={uiLanguage === 'ja' ? 'ログアウト' : 'Log out'}
+                title={t.sidebar.logout}
               >
                 <LogOut className="w-3.5 h-3.5" />
               </button>
@@ -554,20 +560,20 @@ export const Sidebar: React.FC<SidebarProps> = ({ collapsed, setCollapsed }) => 
                   to="/auth?mode=signin"
                   className="px-2.5 py-1.5 text-center text-xs font-semibold rounded-xl bg-white border border-[#E2EEF8] text-slate-700 hover:bg-blue-50/60 hover:text-blue-600 shadow-2xs transition-all"
                 >
-                  {uiLanguage === 'ja' ? 'ログイン' : 'LOG IN'}
+                  {t.auth.signInBtn}
                 </Link>
                 <Link
                   to="/auth?mode=signup"
                   className="px-2.5 py-1.5 text-center text-xs font-semibold rounded-xl bg-gradient-to-r from-[#008CFF] to-[#0066FF] text-white hover:brightness-105 shadow-2xs shadow-blue-500/20 transition-all"
                 >
-                  {uiLanguage === 'ja' ? '新規登録' : 'SIGN UP'}
+                  {t.auth.signUpBtn}
                 </Link>
               </div>
             ) : (
               <Link
                 to="/auth?mode=signin"
                 className="flex items-center justify-center p-2 rounded-xl bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors"
-                title={uiLanguage === 'ja' ? 'ログイン' : 'Sign in'}
+                title={t.auth.signInBtn}
               >
                 <User className="w-4 h-4" />
               </Link>

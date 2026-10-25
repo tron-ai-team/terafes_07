@@ -8,6 +8,8 @@ import com.tronai.ai.profile.AiProfile;
 import com.tronai.ai.profile.AiProfileService;
 import com.tronai.auth.SecurityUtils;
 import com.tronai.auth.UserPrincipal;
+import com.tronai.career.company.CompanyAnalysisEntity;
+import com.tronai.career.company.CompanyAnalysisRepository;
 import com.tronai.interview.*;
 import com.tronai.interview.dto.*;
 import com.tronai.interview.generator.InterviewQuestionGenerator;
@@ -48,6 +50,7 @@ public class InterviewService {
     private final BackgroundJobPublisher backgroundJobPublisher;
     private final AiProfileService aiProfileService;
     private final com.tronai.ai.profile.AiProfileResolver aiProfileResolver;
+    private final CompanyAnalysisRepository companyAnalysisRepository;
     private final ObjectMapper objectMapper;
 
     private static final String FOLLOW_UP_CARD_JA = "次の質問は、回答後に下の文字起こしへ追加されます。";
@@ -65,6 +68,7 @@ public class InterviewService {
                             BackgroundJobPublisher backgroundJobPublisher,
                             AiProfileService aiProfileService,
                             com.tronai.ai.profile.AiProfileResolver aiProfileResolver,
+                            CompanyAnalysisRepository companyAnalysisRepository,
                             ObjectMapper objectMapper) {
         this.sessionManager = sessionManager;
         this.questionGenerator = questionGenerator;
@@ -76,6 +80,7 @@ public class InterviewService {
         this.backgroundJobPublisher = backgroundJobPublisher;
         this.aiProfileService = aiProfileService;
         this.aiProfileResolver = aiProfileResolver;
+        this.companyAnalysisRepository = companyAnalysisRepository;
         this.objectMapper = objectMapper;
     }
 
@@ -120,6 +125,9 @@ public class InterviewService {
 
         // Resolve or create user for interview ownership
         User user = resolveCurrentUser();
+
+        // Hydrate company-specific interview context from Career Center analysis (owned by user)
+        applyCompanyAnalysisContext(user.getId(), config);
 
         // Create in-memory session container with locked profile
         InterviewSession session = sessionManager.createSession(config, questionCount, profile.name(), modelProfile.getId());
@@ -175,6 +183,10 @@ public class InterviewService {
         InterviewSessionEntity sessionEntity = InterviewSessionEntity.builder()
                 .id(interviewId)
                 .user(user)
+                .cvDocumentId(config.getCvDocumentId())
+                .jobId(config.getJobId())
+                .companyAnalysisId(config.getCompanyAnalysisId())
+                .language(selectedLanguage.code())
                 .configJson(configJson)
                 .currentQuestionIndex(0)
                 .questionCount(questionCount)
@@ -469,9 +481,18 @@ public class InterviewService {
         InterviewConfigDto cfg = deserializeConfig(s.getConfigJson());
         InterviewSession session = sessionManager.getSession(interviewId);
 
+        InterviewAnalysisResultDto analysis = null;
+        if (s.getAnalysis() != null) {
+            analysis = mapEntityToAnalysisResult(s.getAnalysis(), session);
+        }
+
         return InterviewDetailDto.builder()
                 .id(s.getId())
                 .config(cfg)
+                .cvDocumentId(s.getCvDocumentId())
+                .jobId(s.getJobId())
+                .companyAnalysisId(s.getCompanyAnalysisId())
+                .language(s.getLanguage() != null ? s.getLanguage() : (cfg != null ? cfg.getLanguage() : null))
                 .currentQuestionIndex(s.getCurrentQuestionIndex())
                 .questionCount(s.getQuestionCount())
                 .finished(s.isFinished())
@@ -481,7 +502,39 @@ public class InterviewService {
                 .startedAt(s.getStartedAt())
                 .completedAt(s.getCompletedAt())
                 .transcript(session.getTranscript())
+                .analysis(analysis)
                 .build();
+    }
+
+    @Transactional
+    public void deleteUserInterview(Long userId, String interviewId) {
+        InterviewSessionEntity s = interviewSessionRepository.findByIdAndUserId(interviewId, userId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Interview session not found"));
+        interviewSessionRepository.delete(s);
+        sessionManager.removeSession(interviewId);
+    }
+
+    /**
+     * Starts a new practice session using the same CV/job/config as a previous interview.
+     */
+    @Transactional
+    public InterviewStartResponse repeatInterview(Long userId, String interviewId) {
+        InterviewSessionEntity previous = interviewSessionRepository.findByIdAndUserId(interviewId, userId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Interview session not found"));
+        InterviewConfigDto cfg = deserializeConfig(previous.getConfigJson());
+        if (cfg == null) {
+            cfg = new InterviewConfigDto();
+        }
+        if (previous.getCvDocumentId() != null) {
+            cfg.setCvDocumentId(previous.getCvDocumentId());
+        }
+        if (previous.getJobId() != null) {
+            cfg.setJobId(previous.getJobId());
+        }
+        if (previous.getLanguage() != null && (cfg.getLanguage() == null || cfg.getLanguage().isBlank())) {
+            cfg.setLanguage(previous.getLanguage());
+        }
+        return startInterview(cfg);
     }
 
     private void persistAnalysis(InterviewSessionEntity sessionEntity, InterviewAnalysisResultDto result) {
@@ -537,6 +590,42 @@ public class InterviewService {
         }
 
         return dto;
+    }
+
+    /**
+     * When {@code companyAnalysisId} is set, load owned analysis and enrich interview config.
+     * Does not invent confidential interview questions — only uses published research JSON.
+     */
+    private void applyCompanyAnalysisContext(Long userId, InterviewConfigDto config) {
+        if (config.getCompanyAnalysisId() == null || config.getCompanyAnalysisId().isBlank()) {
+            return;
+        }
+        CompanyAnalysisEntity analysis = companyAnalysisRepository
+                .findByIdAndUser_Id(config.getCompanyAnalysisId(), userId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
+                        "Company analysis not found for current user"));
+        if (config.getCompanyName() == null || config.getCompanyName().isBlank()) {
+            config.setCompanyName(analysis.getCompanyName());
+        }
+        if (config.getCompanyNameJa() == null || config.getCompanyNameJa().isBlank()) {
+            config.setCompanyNameJa(analysis.getCompanyName());
+        }
+        StringBuilder ctx = new StringBuilder();
+        if (config.getJobDescription() != null && !config.getJobDescription().isBlank()) {
+            ctx.append(config.getJobDescription()).append("\n");
+        }
+        ctx.append("Company analysis id=").append(analysis.getId())
+                .append("; website=").append(analysis.getWebsiteUrl());
+        if (analysis.getPreparationJson() != null && !analysis.getPreparationJson().isBlank()) {
+            ctx.append("; preparation=").append(analysis.getPreparationJson());
+        }
+        if (analysis.getComparisonJson() != null && !analysis.getComparisonJson().isBlank()) {
+            ctx.append("; comparison=").append(analysis.getComparisonJson());
+        }
+        config.setJobDescription(ctx.toString());
+        if (config.getType() == null || config.getType().isBlank() || "general".equalsIgnoreCase(config.getType())) {
+            config.setType("company-specific");
+        }
     }
 
     private User resolveCurrentUser() {

@@ -8,8 +8,9 @@
  * - Provides native display labels and accessibility metadata
  */
 
-export type SupportedLanguage = 'en' | 'ja' | 'si' | 'bn' | 'ne' | 'my';
-export type UILocale = 'en' | 'ja';
+import type { SupportedLanguage } from '../locales/types';
+export type { SupportedLanguage };
+export type UILocale = 'en' | 'ja' | 'bn' | 'ne' | 'my';
 
 export interface LanguageDefinition {
   code: SupportedLanguage;
@@ -31,10 +32,9 @@ export interface LanguageResolution {
  * Canonical list of supported languages with strict native naming:
  * - English
  * - 日本語
- * - සිංහල
  * - বাংলা
  * - नेपाली
- * - မြန်မာ
+ * - မြန်မာဘာသာ
  */
 export const SUPPORTED_LANGUAGES: readonly LanguageDefinition[] = [
   {
@@ -62,21 +62,21 @@ export const SUPPORTED_LANGUAGES: readonly LanguageDefinition[] = [
     code: 'bn',
     label: 'Bengali',
     nativeName: 'বাংলা',
-    uiLocale: 'en',
+    uiLocale: 'bn',
     aiLanguage: 'bn',
   },
   {
     code: 'ne',
     label: 'Nepali',
     nativeName: 'नेपाली',
-    uiLocale: 'en',
+    uiLocale: 'ne',
     aiLanguage: 'ne',
   },
   {
     code: 'my',
     label: 'Burmese',
-    nativeName: 'မြန်မာ',
-    uiLocale: 'en',
+    nativeName: 'မြန်မာဘာသာ',
+    uiLocale: 'my',
     aiLanguage: 'my',
   },
 ] as const;
@@ -96,10 +96,6 @@ export function isSupportedLanguage(lang: unknown): lang is SupportedLanguage {
 
 /**
  * Centralized Language Resolver
- *
- * Mapping Rules:
- * ja              → uiLocale = ja, aiLanguage = ja (Full Japanese UI + Japanese AI experience)
- * en, si, bn, ne, my → uiLocale = en, aiLanguage = <selected> (English UI + Target AI experience)
  */
 export function resolveLanguage(code?: string | null): LanguageResolution {
   const match = SUPPORTED_LANGUAGES.find((l) => l.code === code);
@@ -142,10 +138,10 @@ export function getVoiceNotice(code: SupportedLanguage): string | null {
   switch (code) {
     case 'ja':
       return null;
-    case 'bn':
-      return 'VOICEVOX শুধুমাত্র জাপানি ভয়েস সমর্থন করে। টেক্সট প্রতিক্রিয়া উপরে প্রদর্শিত হয়েছে।';
     case 'si':
       return 'VOICEVOX ජපන් හඬ පමණක් සපයයි. පෙළ ප්‍රතිචාරය ඉහතින් දක්වා ඇත.';
+    case 'bn':
+      return 'VOICEVOX শুধুমাত্র জাপানি ভয়েস সমর্থন করে। টেক্সট প্রতিক্রিয়া উপরে প্রদর্শিত হয়েছে।';
     case 'ne':
       return 'VOICEVOX ले केवल जापानी आवाज समर्थन गर्दछ। पाठ प्रतिक्रिया माथि देखाइएको छ।';
     case 'my':

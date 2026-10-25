@@ -37,6 +37,9 @@ class ChatEndpointTest {
     @MockitoBean
     private AiProvider aiProvider;
 
+    @MockitoBean
+    private com.tronai.hybrid.HybridRoutingService hybrid;
+
     @Autowired
     private com.tronai.auth.JwtService jwtService;
 
@@ -47,6 +50,10 @@ class ChatEndpointTest {
 
     @org.junit.jupiter.api.BeforeEach
     void setUp() {
+        // Provider generation is mocked: keep routing hermetic too.
+        org.mockito.Mockito.when(hybrid.selectInferenceRoute()).thenReturn("LOCAL_OLLAMA");
+        org.mockito.Mockito.when(hybrid.tryAcquireAiSlot()).thenReturn(true);
+        org.mockito.Mockito.when(hybrid.allowsCloudInference()).thenReturn(false);
         lenient().when(aiProvider.getProviderName()).thenReturn("ollama");
         lenient().when(aiProvider.isAvailable()).thenReturn(true);
         // JWT filter loads User from DB for suspension checks — seed a real enabled user.
@@ -207,7 +214,8 @@ class ChatEndpointTest {
     @Test
     @DisplayName("Local AI unavailable with cloud fallback disabled returns the privacy error")
     void ollamaUnavailableReturns503() throws Exception {
-        when(aiProvider.generate(any())).thenThrow(new AiProviderUnavailableException("Connection refused"));
+        when(aiProvider.generate(any())).thenThrow(
+                new AiProviderUnavailableException(com.tronai.ai.FallbackAiProvider.LOCAL_UNAVAILABLE_DETAIL));
 
         ChatRequest request = ChatRequest.builder()
                 .messages(List.of(
@@ -220,7 +228,8 @@ class ChatEndpointTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isServiceUnavailable())
-                .andExpect(jsonPath("$.detail").value("Local AI is unavailable and cloud fallback is disabled."));
+                .andExpect(jsonPath("$.detail").value(
+                        com.tronai.ai.FallbackAiProvider.LOCAL_UNAVAILABLE_DETAIL));
     }
 
     @Test

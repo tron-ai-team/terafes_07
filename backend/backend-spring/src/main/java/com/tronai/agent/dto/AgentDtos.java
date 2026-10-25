@@ -17,19 +17,23 @@ public class AgentDtos {
         @NotBlank(message = "Goal cannot be blank")
         private String goal;
 
-        @NotBlank(message = "Company name cannot be blank")
+        /** Required unless {@code jobId} resolves company/title/description from a saved Career job. */
         private String companyName;
 
-        @NotBlank(message = "Job position cannot be blank")
         private String jobPosition;
 
-        @NotBlank(message = "Job description cannot be blank")
         private String jobDescription;
 
         @Builder.Default
         private String language = "ja";
 
         private Long cvId;
+
+        /** Optional Career Center job id; when set, job fields may be enriched from persisted listing. */
+        private String jobId;
+
+        /** Optional company analysis id for interview prep context. */
+        private String companyAnalysisId;
 
         private String aiProfile;
     }

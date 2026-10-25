@@ -9,6 +9,8 @@ import {
   History,
   ArrowRight,
   GraduationCap,
+  UserRound,
+  Building2,
 } from 'lucide-react';
 
 export const CareerCenterPage: React.FC = () => {
@@ -47,8 +49,49 @@ export const CareerCenterPage: React.FC = () => {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {/* Card 1: Job Finder */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          <Link
+            to="/career/profile"
+            className="group relative p-5 rounded-2xl bg-white/90 backdrop-blur-xl border border-slate-200 hover:border-blue-300 shadow-sm hover:shadow-md hover:shadow-blue-500/10 transition-all flex flex-col justify-between"
+          >
+            <div className="space-y-2">
+              <div className="w-10 h-10 rounded-xl bg-sky-50 text-sky-600 flex items-center justify-center group-hover:scale-105 transition-transform">
+                <UserRound className="w-5 h-5" />
+              </div>
+              <h3 className="font-bold text-sm text-slate-900 group-hover:text-blue-600 transition-colors">
+                Candidate Profile
+              </h3>
+              <p className="text-xs text-slate-500 leading-relaxed">
+                Shared profile for CV Builder, Job Finder, and interviews.
+              </p>
+            </div>
+            <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs font-semibold text-sky-600 group-hover:translate-x-0.5 transition-transform">
+              <span>Edit Profile</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </div>
+          </Link>
+
+          <Link
+            to="/career/cv-builder"
+            className="group relative p-5 rounded-2xl bg-white/90 backdrop-blur-xl border border-slate-200 hover:border-blue-300 shadow-sm hover:shadow-md hover:shadow-blue-500/10 transition-all flex flex-col justify-between"
+          >
+            <div className="space-y-2">
+              <div className="w-10 h-10 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center group-hover:scale-105 transition-transform">
+                <FileText className="w-5 h-5" />
+              </div>
+              <h3 className="font-bold text-sm text-slate-900 group-hover:text-blue-600 transition-colors">
+                CV Builder
+              </h3>
+              <p className="text-xs text-slate-500 leading-relaxed">
+                履歴書 / 職務経歴書 / Resume with AI assist and XLSX·PDF export.
+              </p>
+            </div>
+            <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs font-semibold text-purple-600 group-hover:translate-x-0.5 transition-transform">
+              <span>Open Builder</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </div>
+          </Link>
+
           <Link
             to="/career/jobs"
             className="group relative p-5 rounded-2xl bg-white/90 backdrop-blur-xl border border-slate-200 hover:border-blue-300 shadow-sm hover:shadow-md hover:shadow-blue-500/10 transition-all flex flex-col justify-between"
@@ -61,7 +104,7 @@ export const CareerCenterPage: React.FC = () => {
                 Job Finder
               </h3>
               <p className="text-xs text-slate-500 leading-relaxed">
-                Find relevant jobs matching your skills and profile.
+                Mynavi &amp; CareerMap search with honest empty states.
               </p>
             </div>
             <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs font-semibold text-blue-600 group-hover:translate-x-0.5 transition-transform">
@@ -70,7 +113,27 @@ export const CareerCenterPage: React.FC = () => {
             </div>
           </Link>
 
-          {/* Card 2: Interview Practice */}
+          <Link
+            to="/career/company-analysis"
+            className="group relative p-5 rounded-2xl bg-white/90 backdrop-blur-xl border border-slate-200 hover:border-blue-300 shadow-sm hover:shadow-md hover:shadow-blue-500/10 transition-all flex flex-col justify-between"
+          >
+            <div className="space-y-2">
+              <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center group-hover:scale-105 transition-transform">
+                <Building2 className="w-5 h-5" />
+              </div>
+              <h3 className="font-bold text-sm text-slate-900 group-hover:text-blue-600 transition-colors">
+                Company Analysis
+              </h3>
+              <p className="text-xs text-slate-500 leading-relaxed">
+                Source-backed website research, CV compare, transfer to CV Builder.
+              </p>
+            </div>
+            <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs font-semibold text-indigo-600 group-hover:translate-x-0.5 transition-transform">
+              <span>Analyze Company</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </div>
+          </Link>
+
           <Link
             to="/career/interview"
             className="group relative p-5 rounded-2xl bg-white/90 backdrop-blur-xl border border-slate-200 hover:border-blue-300 shadow-sm hover:shadow-md hover:shadow-blue-500/10 transition-all flex flex-col justify-between"
@@ -92,46 +155,44 @@ export const CareerCenterPage: React.FC = () => {
             </div>
           </Link>
 
-          {/* Card 3: Interview Agent */}
           <Link
             to="/career/interview-agent"
             className="group relative p-5 rounded-2xl bg-white/90 backdrop-blur-xl border border-slate-200 hover:border-blue-300 shadow-sm hover:shadow-md hover:shadow-blue-500/10 transition-all flex flex-col justify-between"
           >
             <div className="space-y-2">
-              <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center group-hover:scale-105 transition-transform">
+              <div className="w-10 h-10 rounded-xl bg-violet-50 text-violet-600 flex items-center justify-center group-hover:scale-105 transition-transform">
                 <Bot className="w-5 h-5" />
               </div>
               <h3 className="font-bold text-sm text-slate-900 group-hover:text-blue-600 transition-colors">
-                Interview Agent
+                Interview Prep Agent
               </h3>
               <p className="text-xs text-slate-500 leading-relaxed">
-                CV + Job + Gap Analysis + Strategy + Tailored Questions.
+                Legacy prep agent (CV + job gap strategy). Prefer Company Analysis for V1.
               </p>
             </div>
-            <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs font-semibold text-indigo-600 group-hover:translate-x-0.5 transition-transform">
+            <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs font-semibold text-violet-600 group-hover:translate-x-0.5 transition-transform">
               <span>Run Agent</span>
               <ArrowRight className="w-3.5 h-3.5" />
             </div>
           </Link>
 
-          {/* Card 4: CV Manager */}
           <Link
             to="/career/cv"
             className="group relative p-5 rounded-2xl bg-white/90 backdrop-blur-xl border border-slate-200 hover:border-blue-300 shadow-sm hover:shadow-md hover:shadow-blue-500/10 transition-all flex flex-col justify-between"
           >
             <div className="space-y-2">
-              <div className="w-10 h-10 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center group-hover:scale-105 transition-transform">
+              <div className="w-10 h-10 rounded-xl bg-fuchsia-50 text-fuchsia-600 flex items-center justify-center group-hover:scale-105 transition-transform">
                 <FileText className="w-5 h-5" />
               </div>
               <h3 className="font-bold text-sm text-slate-900 group-hover:text-blue-600 transition-colors">
-                CV Manager
+                CV Upload (legacy)
               </h3>
               <p className="text-xs text-slate-500 leading-relaxed">
-                Manage candidate CVs, parse profiles, and generate ATS summaries.
+                Upload/parse existing CV files. Prefer AI CV Builder for new documents.
               </p>
             </div>
-            <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs font-semibold text-purple-600 group-hover:translate-x-0.5 transition-transform">
-              <span>Manage CVs</span>
+            <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs font-semibold text-fuchsia-600 group-hover:translate-x-0.5 transition-transform">
+              <span>Manage Uploads</span>
               <ArrowRight className="w-3.5 h-3.5" />
             </div>
           </Link>

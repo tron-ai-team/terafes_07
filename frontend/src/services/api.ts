@@ -85,11 +85,19 @@ export const tronApi = {
       questionCount: Math.min(8, Math.max(1, config.questionCount || 5)),
       cvFileName: config.cvFileName,
       aiProfile: config.aiProfile || 'FAST',
+      cvDocumentId: config.cvDocumentId,
+      companyAnalysisId: config.companyAnalysisId,
+      jobId: config.jobId,
     };
+
+    const payload: Record<string, unknown> = { ...fullConfig };
+    if (payload.cvDocumentId == null) delete payload.cvDocumentId;
+    if (!payload.companyAnalysisId) delete payload.companyAnalysisId;
+    if (!payload.jobId) delete payload.jobId;
 
     const res = await apiFetch('/api/v1/interviews/start', {
       method: 'POST',
-      body: JSON.stringify(fullConfig),
+      body: JSON.stringify(payload),
     });
 
     if (!res.ok) {

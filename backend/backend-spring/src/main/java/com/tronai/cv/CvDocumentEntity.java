@@ -50,6 +50,13 @@ public class CvDocumentEntity {
     @Builder.Default
     private String status = "COMPLETED";
 
+    @Column(name = "is_primary", nullable = false)
+    @Builder.Default
+    private boolean primary = false;
+
+    @Column(name = "version_label", length = 100)
+    private String versionLabel;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 

@@ -16,14 +16,50 @@ import java.util.Map;
 public class AgentEngineController {
 
     private final AgentEngineRegistry registry;
+    private final PromptOptimizerService optimizer;
+    private final NativeAgentRouter router;
 
-    public AgentEngineController(AgentEngineRegistry registry) {
+    public AgentEngineController(AgentEngineRegistry registry,
+                                 PromptOptimizerService optimizer,
+                                 NativeAgentRouter router) {
         this.registry = registry;
+        this.optimizer = optimizer;
+        this.router = router;
     }
 
     @GetMapping("/health")
     public ResponseEntity<Map<String, Object>> health() {
         return ResponseEntity.ok(registry.healthAll());
+    }
+
+    /**
+     * One-shot prompt optimize only (no agent execution). Used for Stage A provider benchmarks.
+     */
+    @PostMapping("/prompt-optimize")
+    public ResponseEntity<Map<String, Object>> promptOptimize(@RequestBody Map<String, String> body) {
+        String goal = body.get("goal");
+        NativeAgentRouter.RouteKind kind = router.route(goal == null ? "" : goal);
+        if (body.get("route") != null && !body.get("route").isBlank()) {
+            try {
+                kind = NativeAgentRouter.RouteKind.valueOf(body.get("route").trim().toUpperCase());
+            } catch (Exception ignored) {
+            }
+        }
+        long started = System.currentTimeMillis();
+        PromptOptimizerService.OptimizationResult opt = optimizer.optimize(
+                SecurityUtils.getRequiredUserId(),
+                goal,
+                kind,
+                body.get("providerOverride"),
+                body.get("modelOverride"));
+        Map<String, Object> out = new java.util.LinkedHashMap<>();
+        out.put("route", kind.name());
+        out.put("providerId", opt.providerId());
+        out.put("modelId", opt.modelId());
+        out.put("originalGoal", opt.originalGoal());
+        out.put("improvedPrompt", opt.improvedPrompt());
+        out.put("latencyMs", System.currentTimeMillis() - started);
+        return ResponseEntity.ok(out);
     }
 
     @PostMapping("/{engine}/sessions")

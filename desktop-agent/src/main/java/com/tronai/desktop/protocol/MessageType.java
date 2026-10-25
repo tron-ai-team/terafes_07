@@ -1,0 +1,24 @@
+package com.tronai.desktop.protocol;
+
+public enum MessageType {
+    DEVICE_HELLO,
+    DEVICE_WELCOME,
+    DEVICE_HEARTBEAT,
+    TASK_START,
+    TASK_CANCEL,
+    TASK_PAUSE,
+    TASK_RESUME,
+    TAKE_CONTROL,
+    ACTION_REQUEST,
+    ACTION_RESULT,
+    APPROVAL_REQUIRED,
+    APPROVAL_GRANTED,
+    APPROVAL_DENIED,
+    TERMINAL_OUTPUT,
+    FILE_CHANGED,
+    BROWSER_EVENT,
+    TASK_COMPLETED,
+    TASK_FAILED,
+    ERROR
+}
+

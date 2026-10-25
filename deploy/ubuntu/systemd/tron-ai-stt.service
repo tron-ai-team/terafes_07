@@ -1,0 +1,24 @@
+[Unit]
+Description=TRON AI STT worker
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=tron-ai
+Group=tron-ai
+WorkingDirectory=/opt/tron-ai/stt-worker
+EnvironmentFile=/etc/tron-ai/tron-ai-stt.env
+# Bind the private LAN address or 127.0.0.1. Do not use 0.0.0.0 on a public interface.
+ExecStart=/bin/bash -c 'exec /opt/tron-ai/stt-worker/.venv/bin/uvicorn app.main:app --host "${STT_HOST:-127.0.0.1}" --port "${STT_PORT:-8091}"'
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=tron-ai-stt
+
+[Install]
+WantedBy=multi-user.target

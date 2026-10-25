@@ -133,8 +133,8 @@ class CvEndpointTest {
     }
 
     @Test
-    @DisplayName("Unsupported file format (.docx) returns HTTP 415 with {detail: 'Only PDF files are accepted'}")
-    void docxFileReturns415() throws Exception {
+    @DisplayName("Corrupt DOCX bytes return HTTP 400 (DOCX is an accepted type but must be valid OOXML)")
+    void corruptDocxReturns400() throws Exception {
         MockMultipartFile file = new MockMultipartFile(
                 "file",
                 "resume.docx",
@@ -144,12 +144,12 @@ class CvEndpointTest {
 
         mockMvc.perform(multipart("/demo/cv/upload").file(file)
                         .header("Authorization", authHeader))
-                .andExpect(status().isUnsupportedMediaType())
-                .andExpect(jsonPath("$.detail").value("Only PDF files are accepted"));
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.detail").value("The DOCX structure could not be read"));
     }
 
     @Test
-    @DisplayName("Unsupported file format (.png) returns HTTP 415 with {detail: 'Only PDF files are accepted'}")
+    @DisplayName("Unsupported file format (.png) returns HTTP 415 with PDF/DOCX acceptance message")
     void imageFileReturns415() throws Exception {
         MockMultipartFile file = new MockMultipartFile(
                 "file",
@@ -161,7 +161,7 @@ class CvEndpointTest {
         mockMvc.perform(multipart("/demo/cv/upload").file(file)
                         .header("Authorization", authHeader))
                 .andExpect(status().isUnsupportedMediaType())
-                .andExpect(jsonPath("$.detail").value("Only PDF files are accepted"));
+                .andExpect(jsonPath("$.detail").value("Only PDF or DOCX files are accepted"));
     }
 
     @Test

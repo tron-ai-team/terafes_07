@@ -37,7 +37,7 @@ public class CompositeDocumentTextExtractor implements DocumentTextExtractor {
                 return extractor.extract(data, filename);
             }
         }
-        throw new CvException(HttpStatus.UNSUPPORTED_MEDIA_TYPE, "Only PDF files are accepted");
+        throw new CvException(HttpStatus.UNSUPPORTED_MEDIA_TYPE, "Only PDF or DOCX files are accepted");
     }
 
     public ExtractedDocument extract(byte[] data, String filename, String contentType) {
@@ -46,6 +46,6 @@ public class CompositeDocumentTextExtractor implements DocumentTextExtractor {
                 return extractor.extract(data, filename);
             }
         }
-        throw new CvException(HttpStatus.UNSUPPORTED_MEDIA_TYPE, "Only PDF files are accepted");
+        throw new CvException(HttpStatus.UNSUPPORTED_MEDIA_TYPE, "Only PDF or DOCX files are accepted");
     }
 }

@@ -58,12 +58,19 @@ class VoiceEndpointTest {
     @MockitoBean
     private AiProvider aiProvider;
 
+    @MockitoBean
+    private com.tronai.hybrid.HybridRoutingService hybrid;
+
     private static final byte[] FAKE_WAV = new byte[]{
             'R', 'I', 'F', 'F', 36, 0, 0, 0, 'W', 'A', 'V', 'E', 'f', 'm', 't', ' '
     };
 
     @org.junit.jupiter.api.BeforeEach
     void setUp() {
+        // Provider generation is mocked: keep routing hermetic too.
+        org.mockito.Mockito.when(hybrid.selectInferenceRoute()).thenReturn("LOCAL_OLLAMA");
+        org.mockito.Mockito.when(hybrid.tryAcquireAiSlot()).thenReturn(true);
+        org.mockito.Mockito.when(hybrid.allowsCloudInference()).thenReturn(false);
         org.mockito.Mockito.lenient().when(aiProvider.getProviderName()).thenReturn("ollama");
         org.mockito.Mockito.lenient().when(aiProvider.isAvailable()).thenReturn(true);
         org.mockito.Mockito.lenient().when(textToSpeechProvider.isAvailable()).thenReturn(true);
@@ -77,6 +84,23 @@ class VoiceEndpointTest {
                         .build()));
         authHeader = "Bearer " + jwtService.generateAccessToken(
                 user.getId(), user.getEmail(), "USER", user.getDisplayName());
+    }
+
+    @Test
+    void unavailableInferenceReturns503WithoutCallingProviders() throws Exception {
+        when(hybrid.selectInferenceRoute()).thenReturn("UNAVAILABLE");
+        when(speechToTextProvider.transcribe(any(), any(), any(), any(), any()))
+                .thenReturn(new SttTranscriptionResult("こんにちは", 2.5, "ja"));
+
+        mockMvc.perform(multipart("/api/v1/voice/turn")
+                        .file(new MockMultipartFile("file", "audio.wav", "audio/wav", FAKE_WAV))
+                        .header("Authorization", authHeader)
+                        .param("language", "ja"))
+                .andExpect(status().isServiceUnavailable())
+                .andExpect(jsonPath("$.detail").value(
+                        "AI is unavailable: local and cloud routing are both disabled or unhealthy"));
+        org.mockito.Mockito.verify(aiProvider, org.mockito.Mockito.never()).generate(any());
+        org.mockito.Mockito.verify(textToSpeechProvider, org.mockito.Mockito.never()).synthesize(anyString());
     }
 
     @Test

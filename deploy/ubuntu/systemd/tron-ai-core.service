@@ -1,0 +1,25 @@
+[Unit]
+Description=TRON AI Spring Boot core
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=tron-ai
+Group=tron-ai
+WorkingDirectory=/opt/tron-ai/backend
+EnvironmentFile=/etc/tron-ai/tron-ai.env
+ExecStart=/usr/bin/java -jar /opt/tron-ai/backend/tron-ai-core.jar --spring.profiles.active=prod
+Restart=on-failure
+RestartSec=5
+SuccessExitStatus=143
+NoNewPrivileges=true
+PrivateTmp=true
+
+# Logs: journalctl -u tron-ai-core
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=tron-ai-core
+
+[Install]
+WantedBy=multi-user.target

@@ -43,6 +43,9 @@ class ChatProfileLockTest {
     @MockitoBean
     private AiProvider aiProvider;
 
+    @MockitoBean
+    private com.tronai.hybrid.HybridRoutingService hybrid;
+
     @Autowired
     private JwtService jwtService;
 
@@ -53,6 +56,10 @@ class ChatProfileLockTest {
 
     @BeforeEach
     void setUp() {
+        // Provider generation is mocked: keep routing hermetic too.
+        org.mockito.Mockito.when(hybrid.selectInferenceRoute()).thenReturn("LOCAL_OLLAMA");
+        org.mockito.Mockito.when(hybrid.tryAcquireAiSlot()).thenReturn(true);
+        org.mockito.Mockito.when(hybrid.allowsCloudInference()).thenReturn(false);
         lenient().when(aiProvider.getProviderName()).thenReturn("ollama");
         lenient().when(aiProvider.isAvailable()).thenReturn(true);
         lenient().when(aiProvider.generate(any(ChatGenerationRequest.class))).thenReturn(

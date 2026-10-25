@@ -2,7 +2,7 @@ import { AiProfile } from './aiProfile';
 
 export type AIInterviewerState = 'idle' | 'listening' | 'thinking' | 'speaking' | 'error';
 
-export type InterviewType = 'general' | 'technical' | 'hr' | 'behavioral';
+export type InterviewType = 'general' | 'technical' | 'hr' | 'behavioral' | 'company-specific';
 export type InterviewDifficulty = 'beginner' | 'intermediate' | 'advanced';
 export type InterviewMode = 'manual' | 'auto';
 export type InterviewLanguage = 'japanese' | 'english' | 'sinhala' | 'bengali' | 'nepali' | 'myanmar' | string;
@@ -22,6 +22,12 @@ export interface InterviewConfig {
   cvFileName?: string;
   cvFileData?: string;
   aiProfile?: AiProfile;
+  /** Legacy / uploaded CV document id from /api/v1/cv */
+  cvDocumentId?: number;
+  /** Career Center company analysis id */
+  companyAnalysisId?: string;
+  /** Career job id when starting from Job Finder */
+  jobId?: string;
 }
 
 export interface InterviewQuestion {

@@ -24,6 +24,7 @@ import {
   LANGUAGE_STORAGE_KEY,
   LEGACY_LANGUAGE_STORAGE_KEY,
 } from '../utils/languageResolver';
+import { getTranslation, TranslationSchema } from '../locales';
 
 export type { SupportedLanguage, UILocale };
 
@@ -51,6 +52,7 @@ interface AppContextType {
   removeToast: (id: string) => void;
 
   // Unified Language Experience
+  t: TranslationSchema;
   selectedLanguage: SupportedLanguage;
   setSelectedLanguage: (lang: SupportedLanguage) => void;
   uiLocale: UILocale;
@@ -157,6 +159,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const languageResolution = resolveLanguage(selectedLanguage);
   const uiLocale = languageResolution.uiLocale;
   const aiLanguage = languageResolution.aiLanguage;
+  const t = getTranslation(selectedLanguage);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      document.documentElement.lang = selectedLanguage;
+    }
+  }, [selectedLanguage]);
 
   const [searchMode, setSearchMode] = useState<SearchMode>('auto');
   const [interviewConfig, setInterviewConfig] = useState<InterviewConfig>(() => ({
@@ -596,13 +605,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const logout = async () => {
-    await authApi.logout();
+    try {
+      await authApi.logout();
+    } catch {
+      // ignore
+    }
     setUser(null);
     setAccessTokenState(null);
     setHttpAccessToken(null);
     setChatSessions([initialSampleChatSession]);
     setActiveChatId('session-default-1');
     addToast('Logged out successfully', 'info');
+    if (typeof window !== 'undefined' && window.location.pathname !== '/') {
+      window.location.href = '/';
+    }
   };
 
   // Chat Actions
@@ -778,6 +794,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         toasts,
         addToast,
         removeToast,
+        t,
         selectedLanguage,
         setSelectedLanguage,
         uiLocale,

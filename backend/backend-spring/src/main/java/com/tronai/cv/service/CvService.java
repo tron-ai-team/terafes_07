@@ -77,7 +77,7 @@ public class CvService {
         String contentType = file.getContentType();
 
         if (!documentExtractor.supports(safeFilename, contentType)) {
-            throw new CvException(HttpStatus.UNSUPPORTED_MEDIA_TYPE, "Only PDF files are accepted");
+            throw new CvException(HttpStatus.UNSUPPORTED_MEDIA_TYPE, "Only PDF or DOCX files are accepted");
         }
 
         byte[] data;
@@ -105,7 +105,8 @@ public class CvService {
             User user = userRepository.findById(userId).orElse(null);
 
             if (user != null) {
-                String objectKey = String.format("users/%d/cv/%s.pdf", userId, UUID.randomUUID());
+                String ext = safeFilename.toLowerCase().endsWith(".docx") ? "docx" : "pdf";
+                String objectKey = String.format("users/%d/cv/%s.%s", userId, UUID.randomUUID(), ext);
                 boolean objectUploaded = false;
 
                 try {
@@ -137,12 +138,19 @@ public class CvService {
                     String workExpJson = serializeJson(parsed.getWorkExperience());
                     String extractionNotesJson = serializeJson(parsed.getExtractionNotes());
 
+                    String excerpt = extracted.getText().length() > 4000
+                            ? extracted.getText().substring(0, 4000)
+                            : extracted.getText();
+
                     CvProfileEntity profile = CvProfileEntity.builder()
                             .document(doc)
                             .educationJson(educationJson)
                             .skillsJson(skillsJson)
                             .workExperienceJson(workExpJson)
                             .extractionNotesJson(extractionNotesJson)
+                            .languagesJson(serializeJson(inferLanguages(parsed.getSkills())))
+                            .summaryText(buildSummary(parsed))
+                            .rawTextExcerpt(excerpt)
                             .createdAt(Instant.now())
                             .updatedAt(Instant.now())
                             .build();
@@ -193,6 +201,8 @@ public class CvService {
                     .pageCount(d.getPageCount())
                     .textCharacters(d.getTextCharacters())
                     .status(d.getStatus())
+                    .primary(d.isPrimary())
+                    .versionLabel(d.getVersionLabel())
                     .createdAt(d.getCreatedAt())
                     .build());
         }
@@ -220,11 +230,68 @@ public class CvService {
                 .pageCount(doc.getPageCount())
                 .textCharacters(doc.getTextCharacters())
                 .status(doc.getStatus())
+                .primary(doc.isPrimary())
+                .versionLabel(doc.getVersionLabel())
                 .createdAt(doc.getCreatedAt())
                 .education(education)
                 .skills(skills)
                 .workExperience(workExperience)
                 .extractionNotes(extractionNotes)
+                .languages(profile != null ? deserializeList(profile.getLanguagesJson(), new TypeReference<>() {}) : List.of())
+                .summaryText(profile != null ? profile.getSummaryText() : null)
+                .rawTextExcerpt(profile != null ? profile.getRawTextExcerpt() : null)
+                .build();
+    }
+
+    @Transactional
+    public void setPrimaryCv(Long userId, Long cvId) {
+        CvDocumentEntity doc = cvDocumentRepository.findByIdAndUserId(cvId, userId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "CV document not found"));
+        List<CvDocumentEntity> all = cvDocumentRepository.findByUserIdOrderByCreatedAtDesc(userId);
+        for (CvDocumentEntity d : all) {
+            d.setPrimary(d.getId().equals(doc.getId()));
+        }
+        cvDocumentRepository.saveAll(all);
+    }
+
+    @Transactional
+    public CvDocumentDetailDto updateProfile(Long userId, Long cvId, CvProfileUpdateRequest request) {
+        CvDocumentEntity doc = cvDocumentRepository.findByIdAndUserId(cvId, userId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "CV document not found"));
+        if (request.getVersionLabel() != null) {
+            doc.setVersionLabel(request.getVersionLabel());
+            cvDocumentRepository.save(doc);
+        }
+        CvProfileEntity profile = cvProfileRepository.findByDocumentId(doc.getId())
+                .orElseGet(() -> CvProfileEntity.builder().document(doc).build());
+        if (request.getEducation() != null) profile.setEducationJson(serializeJson(request.getEducation()));
+        if (request.getSkills() != null) profile.setSkillsJson(serializeJson(request.getSkills()));
+        if (request.getWorkExperience() != null) profile.setWorkExperienceJson(serializeJson(request.getWorkExperience()));
+        if (request.getLanguages() != null) profile.setLanguagesJson(serializeJson(request.getLanguages()));
+        if (request.getSummaryText() != null) profile.setSummaryText(request.getSummaryText());
+        cvProfileRepository.save(profile);
+        return getUserDocument(userId, cvId);
+    }
+
+    @Transactional(readOnly = true)
+    public CvSuggestionsResponse suggestions(Long userId, Long cvId, String jobId, String language) {
+        CvDocumentDetailDto cv = getUserDocument(userId, cvId);
+        List<String> general = new ArrayList<>();
+        if (cv.getSkills() == null || cv.getSkills().size() < 5) {
+            general.add("Add more concrete technical skills to your CV profile.");
+        }
+        if (cv.getSummaryText() == null || cv.getSummaryText().isBlank()) {
+            general.add("Write a short professional summary highlighting your target role.");
+        }
+        List<String> jobSpecific = new ArrayList<>();
+        if (jobId != null && !jobId.isBlank()) {
+            jobSpecific.add("Tailor bullet points to mirror keywords from job " + jobId + ".");
+            jobSpecific.add("Quantify achievements that relate to the job requirements.");
+        }
+        return CvSuggestionsResponse.builder()
+                .generalSuggestions(general)
+                .jobSpecificSuggestions(jobSpecific)
+                .language(language != null ? language : "en")
                 .build();
     }
 
@@ -289,5 +356,26 @@ public class CvService {
         } catch (Exception e) {
             return List.of();
         }
+    }
+
+    private List<String> inferLanguages(List<String> skills) {
+        List<String> langs = new ArrayList<>();
+        langs.add("English");
+        if (skills != null) {
+            for (String skill : skills) {
+                if (skill != null && (skill.toLowerCase().contains("japanese") || skill.contains("日本語"))) {
+                    langs.add("Japanese");
+                    break;
+                }
+            }
+        }
+        return langs;
+    }
+
+    private String buildSummary(CvParsedResult parsed) {
+        if (parsed.getWorkExperience() != null && !parsed.getWorkExperience().isEmpty()) {
+            return "Experienced candidate with " + parsed.getWorkExperience().size() + " listed roles.";
+        }
+        return "Candidate profile extracted from uploaded CV.";
     }
 }

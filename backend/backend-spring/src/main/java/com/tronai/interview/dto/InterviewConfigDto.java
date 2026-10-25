@@ -22,6 +22,12 @@ public class InterviewConfigDto {
     private String cvFileName;
     private String cvFileData;
     private String aiProfile = "FAST";
+    /** Optional Career Center CV document id owned by the authenticated user. */
+    private Long cvDocumentId;
+    /** Optional Career Center job id owned by the authenticated user. */
+    private String jobId;
+    /** Optional company analysis from Career Center company interview agent. */
+    private String companyAnalysisId;
 
     public InterviewConfigDto() {
     }
@@ -136,5 +142,29 @@ public class InterviewConfigDto {
 
     public void setAiProfile(String aiProfile) {
         this.aiProfile = aiProfile;
+    }
+
+    public Long getCvDocumentId() {
+        return cvDocumentId;
+    }
+
+    public void setCvDocumentId(Long cvDocumentId) {
+        this.cvDocumentId = cvDocumentId;
+    }
+
+    public String getJobId() {
+        return jobId;
+    }
+
+    public void setJobId(String jobId) {
+        this.jobId = jobId;
+    }
+
+    public String getCompanyAnalysisId() {
+        return companyAnalysisId;
+    }
+
+    public void setCompanyAnalysisId(String companyAnalysisId) {
+        this.companyAnalysisId = companyAnalysisId;
     }
 }

@@ -1,0 +1,18 @@
+# TRON AI — optional LOCAL development services
+# Gotenberg v8: CV PDF conversion (LibreOffice). Bound to localhost only.
+#
+# Production (Ubuntu core): use deploy/compose.prod.yml instead.
+#
+# Start:  docker compose up -d gotenberg
+# Stop:   docker compose stop gotenberg
+# Logs:   docker compose logs -f gotenberg
+
+services:
+  gotenberg:
+    image: gotenberg/gotenberg:8
+    container_name: tron-gotenberg
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:3000:3000"
+    # Keep conversion private — do not publish 3000 on 0.0.0.0
+    # Default Gotenberg health: GET /health

@@ -29,6 +29,8 @@ import { AiProfile } from '../types/aiProfile';
 import { AiProfileSelector } from '../components/common/AiProfileSelector';
 import { resolveLanguage, resolveInterviewLanguage } from '../utils/languageResolver';
 import { authApi } from '../services/httpClient';
+import { careerCenterClient } from '../services/careerCenterClient';
+import type { CompanyAnalysis } from '../types/careerCenter';
 
 export const InterviewSetupPage: React.FC = () => {
   const navigate = useNavigate();
@@ -67,6 +69,10 @@ export const InterviewSetupPage: React.FC = () => {
   const [userCvs, setUserCvs] = useState<any[]>([]);
   const [selectedCvId, setSelectedCvId] = useState<string>('default');
   const [loadingCvs, setLoadingCvs] = useState(false);
+  const [companyAnalyses, setCompanyAnalyses] = useState<CompanyAnalysis[]>([]);
+  const [selectedAnalysisId, setSelectedAnalysisId] = useState<string>(
+    interviewConfig.companyAnalysisId || ''
+  );
 
   useEffect(() => {
     let isMounted = true;
@@ -76,7 +82,9 @@ export const InterviewSetupPage: React.FC = () => {
         const docs = await authApi.getCvDocuments();
         if (isMounted && Array.isArray(docs)) {
           setUserCvs(docs);
-          if (docs.length > 0 && !interviewConfig.cvFileName) {
+          if (interviewConfig.cvDocumentId) {
+            setSelectedCvId(String(interviewConfig.cvDocumentId));
+          } else if (docs.length > 0 && !interviewConfig.cvFileName) {
             setSelectedCvId(String(docs[0].id));
           } else if (interviewConfig.cvFileName) {
             const found = docs.find((d: any) => d.filename === interviewConfig.cvFileName);
@@ -91,11 +99,20 @@ export const InterviewSetupPage: React.FC = () => {
         if (isMounted) setLoadingCvs(false);
       }
     }
+    async function fetchAnalyses() {
+      try {
+        const list = await careerCenterClient.listCompanyAnalyses();
+        if (isMounted) setCompanyAnalyses(Array.isArray(list) ? list : []);
+      } catch {
+        // optional
+      }
+    }
     void fetchUserCvs();
+    void fetchAnalyses();
     return () => {
       isMounted = false;
     };
-  }, [interviewConfig.cvFileName]);
+  }, [interviewConfig.cvFileName, interviewConfig.cvDocumentId]);
 
   const getEstimatedDuration = (count: number) => {
     if (count === 5) return '~10 min';
@@ -124,20 +141,28 @@ export const InterviewSetupPage: React.FC = () => {
     const resolvedLang = resolveInterviewLanguage(selectedLanguage);
     const chosenCv = userCvs.find((c) => String(c.id) === selectedCvId);
     const cvName = chosenCv ? chosenCv.filename : (user?.cvFileName || interviewConfig.cvFileName || 'Default_Candidate_Profile.pdf');
+    const cvDocumentId =
+      selectedCvId !== 'default' && Number.isFinite(Number(selectedCvId))
+        ? Number(selectedCvId)
+        : undefined;
+    const analysis = companyAnalyses.find((a) => a.id === selectedAnalysisId);
 
     setInterviewConfig((prev) => ({
       ...prev,
-      companyName,
+      companyName: analysis?.companyName || companyName,
       jobPosition,
       industry,
       jobDescription,
-      type: interviewType,
+      type: selectedAnalysisId ? 'company-specific' : interviewType,
       difficulty,
       mode,
       language: resolvedLang,
       questionCount,
       aiProfile: selectedProfile,
       cvFileName: cvName,
+      cvDocumentId,
+      companyAnalysisId: selectedAnalysisId || undefined,
+      jobId: prev.jobId,
     }));
 
     addToast(
@@ -183,6 +208,35 @@ export const InterviewSetupPage: React.FC = () => {
                 {uiLanguage === 'ja' ? '1. 企業情報・志望ポジション' : '1. Company & Role Target'}
               </h2>
             </div>
+
+            <label className="block space-y-1.5">
+              <span className="text-xs font-semibold text-slate-600">
+                {uiLanguage === 'ja' ? '企業分析（任意）' : 'Company analysis (optional)'}
+              </span>
+              <select
+                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm"
+                value={selectedAnalysisId}
+                onChange={(e) => {
+                  const id = e.target.value;
+                  setSelectedAnalysisId(id);
+                  const found = companyAnalyses.find((a) => a.id === id);
+                  if (found?.companyName) setCompanyName(found.companyName);
+                  if (id) setInterviewType('company-specific');
+                }}
+              >
+                <option value="">
+                  {uiLanguage === 'ja' ? 'なし（通常面接）' : 'None (standard interview)'}
+                </option>
+                {companyAnalyses.map((a) => (
+                  <option key={a.id} value={a.id}>
+                    {(a.companyName || a.id) + (a.status ? ` · ${a.status}` : '')}
+                  </option>
+                ))}
+              </select>
+              <Link to="/career/company-analysis" className="text-xs font-semibold text-indigo-600 hover:underline">
+                {uiLanguage === 'ja' ? '企業分析を作成する' : 'Create company analysis'}
+              </Link>
+            </label>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <FuturisticInput
@@ -269,6 +323,7 @@ export const InterviewSetupPage: React.FC = () => {
                 {[
                   { id: 'general', title: '一般面接', en: 'General' },
                   { id: 'technical', title: '技術面接', en: 'Technical' },
+                  { id: 'company-specific', title: '企業特化', en: 'Company-specific' },
                   { id: 'hr', title: '人事面接', en: 'HR / Culture' },
                   { id: 'behavioral', title: '行動面接', en: 'Behavioral' },
                 ].map((t) => (

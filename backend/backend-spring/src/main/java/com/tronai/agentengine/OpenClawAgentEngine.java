@@ -69,13 +69,17 @@ public class OpenClawAgentEngine implements AgentEngine {
         h.put("gatewayConfigured", gateway);
         h.put("gatewayUrlSet", gatewayUrl != null && !gatewayUrl.isBlank());
         h.put("playwrightFallback", true);
-        h.put("executionModel", gateway ? "OPENCLAW_GATEWAY" : "DESKTOP_PLAYWRIGHT_WSS");
-        h.put("status", gateway ? "GATEWAY_CONFIGURED"
-                : cli ? "CLI_PRESENT_USING_PLAYWRIGHT_FALLBACK"
-                : "PLAYWRIGHT_FALLBACK");
-        h.put("note", gateway
-                ? "OpenClaw gateway URL configured — gateway client still requires live auth handshake."
-                : "OpenClaw gateway not configured. Browser LIVE uses paired desktop Playwright over WSS.");
+        // V5 Stage A: agent-tasks automation uses Desktop WSS → OpenClaw CLI (not Playwright).
+        h.put("executionModel", cli ? "DESKTOP_OPENCLAW_CLI"
+                : gateway ? "OPENCLAW_GATEWAY" : "DESKTOP_PLAYWRIGHT_WSS");
+        h.put("status", cli ? "CLI_PRESENT"
+                : gateway ? "GATEWAY_CONFIGURED"
+                : "PLAYWRIGHT_AVAILABLE_NOT_OPENCLAW");
+        h.put("note", cli
+                ? "Native automation via Desktop OPENCLAW RUN_GOAL (CLI). Playwright remains a separate deterministic tool."
+                : gateway
+                ? "OpenClaw gateway URL configured — prefer desktop CLI path for agent-tasks."
+                : "OpenClaw CLI missing. Playwright exists but is NOT counted as OpenClaw success.");
         return h;
     }
 

@@ -17,6 +17,8 @@ public class MinioObjectStorageService implements ObjectStorageService {
 
     private static final Logger log = LoggerFactory.getLogger(MinioObjectStorageService.class);
 
+    private final LocalFilesystemObjectStorageService localFallback;
+
     @Value("${MINIO_ENDPOINT:${minio.endpoint:http://127.0.0.1:9000}}")
     private String endpoint;
 
@@ -31,6 +33,10 @@ public class MinioObjectStorageService implements ObjectStorageService {
 
     private MinioClient minioClient;
     private volatile boolean available = false;
+
+    public MinioObjectStorageService(LocalFilesystemObjectStorageService localFallback) {
+        this.localFallback = localFallback;
+    }
 
     @PostConstruct
     public void init() {
@@ -66,8 +72,65 @@ public class MinioObjectStorageService implements ObjectStorageService {
 
     @Override
     public void putObject(String objectKey, byte[] data, String contentType) {
+        if (tryMinioPut(objectKey, data, contentType)) {
+            return;
+        }
+        log.warn("MinIO unavailable; storing object {} on local filesystem fallback", objectKey);
+        localFallback.putObject(objectKey, data, contentType);
+    }
+
+    @Override
+    public byte[] getObject(String objectKey) {
+        if (minioClient != null) {
+            try (InputStream stream = minioClient.getObject(
+                    GetObjectArgs.builder()
+                            .bucket(bucket)
+                            .object(objectKey)
+                            .build())) {
+                this.available = true;
+                return stream.readAllBytes();
+            } catch (Exception e) {
+                this.available = false;
+                log.warn("MinIO get failed for {}; trying local fallback: {}", objectKey, e.getMessage());
+            }
+        }
+        return localFallback.getObject(objectKey);
+    }
+
+    @Override
+    public void deleteObject(String objectKey) {
+        if (minioClient != null) {
+            try {
+                minioClient.removeObject(
+                        RemoveObjectArgs.builder()
+                                .bucket(bucket)
+                                .object(objectKey)
+                                .build()
+                );
+            } catch (Exception e) {
+                log.warn("Failed to delete object {} from MinIO: {}", objectKey, e.getMessage());
+            }
+        }
+        localFallback.deleteObject(objectKey);
+    }
+
+    @Override
+    public boolean isAvailable() {
+        if (minioClient != null) {
+            try {
+                minioClient.bucketExists(BucketExistsArgs.builder().bucket(bucket).build());
+                this.available = true;
+                return true;
+            } catch (Exception e) {
+                this.available = false;
+            }
+        }
+        return localFallback.isAvailable();
+    }
+
+    private boolean tryMinioPut(String objectKey, byte[] data, String contentType) {
         if (minioClient == null) {
-            throw new RuntimeException("MinIO client is not initialized");
+            return false;
         }
         try (ByteArrayInputStream bais = new ByteArrayInputStream(data)) {
             minioClient.putObject(
@@ -78,55 +141,6 @@ public class MinioObjectStorageService implements ObjectStorageService {
                             .contentType(contentType != null ? contentType : "application/octet-stream")
                             .build()
             );
-            this.available = true;
-        } catch (Exception e) {
-            this.available = false;
-            throw new RuntimeException("Failed to store object in MinIO: " + e.getMessage(), e);
-        }
-    }
-
-    @Override
-    public byte[] getObject(String objectKey) {
-        if (minioClient == null) {
-            throw new RuntimeException("MinIO client is not initialized");
-        }
-        try (InputStream stream = minioClient.getObject(
-                GetObjectArgs.builder()
-                        .bucket(bucket)
-                        .object(objectKey)
-                        .build())) {
-            this.available = true;
-            return stream.readAllBytes();
-        } catch (Exception e) {
-            this.available = false;
-            throw new RuntimeException("Failed to retrieve object from MinIO: " + e.getMessage(), e);
-        }
-    }
-
-    @Override
-    public void deleteObject(String objectKey) {
-        if (minioClient == null) {
-            return;
-        }
-        try {
-            minioClient.removeObject(
-                    RemoveObjectArgs.builder()
-                            .bucket(bucket)
-                            .object(objectKey)
-                            .build()
-            );
-        } catch (Exception e) {
-            log.warn("Failed to delete object {} from MinIO: {}", objectKey, e.getMessage());
-        }
-    }
-
-    @Override
-    public boolean isAvailable() {
-        if (minioClient == null) {
-            return false;
-        }
-        try {
-            minioClient.bucketExists(BucketExistsArgs.builder().bucket(bucket).build());
             this.available = true;
             return true;
         } catch (Exception e) {

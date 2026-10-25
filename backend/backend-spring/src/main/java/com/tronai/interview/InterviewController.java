@@ -183,4 +183,19 @@ public class InterviewController {
         Long userId = SecurityUtils.getRequiredUserId();
         return ResponseEntity.ok(interviewService.getUserInterviewDetail(userId, interviewId));
     }
+
+    @DeleteMapping("/{interviewId}")
+    @Operation(summary = "Delete interview history", description = "Deletes an interview session owned by the authenticated user")
+    public ResponseEntity<java.util.Map<String, String>> deleteInterview(@PathVariable("interviewId") String interviewId) {
+        Long userId = SecurityUtils.getRequiredUserId();
+        interviewService.deleteUserInterview(userId, interviewId);
+        return ResponseEntity.ok(java.util.Map.of("detail", "Interview session deleted successfully"));
+    }
+
+    @PostMapping("/{interviewId}/repeat")
+    @Operation(summary = "Repeat interview scenario", description = "Starts a new interview using the same CV/job/config as a previous session")
+    public ResponseEntity<InterviewStartResponse> repeatInterview(@PathVariable("interviewId") String interviewId) {
+        Long userId = SecurityUtils.getRequiredUserId();
+        return ResponseEntity.ok(interviewService.repeatInterview(userId, interviewId));
+    }
 }

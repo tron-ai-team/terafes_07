@@ -36,6 +36,7 @@ public final class CommandPolicyEngine {
             case "TERMINAL", "PROCESS" -> commandPolicy(request);
             case "BROWSER" -> browserPolicy(normalizeBrowserOperation(operation), request.url());
             case "OPENCODE" -> openCodePolicy(operation);
+            case "OPENCLAW" -> openClawPolicy(operation);
             default -> PolicyDecision.of(RiskLevel.BLOCKED, "Unknown tool");
         };
     }
@@ -44,9 +45,19 @@ public final class CommandPolicyEngine {
         return switch (operation) {
             case "HEALTH", "STOP_SERVE" ->
                     PolicyDecision.of(RiskLevel.SAFE, "OpenCode control plane");
-            case "ENSURE_SERVE", "SESSION_CREATE", "PROMPT", "VERIFY_FILE" ->
+            case "ENSURE_SERVE", "SESSION_CREATE", "PROMPT", "RUN_GOAL", "VERIFY_FILE" ->
                     PolicyDecision.of(RiskLevel.NORMAL, "OpenCode workspace-bound execution");
             default -> PolicyDecision.of(RiskLevel.BLOCKED, "Unknown OpenCode operation");
+        };
+    }
+
+    private static PolicyDecision openClawPolicy(String operation) {
+        return switch (operation) {
+            case "HEALTH", "CANCEL" ->
+                    PolicyDecision.of(RiskLevel.SAFE, "OpenClaw control plane");
+            case "RUN_GOAL" ->
+                    PolicyDecision.of(RiskLevel.NORMAL, "OpenClaw native agent execution");
+            default -> PolicyDecision.of(RiskLevel.BLOCKED, "Unknown OpenClaw operation");
         };
     }
 

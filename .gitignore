@@ -1,0 +1,52 @@
+# TRON local / cleanup
+.runtime/
+DELETE_LATER/
+node_modules/
+frontend/node_modules/
+frontend/dist/
+backend/backend-spring/target/
+desktop-agent/target/
+*.log
+.DS_Store
+
+# Secrets and local env (never commit filled values)
+.env
+.env.*
+!.env.example
+!**/.env.example
+backend/backend-spring/.env
+frontend/.env
+**/credentials.json
+**/*.pem
+**/id_rsa
+**/id_rsa.pub
+
+# Deploy runtime (server-side filled env)
+deploy/.env
+/etc/tron-ai/
+
+# Evidence / local artifacts
+_career_center_v1_evidence/
+_gotenberg_verify_evidence/
+_tron_cleanup_verify_evidence/
+_tron_final_integration_evidence/
+_v4_golden_evidence/
+
+# Netlify / tooling
+.netlify/
+
+# IDE
+.idea/
+*.iml
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+
+# Build and platform artifacts
+**/target/
+**/dist/
+*.tsbuildinfo
+
+# Python runtime artifacts
+__pycache__/
+*.py[cod]

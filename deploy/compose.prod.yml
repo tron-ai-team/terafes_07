@@ -1,0 +1,98 @@
+# TRON AI — production compose for the Ubuntu core server.
+# Does NOT create MySQL, Nginx, Cloudflare, or Ollama.
+# Reuses the host MySQL (separate schema) and existing Nginx + tunnel.
+#
+# Usage (on Ubuntu, from /opt/tron-ai/deploy):
+#   docker compose --env-file /etc/tron-ai/tron-ai.env -f compose.prod.yml pull
+#   docker compose --env-file /etc/tron-ai/tron-ai.env -f compose.prod.yml up -d
+#
+# Never publish Gotenberg or MySQL to 0.0.0.0.
+
+name: tron-ai
+
+services:
+  backend:
+    image: ${TRON_BACKEND_IMAGE:-ghcr.io/OWNER/REPO/tron-ai-backend:latest}
+    container_name: tron-ai-backend
+    restart: unless-stopped
+    env_file:
+      - ${TRON_ENV_FILE:-/etc/tron-ai/tron-ai.env}
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      SERVER_ADDRESS: 0.0.0.0
+      SERVER_PORT: "8080"
+      # Reach host MySQL / other host services from the container.
+      DB_HOST: ${DB_HOST:-host.docker.internal}
+      GOTENBERG_URL: http://gotenberg:3000
+      TRON_PDF_ENGINE: gotenberg
+      TRON_PDF_ALLOW_LOCAL_LIBREOFFICE: "false"
+      TRON_STORAGE_LOCAL_PATH: /var/lib/tron-ai/object-storage
+      JAVA_OPTS: ${JAVA_OPTS:--Xms256m -Xmx768m -XX:+UseG1GC -XX:+ExitOnOutOfMemoryError}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      # Loopback only — Nginx on the host is the public entry.
+      - "127.0.0.1:${TRON_BACKEND_HOST_PORT:-18080}:8080"
+    volumes:
+      - tron_ai_object_storage:/var/lib/tron-ai/object-storage
+      - tron_ai_uploads:/var/lib/tron-ai/uploads
+      - tron_ai_logs:/var/log/tron-ai
+    networks:
+      - tron_ai_internal
+    depends_on:
+      gotenberg:
+        condition: service_healthy
+    mem_limit: ${TRON_BACKEND_MEM_LIMIT:-1280m}
+    cpus: ${TRON_BACKEND_CPUS:-1.5}
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8080/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 120s
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "5"
+
+  gotenberg:
+    image: gotenberg/gotenberg:8
+    container_name: tron-ai-gotenberg
+    restart: unless-stopped
+    # LibreOffice PDF path only — disable Chromium routes to save RAM.
+    command:
+      - "gotenberg"
+      - "--api-timeout=120s"
+      - "--libreoffice-restart-after=10"
+      - "--libreoffice-max-queue-size=2"
+      - "--chromium-disable-routes=true"
+    # No host ports: reachable only on tron_ai_internal as http://gotenberg:3000
+    networks:
+      - tron_ai_internal
+    mem_limit: ${TRON_GOTENBERG_MEM_LIMIT:-1024m}
+    cpus: ${TRON_GOTENBERG_CPUS:-1.0}
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:3000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+networks:
+  tron_ai_internal:
+    name: tron_ai_internal
+    driver: bridge
+
+volumes:
+  tron_ai_object_storage:
+    name: tron_ai_object_storage
+  tron_ai_uploads:
+    name: tron_ai_uploads
+  tron_ai_logs:
+    name: tron_ai_logs

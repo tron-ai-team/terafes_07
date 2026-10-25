@@ -20,11 +20,32 @@ Linux fixes: executable Maven wrapper, normalized wrapper line endings, removal 
 
 ## Validation
 
-Results will be finalized after the current clean validation finishes. Evidence is held outside Git at `/tmp/tron-resume-final`.
+| Check | Result |
+| --- | --- |
+| Backend production package | PASS: `./mvnw -B -DskipTests package` |
+| Backend documented hermetic suite | FAIL in GitHub CI: 247 tests, 20 failures, 0 errors, 0 skipped |
+| Frontend clean install and production build | PASS after platform lockfile repair; `npm ci` then empty VITE_CORE_API_URL/VITE_LEGACY_API_URL `npm run build` |
+| Production Docker Compose configuration | PASS with example env and validation image; no services started |
+| Docker image build | BLOCKED: Docker daemon context deadline exceeded; CI Docker job skipped after backend failure |
+| Gitleaks 8.30.1 working-tree secret scan | PASS, no leaks found (redacted output) |
+| Tracked sensitive-file heuristic | PASS, no .env/credentials.json/PEM/private-key files tracked |
+| Fresh npm audit | 3 moderate development-tool findings; 0 high/critical (postcss-nested, postcss-selector-parser, tailwindcss) |
+| Whitespace | Existing/USB Markdown hard breaks, CRLF and trailing-space findings remain in the full staged diff; wrapper normalization verified |
+
+CI evidence: https://github.com/tron-ai-team/terafes_07/actions/runs/40211513281 (initial integration commit). Failures include chat/provider routing and profile lock expectations, durability/persistence, health component expectations, two voice cases returning HTTP 400, and two CommandPolicyEngine path/approval cases. These need triage before merge; the suite was not weakened or further excluded to make it pass. This run also reproduced the frontend native-binding lockfile failure; the follow-up repair passes locally and requires a fresh CI result.
+
+The Linux lockfile repair adds 50 missing optional platform dependency entries generated from the exact declared versions using npm. No existing locked package version changed. Clean install/build succeeded in memory-backed temporary storage; bundle-size warning remains (~1.34 MB JavaScript before gzip). Local full backend runs were bounded because severe host I/O pressure stalled progress; the complete GitHub CI result above is authoritative for the 247-test count. Live-service exclusions match the handoff documentation.
+
+Evidence is outside Git at `/tmp/tron-resume-final` and `/dev/shm/tron-*`; temporary evidence is not a durable deployment record.
 
 ## Pull request
 
-PR URL and integration commit SHA will be recorded in a follow-up report commit after GitHub creates the PR. A report cannot embed the SHA of its own commit; the final report identifies the application integration commit separately.
+- PR: https://github.com/tron-ai-team/terafes_07/pull/3
+- Base: main
+- Status: DRAFT / OPEN, intentionally unmerged because backend CI fails.
+- Application integration commit: `d0774f443d6629bf3d516458298675489de8d5a6`.
+- A subsequent commit on the same branch contains the Linux lockfile repair and this finalized report. Its exact head SHA is available on the PR; a report cannot embed the SHA of its own commit.
+- Push used normal feature-branch updates, with no force push or history rewrite.
 
 ## Remaining deployment requirements
 

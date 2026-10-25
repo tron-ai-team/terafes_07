@@ -42,6 +42,7 @@ with tempfile.TemporaryDirectory() as temporary:
     releases = r.Releases(directory, 'production', runtime)
     rendered = json.loads(releases.compose(release, 'config', '--format', 'json'))
     assert rendered['services']['mysql-proxy']['volumes'][0]['source'] == str(socket), 'CI must never use the runner host database socket'
+    assert rendered['services']['backend']['environment']['DB_PASSWORD'] == 'synthetic-ci-secret-with-more-than-32-characters', 'Fixture DB password binding changed'
     mysql_name = 'tron-disposable-ci-mysql'
     relay_name = 'tron-disposable-ci-relay'
     try:
@@ -54,6 +55,7 @@ with tempfile.TemporaryDirectory() as temporary:
         else:
             raise RuntimeError('Disposable MySQL did not start')
         sql = "CREATE DATABASE tron_ai CHARACTER SET utf8mb4; CREATE USER 'tronai_prod'@'localhost' IDENTIFIED BY 'synthetic-ci-secret-with-more-than-32-characters'; GRANT SELECT,INSERT,UPDATE,DELETE,CREATE,ALTER,INDEX,REFERENCES,CREATE VIEW,SHOW VIEW ON tron_ai.* TO 'tronai_prod'@'localhost';"
+        sql += " CREATE USER 'tronai_prod'@'127.0.0.1' IDENTIFIED BY 'synthetic-ci-secret-with-more-than-32-characters'; GRANT SELECT,INSERT,UPDATE,DELETE,CREATE,ALTER,INDEX,REFERENCES,CREATE VIEW,SHOW VIEW ON tron_ai.* TO 'tronai_prod'@'127.0.0.1';"
         run('docker','exec','-i','-e','MYSQL_PWD=synthetic-ci-root',mysql_name,'mysql','-uroot',input=sql.encode())
         # Same topology as systemd-socket-proxyd on the host: Unix -> loopback TCP,
         # not Unix -> MySQL's native Unix socket (which changes authentication semantics).

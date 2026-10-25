@@ -4,7 +4,9 @@
 -- CREATE USER 'tronai_prod'@'localhost' IDENTIFIED BY <secure locally generated password>;
 -- GRANT SELECT, INSERT, UPDATE, DELETE, CREATE, ALTER, INDEX, REFERENCES,
 --       CREATE VIEW, SHOW VIEW ON tron_ai.* TO 'tronai_prod'@'localhost';
--- The private relay connects to existing loopback TCP; verify localhost account matching.
+-- Create the SAME dedicated account/password/grants at host '127.0.0.1' for relay TCP.
+-- The localhost account is only for Unix-socket backup access.
+-- Explicit numeric loopback grants also work when skip_name_resolve is enabled.
 -- Never weaken the authentication plugin or add a broad remote account.
 -- Staging uses ONLY tron_ai_staging and tronai_staging@localhost.
 -- Confirm schema/account absence before creation; never reset an existing account or schema.

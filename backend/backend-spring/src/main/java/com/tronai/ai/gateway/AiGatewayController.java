@@ -1,5 +1,7 @@
 package com.tronai.ai.gateway;
 
+import com.tronai.ai.research.WebResearchService;
+import com.tronai.ai.secrets.InfisicalSecretsLoader;
 import com.tronai.auth.SecurityUtils;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -23,18 +25,24 @@ public class AiGatewayController {
     private final AiQuotaService quotaService;
     private final AiProviderHealthService providerHealthService;
     private final AiModelRouter modelRouter;
+    private final WebResearchService webResearchService;
+    private final InfisicalSecretsLoader infisicalSecretsLoader;
 
     public AiGatewayController(
             AiGatewayProperties properties,
             AiModelCatalog modelCatalog,
             AiQuotaService quotaService,
             AiProviderHealthService providerHealthService,
-            AiModelRouter modelRouter) {
+            AiModelRouter modelRouter,
+            WebResearchService webResearchService,
+            InfisicalSecretsLoader infisicalSecretsLoader) {
         this.properties = properties;
         this.modelCatalog = modelCatalog;
         this.quotaService = quotaService;
         this.providerHealthService = providerHealthService;
         this.modelRouter = modelRouter;
+        this.webResearchService = webResearchService;
+        this.infisicalSecretsLoader = infisicalSecretsLoader;
     }
 
     @GetMapping("/modes")
@@ -120,8 +128,17 @@ public class AiGatewayController {
                     return item;
                 })
                 .toList();
+        Map<String, Object> privacy = new LinkedHashMap<>();
+        privacy.put("cvAssistCloudEnabled", properties.isCvAssistCloudEnabled());
+        privacy.put("companyAnalysisCloudEnabled", properties.isCompanyAnalysisCloudEnabled());
+        privacy.put("interviewCloudEnabled", properties.isInterviewCloudEnabled());
+        privacy.put("preferGroqForSmart", properties.isPreferGroqForSmart());
+
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("providers", providers);
+        body.put("researchTools", webResearchService.toolHealth());
+        body.put("privacy", privacy);
+        body.put("infisical", infisicalSecretsLoader.publicStatus());
         return ResponseEntity.ok(body);
     }
 

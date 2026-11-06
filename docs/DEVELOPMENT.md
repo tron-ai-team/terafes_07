@@ -48,4 +48,5 @@ Providers: **Mynavi** and **CareerMap** only (`productJobSearchProviders`).
 
 ## Cleanup archive restore
 
-See `DELETE_LATER/CLEANUP_2026-10-25/cleanup-manifest.md`.
+- `DELETE_LATER/CLEANUP_2026-10-25/cleanup-manifest.md` (prior)
+- `DELETE_LATER/CLEANUP_2026-11-06/cleanup-manifest.md` (release prep)

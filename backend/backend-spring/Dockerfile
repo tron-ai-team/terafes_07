@@ -1,6 +1,7 @@
 # TRON AI Spring Boot — multi-stage image (built in CI, not on the core server).
-# Context must be this module directory:
-#   docker build -t tron-ai-backend backend/backend-spring
+# Context: repository root OR this module directory.
+# Prefer building from repo root:
+#   docker build -f backend/backend-spring/Dockerfile -t tron-ai-backend .
 
 FROM maven:3.9.9-eclipse-temurin-21-alpine AS build
 WORKDIR /workspace
@@ -31,6 +32,6 @@ ENV SPRING_PROFILES_ACTIVE=prod \
 EXPOSE 8080
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=90s --retries=5 \
-  CMD wget -qO- http://127.0.0.1:8080/health/ready >/dev/null || exit 1
+  CMD wget -qO- http://127.0.0.1:8080/health >/dev/null || exit 1
 
 ENTRYPOINT ["sh", "-c", "exec java $JAVA_OPTS -jar /app/app.jar"]

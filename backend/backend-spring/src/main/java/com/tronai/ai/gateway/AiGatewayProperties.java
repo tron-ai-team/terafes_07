@@ -26,9 +26,10 @@ public class AiGatewayProperties {
     private String geminiApiKey3 = "";
     private String geminiApiKey4 = "";
 
-    // Mission 09/10 verified live model IDs only — do not invent unsupported IDs.
-    private String groqModelFast = "qwen/qwen3.8-27b";
-    private String groqModelSmart = "qwen/qwen3.8-27b";
+    // Documented Groq model IDs — override via env without code changes.
+    // Default cloud target: openai/gpt-oss-120b (subject to account availability).
+    private String groqModelFast = "openai/gpt-oss-20b";
+    private String groqModelSmart = "openai/gpt-oss-120b";
     private String openrouterModelSmart = "meta-llama/llama-3.3-70b-instruct";
     /** Capable OpenRouter chat model verified live; deepseek-r1 has no endpoints on this account. */
     private String openrouterModelUltra = "deepseek/deepseek-chat";
@@ -37,6 +38,18 @@ public class AiGatewayProperties {
     private String cloudflareModelFast = "@cf/meta/llama-3.1-8b-instruct";
     private String geminiModelSmart = "gemini-2.0-flash";
     private String geminiModelUltra = "gemini-2.5-pro";
+
+    /** Prefer Groq ahead of OpenRouter for SMART when Groq is configured. */
+    private boolean preferGroqForSmart = true;
+    /**
+     * When false (default), CV assist stays local unless the request explicitly sets allowCloud=true.
+     * Personal CV content must not go to cloud without permission.
+     */
+    private boolean cvAssistCloudEnabled = false;
+    /** Company public-source synthesis may use cloud when true (no personal CV dump). */
+    private boolean companyAnalysisCloudEnabled = true;
+    /** Interview features may use cloud when true; still honor request localOnly. */
+    private boolean interviewCloudEnabled = true;
 
     public int getDailyUltraCredits() { return dailyUltraCredits; }
     public void setDailyUltraCredits(int dailyUltraCredits) { this.dailyUltraCredits = dailyUltraCredits; }
@@ -92,4 +105,15 @@ public class AiGatewayProperties {
     public void setGeminiModelSmart(String geminiModelSmart) { this.geminiModelSmart = geminiModelSmart; }
     public String getGeminiModelUltra() { return geminiModelUltra; }
     public void setGeminiModelUltra(String geminiModelUltra) { this.geminiModelUltra = geminiModelUltra; }
+
+    public boolean isPreferGroqForSmart() { return preferGroqForSmart; }
+    public void setPreferGroqForSmart(boolean preferGroqForSmart) { this.preferGroqForSmart = preferGroqForSmart; }
+    public boolean isCvAssistCloudEnabled() { return cvAssistCloudEnabled; }
+    public void setCvAssistCloudEnabled(boolean cvAssistCloudEnabled) { this.cvAssistCloudEnabled = cvAssistCloudEnabled; }
+    public boolean isCompanyAnalysisCloudEnabled() { return companyAnalysisCloudEnabled; }
+    public void setCompanyAnalysisCloudEnabled(boolean companyAnalysisCloudEnabled) {
+        this.companyAnalysisCloudEnabled = companyAnalysisCloudEnabled;
+    }
+    public boolean isInterviewCloudEnabled() { return interviewCloudEnabled; }
+    public void setInterviewCloudEnabled(boolean interviewCloudEnabled) { this.interviewCloudEnabled = interviewCloudEnabled; }
 }

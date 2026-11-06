@@ -1,6 +1,17 @@
 package com.tronai.career.company;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.tronai.ai.ChatMessage;
+import com.tronai.ai.gateway.AiFeature;
+import com.tronai.ai.gateway.AiGateway;
+import com.tronai.ai.gateway.AiGatewayProperties;
+import com.tronai.ai.gateway.AiGenerationResult;
+import com.tronai.ai.gateway.AiMode;
+import com.tronai.ai.gateway.AiRequestContext;
+import com.tronai.ai.gateway.provider.GatewayProviderException;
+import com.tronai.ai.research.WebExtractResult;
+import com.tronai.ai.research.WebResearchService;
 import com.tronai.career.cvbuilder.CvAiSuggestionEntity;
 import com.tronai.career.cvbuilder.CvAiSuggestionRepository;
 import com.tronai.career.cvbuilder.CvBuilderDraftEntity;
@@ -10,7 +21,8 @@ import com.tronai.career.profile.CandidateProfileEntity;
 import com.tronai.career.profile.CandidateProfileRepository;
 import com.tronai.user.User;
 import com.tronai.user.UserRepository;
-import org.jsoup.nodes.Document;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -22,6 +34,8 @@ import java.util.*;
 @Service
 public class CompanyAnalysisService {
 
+    private static final Logger log = LoggerFactory.getLogger(CompanyAnalysisService.class);
+
     private final CompanyAnalysisRepository analysisRepository;
     private final CompanyResearchSourceRepository sourceRepository;
     private final CompanyCvSuggestionRepository companySuggestionRepository;
@@ -30,6 +44,9 @@ public class CompanyAnalysisService {
     private final CandidateProfileRepository profileRepository;
     private final UserRepository userRepository;
     private final SafeUrlFetcher urlFetcher;
+    private final WebResearchService webResearchService;
+    private final AiGateway aiGateway;
+    private final AiGatewayProperties gatewayProperties;
     private final ObjectMapper objectMapper;
     private final CareerLanguageHelper languageHelper;
 
@@ -41,6 +58,9 @@ public class CompanyAnalysisService {
                                   CandidateProfileRepository profileRepository,
                                   UserRepository userRepository,
                                   SafeUrlFetcher urlFetcher,
+                                  WebResearchService webResearchService,
+                                  AiGateway aiGateway,
+                                  AiGatewayProperties gatewayProperties,
                                   ObjectMapper objectMapper,
                                   CareerLanguageHelper languageHelper) {
         this.analysisRepository = analysisRepository;
@@ -51,6 +71,9 @@ public class CompanyAnalysisService {
         this.profileRepository = profileRepository;
         this.userRepository = userRepository;
         this.urlFetcher = urlFetcher;
+        this.webResearchService = webResearchService;
+        this.aiGateway = aiGateway;
+        this.gatewayProperties = gatewayProperties;
         this.objectMapper = objectMapper;
         this.languageHelper = languageHelper;
     }
@@ -82,34 +105,58 @@ public class CompanyAnalysisService {
 
         List<Map<String, Object>> sources = new ArrayList<>();
         List<String> facts = new ArrayList<>();
+        List<String> unknowns = new ArrayList<>();
         try {
-            Document doc = urlFetcher.fetch(websiteUrl);
-            String title = doc.title();
-            String text = doc.body() != null ? doc.body().text() : "";
-            String excerpt = clip(text, 800);
-            persistSource(id, websiteUrl, title, excerpt);
-            sources.add(sourceMap(websiteUrl, title, excerpt));
-            if (title != null && !title.isBlank()) facts.add("Page title: " + title);
-            facts.add("Published website text excerpt captured (verified extraction)");
-
+            // SSRF gate on user-supplied URLs before any network I/O.
+            urlFetcher.validate(websiteUrl);
             if (entity.getRecruitmentUrl() != null) {
-                Document rec = urlFetcher.fetch(entity.getRecruitmentUrl());
-                String rTitle = rec.title();
-                String rExcerpt = clip(rec.body() != null ? rec.body().text() : "", 800);
-                persistSource(id, entity.getRecruitmentUrl(), rTitle, rExcerpt);
-                sources.add(sourceMap(entity.getRecruitmentUrl(), rTitle, rExcerpt));
-                facts.add("Recruitment page excerpt captured");
+                urlFetcher.validate(entity.getRecruitmentUrl());
+            }
+
+            List<WebExtractResult> evidence = webResearchService.collectCompanyEvidence(
+                    companyName, websiteUrl, entity.getRecruitmentUrl());
+            StringBuilder combinedText = new StringBuilder();
+            List<String> engines = new ArrayList<>();
+            for (WebExtractResult extract : evidence) {
+                String excerpt = clip(extract.content(), 800);
+                persistSource(id, extract.url(), extract.title(), excerpt);
+                Map<String, Object> src = sourceMap(extract.url(), extract.title(), excerpt);
+                src.put("engine", extract.engine());
+                src.put("verified", extract.verified());
+                sources.add(src);
+                engines.add(extract.engine());
+                if (extract.title() != null && !extract.title().isBlank()) {
+                    facts.add("Page title (" + extract.url() + "): " + extract.title());
+                }
+                facts.add("Verified extract via " + extract.engine() + ": " + extract.url());
+                combinedText.append(extract.content()).append('\n');
+            }
+
+            if (evidence.isEmpty()) {
+                unknowns.add("No public pages could be extracted; company facts remain unknown");
             }
 
             Map<String, Object> overview = new LinkedHashMap<>();
             overview.put("companyName", companyName);
             overview.put("websiteUrl", websiteUrl);
             overview.put("facts", facts);
+            overview.put("unknown", unknowns);
+            overview.put("researchEngines", engines.stream().distinct().toList());
             overview.put("interpretations", List.of(
-                    "Summaries below are coaching aids; only listed facts are source-backed."));
+                    "Summaries below are coaching aids; only listed facts are source-backed.",
+                    "Search snippets alone are not treated as verified recruitment requirements."));
+
+            Map<String, Object> llmNotes = synthesizeFromEvidence(
+                    userId, companyName, language, evidence, gatewayProperties.isCompanyAnalysisCloudEnabled());
+            if (llmNotes != null && !llmNotes.isEmpty()) {
+                overview.put("analysis", llmNotes.get("analysis"));
+                overview.put("analysisEngine", llmNotes.get("engine"));
+                overview.put("analysisNote",
+                        "LLM interpretation of verified extracts only — not independently verified beyond listed sources");
+            }
 
             Map<String, Object> requirements = new LinkedHashMap<>();
-            requirements.put("stated", extractKeywordHints(text));
+            requirements.put("stated", extractKeywordHints(combinedText.toString()));
             requirements.put("notStated", List.of(
                     "Unstated eligibility is NOT treated as a confirmed mismatch"));
             requirements.put("needsVerification", List.of(
@@ -143,6 +190,108 @@ public class CompanyAnalysisService {
             if (e instanceof ResponseStatusException rse) throw rse;
             throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, e.getMessage());
         }
+    }
+
+    /**
+     * Optional LLM synthesis over verified extracts only. Never invents recruitment requirements.
+     */
+    private Map<String, Object> synthesizeFromEvidence(
+            Long userId,
+            String companyName,
+            String language,
+            List<WebExtractResult> evidence,
+            boolean allowCloud) {
+        if (evidence == null || evidence.isEmpty()) {
+            return Map.of();
+        }
+        // Cap corpus size so Groq/OpenAI-compatible models reject fewer prompts (BAD_REQUEST)
+        // while still keeping source URLs for evidence-backed coaching.
+        StringBuilder corpus = new StringBuilder();
+        int included = 0;
+        for (WebExtractResult e : evidence) {
+            if (included >= 3) {
+                break;
+            }
+            corpus.append("SOURCE URL: ").append(e.url()).append('\n');
+            corpus.append("TITLE: ").append(e.title() == null ? "" : e.title()).append('\n');
+            corpus.append(clip(e.content(), 800)).append("\n---\n");
+            included++;
+        }
+        try {
+            AiRequestContext ctx = AiRequestContext.builder()
+                    .userId(userId)
+                    .feature(AiFeature.COMPANY_RESEARCH)
+                    .mode(AiMode.SMART)
+                    .allowCloud(allowCloud)
+                    .jsonMode(true)
+                    .temperature(0.2)
+                    .maxTokens(900)
+                    .messages(List.of(
+                            new ChatMessage("system", """
+                                    You analyze public company pages for job seekers.
+                                    Rules:
+                                    - Use ONLY the provided source extracts.
+                                    - Distinguish verified facts vs unknown.
+                                    - Never invent recruitment requirements, salaries, or confidential interview questions.
+                                    - Cite source URLs for important claims.
+                                    - Return JSON only: {"summary":"...","verifiedFacts":["..."],"unknown":["..."],"sourceUrls":["..."]}
+                                    """),
+                            new ChatMessage("user",
+                                    "Company: " + companyName + "\nLanguage: " + language + "\n\n" + corpus)
+                    ))
+                    .build();
+            AiGenerationResult result = aiGateway.generate(ctx);
+            Map<String, Object> analysis = parseAnalysisJson(result.getText());
+            String engine = (result.getProvider() == null ? "?" : result.getProvider().name())
+                    + "/" + (result.getModelId() == null ? "?" : result.getModelId());
+            Map<String, Object> out = new LinkedHashMap<>();
+            out.put("analysis", analysis);
+            out.put("engine", engine);
+            return out;
+        } catch (GatewayProviderException e) {
+            log.info("Company analysis LLM synthesis skipped category={} status={}",
+                    e.getCategory(), e.getHttpStatus());
+            return Map.of();
+        } catch (Exception e) {
+            log.info("Company analysis LLM synthesis skipped: {}", e.getClass().getSimpleName());
+            return Map.of();
+        }
+    }
+
+    private Map<String, Object> parseAnalysisJson(String raw) {
+        if (raw == null || raw.isBlank()) {
+            return Map.of();
+        }
+        try {
+            String t = raw.trim();
+            int start = t.indexOf('{');
+            int end = t.lastIndexOf('}');
+            if (start >= 0 && end > start) {
+                t = t.substring(start, end + 1);
+            }
+            JsonNode node = objectMapper.readTree(t);
+            Map<String, Object> m = new LinkedHashMap<>();
+            m.put("summary", node.path("summary").asText(""));
+            m.put("verifiedFacts", readStringArray(node.path("verifiedFacts")));
+            m.put("unknown", readStringArray(node.path("unknown")));
+            m.put("sourceUrls", readStringArray(node.path("sourceUrls")));
+            return m;
+        } catch (Exception e) {
+            return Map.of("summary", clip(raw, 500), "parseError", true);
+        }
+    }
+
+    private List<String> readStringArray(JsonNode node) {
+        List<String> out = new ArrayList<>();
+        if (node != null && node.isArray()) {
+            for (JsonNode n : node) {
+                String v = n.asText("");
+                if (!v.isBlank()) {
+                    out.add(v);
+                }
+            }
+        }
+        return out;
     }
 
     @Transactional(readOnly = true)

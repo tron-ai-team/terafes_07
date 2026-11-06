@@ -97,8 +97,18 @@ class AiModelRouterTest {
     }
 
     @Test
-    @DisplayName("SMART prefers OpenRouter when configured, else Groq smart")
-    void smartPrefersOpenRouterThenGroq() {
+    @DisplayName("SMART prefers Groq when preferGroqForSmart=true (default)")
+    void smartPrefersGroqByDefault() {
+        AiRequestContext context = AiRequestContext.builder().feature(AiFeature.CV_REVIEW).build();
+        AiModelRouter.Route route = router.resolveRoute(context, AiMode.SMART);
+        assertThat(route.provider()).isEqualTo(GatewayProviderId.GROQ);
+        assertThat(route.modelId()).isEqualTo("groq-smart");
+    }
+
+    @Test
+    @DisplayName("SMART prefers OpenRouter when preferGroqForSmart=false")
+    void smartPrefersOpenRouterWhenConfigured() {
+        properties.setPreferGroqForSmart(false);
         properties.setOpenrouterModelSmart("or-smart");
         when(providerRegistry.find(GatewayProviderId.OPENROUTER)).thenReturn(Optional.of(groqProvider));
         when(groqProvider.isConfigured()).thenReturn(true);
@@ -110,12 +120,14 @@ class AiModelRouterTest {
     }
 
     @Test
-    @DisplayName("SMART falls back to Groq when OpenRouter unavailable")
-    void smartFallsBackToGroq() {
-        AiRequestContext context = AiRequestContext.builder().feature(AiFeature.CV_REVIEW).build();
+    @DisplayName("SMART local-only refuses cloud and uses Ollama")
+    void smartLocalOnlyUsesOllama() {
+        AiRequestContext context = AiRequestContext.builder()
+                .feature(AiFeature.CV_GENERATION)
+                .allowCloud(false)
+                .build();
         AiModelRouter.Route route = router.resolveRoute(context, AiMode.SMART);
-        assertThat(route.provider()).isEqualTo(GatewayProviderId.GROQ);
-        assertThat(route.modelId()).isEqualTo("groq-smart");
+        assertThat(route.provider()).isEqualTo(GatewayProviderId.OLLAMA);
     }
 
     @Test

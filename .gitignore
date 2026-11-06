@@ -1,4 +1,4 @@
-# TRON local / cleanup
+﻿# TRON local / cleanup
 .runtime/
 DELETE_LATER/
 node_modules/
@@ -48,5 +48,11 @@ _v4_golden_evidence/
 *.tsbuildinfo
 
 # Python runtime artifacts
-__pycache__/
+**/__pycache__/
 *.py[cod]
+.venv/
+venv/
+
+# OS junk
+Thumbs.db
+Desktop.ini

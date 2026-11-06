@@ -48,9 +48,6 @@ class StorageAndQueueTest {
     private ObjectStorageService objectStorageService;
 
     @MockitoBean
-    private com.tronai.ai.AiProvider aiProvider;
-
-    @MockitoBean
     private BackgroundJobPublisher backgroundJobPublisher;
 
     private String authHeader;
@@ -121,7 +118,6 @@ class StorageAndQueueTest {
     @Test
     @DisplayName("GET /health reports comprehensive component status")
     void healthReportsAllComponents() throws Exception {
-        when(aiProvider.isAvailable()).thenReturn(true);
         mockMvc.perform(get("/health"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("ok"))

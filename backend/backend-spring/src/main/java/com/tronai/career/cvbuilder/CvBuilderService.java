@@ -32,6 +32,7 @@ public class CvBuilderService {
     private final RirekishoExcelFiller excelFiller;
     private final AlternateCvWorkbookExporter alternateExporter;
     private final CvGotenbergExportService gotenbergExportService;
+    private final CvAiAssistService cvAiAssistService;
     private final ObjectMapper objectMapper;
     private final CareerLanguageHelper languageHelper;
 
@@ -45,6 +46,7 @@ public class CvBuilderService {
                             RirekishoExcelFiller excelFiller,
                             AlternateCvWorkbookExporter alternateExporter,
                             CvGotenbergExportService gotenbergExportService,
+                            CvAiAssistService cvAiAssistService,
                             ObjectMapper objectMapper,
                             CareerLanguageHelper languageHelper) {
         this.draftRepository = draftRepository;
@@ -57,6 +59,7 @@ public class CvBuilderService {
         this.excelFiller = excelFiller;
         this.alternateExporter = alternateExporter;
         this.gotenbergExportService = gotenbergExportService;
+        this.cvAiAssistService = cvAiAssistService;
         this.objectMapper = objectMapper;
         this.languageHelper = languageHelper;
     }
@@ -123,18 +126,21 @@ public class CvBuilderService {
         String field = String.valueOf(body.getOrDefault("fieldKey", "selfPr"));
         String instruction = String.valueOf(body.getOrDefault("instruction", ""));
         String language = languageHelper.normalize(String.valueOf(body.getOrDefault("language", "en")));
+        boolean allowCloud = Boolean.TRUE.equals(body.get("allowCloud"))
+                || "true".equalsIgnoreCase(String.valueOf(body.getOrDefault("allowCloud", "false")));
         Map<String, Object> payload = readMap(draft.getPayloadJson());
         String original = String.valueOf(payload.getOrDefault(field, ""));
-        // Non-fabricating assist: structural rewrite only; no new facts.
-        String proposed = improveText(original, instruction, language);
+        CandidateProfileEntity profile = profileRepository.findByUser_Id(userId).orElse(null);
+        CvAiAssistService.AssistResult assist = cvAiAssistService.improve(
+                userId, field, original, instruction, language, payload, profile, allowCloud);
         CvAiSuggestionEntity sugg = CvAiSuggestionEntity.builder()
                 .id(UUID.randomUUID().toString())
                 .draftId(draftId)
                 .user(draft.getUser())
                 .fieldKey(field)
                 .originalText(original)
-                .proposedText(proposed)
-                .reason(languageHelper.message("match.title", language) + ": pending user approval — no silent overwrite")
+                .proposedText(assist.proposedText())
+                .reason(assist.reason() + " | pending user approval — no silent overwrite")
                 .status("PENDING")
                 .language(language)
                 .build();
@@ -143,9 +149,13 @@ public class CvBuilderService {
         out.put("suggestionId", sugg.getId());
         out.put("fieldKey", field);
         out.put("originalText", original == null ? "" : original);
-        out.put("proposedText", proposed == null ? "" : proposed);
+        out.put("proposedText", assist.proposedText() == null ? "" : assist.proposedText());
         out.put("reason", sugg.getReason());
         out.put("status", "PENDING");
+        out.put("engine", assist.engine());
+        out.put("clarificationNeeded", assist.clarificationNeeded());
+        out.put("cloudUsed", allowCloud && assist.engine() != null && !assist.engine().startsWith("fallback")
+                && !assist.engine().contains("OLLAMA"));
         return out;
     }
 
@@ -262,18 +272,6 @@ public class CvBuilderService {
     public CvGeneratedDocumentEntity requireDocument(Long userId, String documentId) {
         return generatedDocumentRepository.findByIdAndUser_Id(documentId, userId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Document not found"));
-    }
-
-    private String improveText(String original, String instruction, String language) {
-        if (original == null || original.isBlank()) {
-            return "";
-        }
-        String trimmed = original.trim().replaceAll("\\s+", " ");
-        if (instruction.toLowerCase(Locale.ROOT).contains("professional")
-                || instruction.contains("丁寧") || instruction.contains("professional")) {
-            return trimmed + (language.startsWith("ja") ? "（表現を整理しました。事実は追加していません。）" : " (rephrased for clarity; no new facts added)");
-        }
-        return trimmed;
     }
 
     private Map<String, Object> payloadFromProfile(Long userId) {

@@ -10,7 +10,6 @@ export * from './types';
 export const LANGUAGES: LanguageInfo[] = [
   { code: 'en', label: 'English', nativeName: 'English' },
   { code: 'ja', label: 'Japanese', nativeName: '日本語' },
-  { code: 'si', label: 'Sinhala', nativeName: 'සිංහල' },
   { code: 'bn', label: 'Bengali', nativeName: 'বাংলা' },
   { code: 'ne', label: 'Nepali', nativeName: 'नेपाली' },
   { code: 'my', label: 'Burmese', nativeName: 'မြန်မာဘာသာ' },
@@ -18,7 +17,6 @@ export const LANGUAGES: LanguageInfo[] = [
 
 export const translations: Record<SupportedLanguage, TranslationSchema> = {
   en,
-  si: en, // Preserve Sinhala AI selection with the existing English UI fallback.
   ja,
   bn,
   ne,
@@ -40,7 +38,6 @@ export function detectBrowserLanguage(): SupportedLanguage {
   }
   const browserLang = navigator.language.toLowerCase();
   if (browserLang.startsWith('ja')) return 'ja';
-  if (browserLang.startsWith('si')) return 'si';
   if (browserLang.startsWith('bn')) return 'bn';
   if (browserLang.startsWith('ne')) return 'ne';
   if (browserLang.startsWith('my')) return 'my';

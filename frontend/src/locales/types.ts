@@ -1,4 +1,4 @@
-export type SupportedLanguage = 'en' | 'ja' | 'si' | 'bn' | 'ne' | 'my';
+export type SupportedLanguage = 'en' | 'ja' | 'bn' | 'ne' | 'my';
 
 export interface LanguageInfo {
   code: SupportedLanguage;

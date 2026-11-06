@@ -3,7 +3,6 @@ package com.tronai.career.cvbuilder;
 import org.apache.poi.ss.usermodel.Workbook;
 import org.apache.poi.ss.usermodel.WorkbookFactory;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
 
 import java.io.ByteArrayInputStream;
 import java.nio.file.Files;
@@ -17,12 +16,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 class RirekishoEvidenceWriteTest {
 
-    @TempDir
-    Path outputDirectory;
-
     @Test
     void writeSampleXlsx() throws Exception {
-        Path out = outputDirectory.resolve("sample_rirekisho.xlsx");
+        Path out = Path.of("c:/Users/engrm/OneDrive/Desktop/Group7/_gotenberg_verify_evidence/sample_rirekisho.xlsx");
         Files.createDirectories(out.getParent());
 
         Map<String, Object> payload = new HashMap<>();

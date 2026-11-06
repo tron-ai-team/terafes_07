@@ -11,15 +11,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 class CommandPolicyEngineTest {
 
     private final CommandPolicyEngine policy = new CommandPolicyEngine();
-    @org.junit.jupiter.api.io.TempDir
-    Path temporaryDirectory;
-
-    private String root;
-
-    @org.junit.jupiter.api.BeforeEach
-    void setUpWorkspace() throws java.io.IOException {
-        root = java.nio.file.Files.createDirectories(temporaryDirectory.resolve("Dev")).toString();
-    }
+    private final String root = Path.of("C:/Dev").toString();
 
     @Test
     void gitStatusIsSafeAndPushNeedsApproval() {
@@ -53,7 +45,7 @@ class CommandPolicyEngineTest {
     @Test
     void workspaceEscapeIsBlocked() {
         PolicyDecision decision = policy.evaluate(new PolicyRequest(
-                "FILE", "READ_FILE", root, root, temporaryDirectory.resolve("Windows/win.ini").toString(), null, null, null, null));
+                "FILE", "READ_FILE", root, root, "C:/Windows/win.ini", null, null, null, null));
         assertThat(decision.risk()).isEqualTo(RiskLevel.BLOCKED);
         assertThatThrownBy(() -> WorkspaceGuard.requireInside(root, root + "/../Windows", "Path"))
                 .isInstanceOf(WorkspaceGuard.WorkspaceViolation.class);
@@ -65,7 +57,7 @@ class CommandPolicyEngineTest {
                 "FILE", "DELETE_FILE", root, root, Path.of(root, "hello.txt").toString(), null, null, null, null)).risk())
                 .isEqualTo(RiskLevel.REQUIRES_APPROVAL);
         assertThat(policy.evaluate(new PolicyRequest(
-                "FILE", "READ_FILE", root, root, temporaryDirectory.resolve("DevEvil/secret.txt").toString(), null, null, null, null)).risk())
+                "FILE", "READ_FILE", root, root, "C:/DevEvil/secret.txt", null, null, null, null)).risk())
                 .isEqualTo(RiskLevel.BLOCKED);
     }
 

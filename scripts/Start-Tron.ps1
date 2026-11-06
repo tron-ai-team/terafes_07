@@ -746,10 +746,21 @@ if ($opencodeExe) {
 
 Write-Host ""
 Write-Host "TRON Core:" -ForegroundColor Cyan
-Write-Host "http://localhost:8080"
+Write-Host "http://127.0.0.1:8080  (localhost only — use Vite /api proxy)"
 Write-Host ""
-Write-Host "TRON Web:" -ForegroundColor Cyan
+Write-Host "TRON Web (this PC):" -ForegroundColor Cyan
 Write-Host "http://localhost:5174/"
+$lanIp = $null
+try {
+    $lanIp = (Get-NetIPAddress -AddressFamily IPv4 |
+        Where-Object { $_.IPAddress -like '192.168.*' -and $_.PrefixOrigin -ne 'WellKnown' } |
+        Select-Object -First 1 -ExpandProperty IPAddress)
+} catch {}
+if ($lanIp) {
+    Write-Host ""
+    Write-Host "TRON Web (classroom LAN):" -ForegroundColor Green
+    Write-Host "http://${lanIp}:5174/"
+}
 Write-Host ""
 Write-Host "Desktop Agent:" -ForegroundColor Cyan
 Write-Host "RUNNING ($desktopMode)"

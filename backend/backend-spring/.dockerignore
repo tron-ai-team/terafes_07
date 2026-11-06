@@ -3,4 +3,6 @@ target/
 .env.*
 !.env.example
 *.log
-.git/
+.idea/
+*.iml
+.runtime/

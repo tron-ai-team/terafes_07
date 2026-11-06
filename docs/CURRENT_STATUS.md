@@ -1,42 +1,38 @@
 # TRON AI — Current Status
 
-**Updated:** 2026-10-25
+**Updated:** 2026-11-06  
+**Authoritative release audit:** [`../TRON_AI_MASTER_RELEASE_READINESS_REPORT.md`](../TRON_AI_MASTER_RELEASE_READINESS_REPORT.md)
 
-## Working (preserved)
+## Working (code present; prior API evidence)
 
-- Auth (JWT + Google OAuth)
+- Auth (JWT + Google OAuth when configured)
 - Candidate Profile
-- CV Builder (drafts, versions, XLSX/PDF export)
-- Interview Practice / Preparation
-- Company Analysis
-- Chat, Voice, Workspace, Desktop Agent, AI Gateway, Settings
-- Career Center shell + Job Finder UI (Career V1 only)
+- CV Builder (drafts, versions, XLSX/PDF via Gotenberg — previously live-verified)
+- Interview Practice / Preparation (API paths; quality not fully QA’d)
+- Company Analysis (API + FE wired; research quality depends on Tavily/Firecrawl)
+- Chat, Settings, Workspace shell, AI Gateway
+- Job Finder UI (Career V1 only; honest empty states)
 
-## Job Finder (post legacy removal)
+## Limited / incomplete
 
 | Item | Status |
 |---|---|
-| Dual call (`jobs/search` + `agents/career-search/run`) | **Fixed** — V1 search only |
-| Arbeitnow / Remotive | **Removed** from active runtime |
-| Misleading pipeline metrics (e.g. “15 discovered”) | **Fixed** — metrics reflect filtered V1 results |
-| Honest empty / auth / source states | **Implemented** in Job Finder UI |
-| Mynavi real extraction | **Verify live** — may return `[]` if public scrape empty/blocked |
-| CareerMap real extraction | **Verify live** — same caveat |
-| CV↔job matching UI | Backend match API exists; FE wiring still limited |
+| Mynavi / CareerMap real listings | May return `[]` if scrape empty/blocked — **LIMITED beta** |
+| Job Finder demo fixtures | Offline demo path exists in FE — keep separate from live search UX |
+| CV Management “generate revised CV” | Toast only — **not implemented** (use CV Builder instead) |
+| CV ↔ job matching UI | Backend `/career/matches` exists; **FE not in `careerCenterClient`** |
+| Career applications / dashboard | Backend ready; **FE incomplete** |
+| Landing pricing / General Web Agent | “Coming Soon” placeholders |
+| Sinhala UI locale | Types mention `si`/`sinhala`; **no `locales/si` pack** (en/ja/bn/ne/my only) |
+| Voice (Whisper/VOICEVOX) | Implemented; full mic E2E **NOT_TESTED** this mission |
+| Auth refresh race | Single-flight refresh in `httpClient`; stress race **NOT_TESTED** this mission |
+| Full browser E2E | Incomplete historically; this mission: build/package only |
 
-## CV PDF (Gotenberg)
+## Disabled / unsafe for public beta messaging
 
-- Spring primary path: POI XLSX → local Gotenberg v8 (`127.0.0.1:3000`) — **live verified**
-- Docker Linux engine + `tron-gotenberg` healthy; JA/EN PDF samples in `_gotenberg_verify_evidence/`
-- See `docs/GOTENBERG.md` and `TRON_GOTENBERG_INTEGRATION_REPORT.md`
-
-## Known gaps
-
-- `POST/GET /api/v1/career/matches` — backend ready, FE incomplete
-- Career applications / dashboard — backend ready, FE incomplete
-- Locked leftover: `_v4_golden_evidence/agent-identity/identity.json` (file lock; copy in DELETE_LATER)
-- _(none for Gotenberg — live PDF visual QA completed 2026-10-25)_
+- Desktop Agent remote execution on Ubuntu / public internet as a general feature
+- Any implication that job search always returns live Mynavi/CareerMap hits
 
 ## Archive
 
-Obsolete reports and `backend-old/` → `DELETE_LATER/CLEANUP_2026-10-25/` (gitignored).
+Obsolete mission reports and evidence → `DELETE_LATER/CLEANUP_2026-11-06/` (and prior `CLEANUP_2026-10-25/`). Both gitignored.

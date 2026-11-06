@@ -50,7 +50,7 @@ public class AiGateway {
         List<AiModelRouter.Route> attempts = new ArrayList<>();
         attempts.add(route);
         if (effectiveMode != AiMode.ULTRA) {
-            attempts.addAll(modelRouter.fallbackCandidates(effectiveMode));
+            attempts.addAll(modelRouter.fallbackCandidates(context, effectiveMode));
         }
 
         GatewayProviderException lastFailure = null;
@@ -128,7 +128,16 @@ public class AiGateway {
     }
 
     private boolean isFallbackEligible(GatewayProviderException ex) {
-        return GatewayProviderException.UNAVAILABLE.equals(ex.getCategory())
-                || GatewayProviderException.RATE_LIMITED.equals(ex.getCategory());
+        // Provider-specific failures (e.g. Groq BAD_REQUEST on a large COMPANY_RESEARCH prompt)
+        // must not block OpenRouter/Mistral/Ollama. Auth/payment failures stay fail-closed for
+        // that provider only — still allow other configured providers in the route chain.
+        String category = ex.getCategory();
+        return GatewayProviderException.UNAVAILABLE.equals(category)
+                || GatewayProviderException.RATE_LIMITED.equals(category)
+                || GatewayProviderException.BAD_REQUEST.equals(category)
+                || GatewayProviderException.UPSTREAM_ERROR.equals(category)
+                || GatewayProviderException.TIMEOUT.equals(category)
+                || GatewayProviderException.INVALID_CREDENTIAL.equals(category)
+                || GatewayProviderException.PAYMENT_REQUIRED.equals(category);
     }
 }

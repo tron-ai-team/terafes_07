@@ -1,6 +1,6 @@
-# Production deploy — DISABLED for automatic runs until Ubuntu setup is verified.
-# Re-enable the `push: branches: [main]` trigger only after Codex completes
-# server inspection, first manual deploy, and owner approval.
+# Production SSH deploy — DISABLED for automatic runs until Ubuntu manual acceptance.
+# Prefer workflow "Publish production image" for GHCR-only releases.
+# Re-enable SSH only after first successful manual deploy + owner approval.
 name: Deploy production
 
 on:

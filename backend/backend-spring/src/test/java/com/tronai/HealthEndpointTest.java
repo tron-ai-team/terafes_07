@@ -71,14 +71,16 @@ class HealthEndpointTest {
     }
 
     @Test
-    @DisplayName("Health endpoint returns HTTP 503 degraded when ollama is unreachable")
-    void healthReturns503WhenOllamaUnreachable() throws Exception {
+    @DisplayName("Health endpoint returns HTTP 200 degraded when ollama is unreachable but database is up")
+    void healthReturns200DegradedWhenOllamaUnreachable() throws Exception {
         when(aiProvider.isAvailable()).thenReturn(false);
         when(speechToTextProvider.isAvailable()).thenReturn(true);
         when(textToSpeechProvider.isAvailable()).thenReturn(true);
+        when(objectStorageService.isAvailable()).thenReturn(true);
+        when(backgroundJobPublisher.isAvailable()).thenReturn(false);
 
         mockMvc.perform(get("/health").accept(MediaType.APPLICATION_JSON))
-                .andExpect(status().isServiceUnavailable())
+                .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("degraded"))
                 .andExpect(jsonPath("$.database").value("reachable"))
                 .andExpect(jsonPath("$.ollama").value("unreachable"));

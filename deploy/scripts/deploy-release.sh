@@ -19,7 +19,9 @@ COMPOSE_FILE="${DEPLOY_DIR}/compose.prod.yml"
 RELEASES_DIR="${TRON_RELEASES_DIR:-/opt/tron-ai/releases}"
 CURRENT_LINK="${RELEASES_DIR}/CURRENT"
 WWW_ROOT="${TRON_WWW_ROOT:-/var/www/tron-ai}"
-HEALTH_URL="${TRON_HEALTH_URL:-http://127.0.0.1:18080/health}"
+# Actuator is the deploy gate (DB liveness). /health remains a diagnostic endpoint.
+HEALTH_URL="${TRON_HEALTH_URL:-http://127.0.0.1:18080/actuator/health}"
+COMPOSE_PROJECT="${TRON_COMPOSE_PROJECT:-tron-ai}"
 
 if [[ -z "${IMAGE_REF}" ]]; then
   echo "Usage: $0 <ghcr-image-ref> [frontend-dist.tar.gz]"
@@ -69,8 +71,8 @@ rm -f "${TMP_ENV}"
 echo "Pulling ${IMAGE_REF}"
 docker pull "${IMAGE_REF}"
 
-echo "Updating containers (no volume prune)"
-docker compose --env-file "${ENV_FILE}" -f "${COMPOSE_FILE}" up -d --remove-orphans
+echo "Updating containers (no volume prune; project=${COMPOSE_PROJECT})"
+docker compose --project-name "${COMPOSE_PROJECT}" --env-file "${ENV_FILE}" -f "${COMPOSE_FILE}" up -d --remove-orphans
 
 if [[ -n "${FRONTEND_TGZ}" ]]; then
   if [[ ! -f "${FRONTEND_TGZ}" ]]; then

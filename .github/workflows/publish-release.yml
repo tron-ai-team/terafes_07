@@ -1,79 +1,110 @@
-# Publication is independent of server deployment and remains manual.
-name: Publish approved release
+# Manual GHCR publication — no SSH / no Ubuntu deploy.
+# Use this after CI is green and before first manual server pull.
+name: Publish production image
+
 on:
   workflow_dispatch:
+    inputs:
+      confirm:
+        description: "Type publish-ghcr to confirm"
+        required: true
+        default: ""
+      ref_label:
+        description: "Optional extra tag (e.g. beta-1). Always publishes sha-* and production."
+        required: false
+        default: ""
+
+concurrency:
+  group: publish-ghcr
+  cancel-in-progress: false
+
 permissions:
   contents: read
-concurrency:
-  group: publish-release-${{ github.sha }}
-  cancel-in-progress: false
+  packages: write
+
+env:
+  IMAGE_NAME: tron-ai-backend
+
 jobs:
   guard:
     runs-on: ubuntu-latest
     steps:
-      - name: Require approved main
-        env:
-          RELEASE_REF: ${{ github.ref }}
-        run: test "$RELEASE_REF" = refs/heads/main
+      - name: Confirm manual publish
+        run: |
+          if [ "${{ github.event.inputs.confirm }}" != "publish-ghcr" ]; then
+            echo "Manual GHCR publish requires confirm=publish-ghcr"
+            exit 1
+          fi
+
   test:
-    needs: guard
+    needs: [guard]
     uses: ./.github/workflows/ci.yml
+
   publish:
-    needs: test
+    name: Build and push GHCR
+    needs: [test]
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write
+    outputs:
+      image: ${{ steps.meta.outputs.sha_image }}
+      digest: ${{ steps.build.outputs.digest }}
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "22"
-          cache: npm
-          cache-dependency-path: frontend/package-lock.json
       - uses: docker/setup-buildx-action@v3
-      - uses: docker/login-action@v3
+      - name: Login to GHCR
+        uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Build approved backend
-        id: backend
+      - name: Compute tags
+        id: meta
+        run: |
+          REPO_LC="$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')"
+          SHA_TAG="sha-${GITHUB_SHA::12}"
+          BASE="ghcr.io/${REPO_LC}/${IMAGE_NAME}"
+          echo "base=${BASE}" >> "$GITHUB_OUTPUT"
+          echo "sha_image=${BASE}:${SHA_TAG}" >> "$GITHUB_OUTPUT"
+          {
+            echo "tags<<EOF"
+            echo "${BASE}:${SHA_TAG}"
+            echo "${BASE}:production"
+            echo "${BASE}:latest"
+            if [ -n "${{ github.event.inputs.ref_label }}" ]; then
+              echo "${BASE}:${{ github.event.inputs.ref_label }}"
+            fi
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+      - name: Build and push image
+        id: build
         uses: docker/build-push-action@v6
         with:
           context: backend/backend-spring
+          file: backend/backend-spring/Dockerfile
           push: true
-          tags: ghcr.io/tron-ai-team/terafes_07/tron-ai-backend:sha-${{ github.sha }}
+          tags: ${{ steps.meta.outputs.tags }}
           labels: |
-            org.opencontainers.image.source=https://github.com/tron-ai-team/terafes_07
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
             org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.title=tron-ai-backend
           cache-from: type=gha
           cache-to: type=gha,mode=max
-      - name: Package matched frontend and manifest
+      - name: Frontend production build artifact
+        working-directory: frontend
         env:
-          BACKEND_DIGEST: ${{ steps.backend.outputs.digest }}
           VITE_CORE_API_URL: ""
           VITE_LEGACY_API_URL: ""
         run: |
-          cd frontend
-          npm ci
+          if [ -f package-lock.json ]; then npm ci; else npm install; fi
           npm run build
-          mkdir ../release-bundle
-          tar -czf ../release-bundle/frontend.tar.gz -C dist .
-          cd ..
-          python3 - <<'PY'
-          import hashlib, json, os, pathlib, re
-          digest = os.environ['BACKEND_DIGEST']
-          assert re.fullmatch(r'sha256:[0-9a-f]{64}', digest)
-          directory = pathlib.Path('release-bundle')
-          manifest = dict(repository=os.environ['GITHUB_REPOSITORY'], sha=os.environ['GITHUB_SHA'],
-                          image='ghcr.io/tron-ai-team/terafes_07/tron-ai-backend@' + digest,
-                          frontend_sha256=hashlib.sha256((directory/'frontend.tar.gz').read_bytes()).hexdigest())
-          (directory/'release.json').write_text(json.dumps(manifest, indent=2))
-          PY
+          tar -czf "$GITHUB_WORKSPACE/frontend-dist.tar.gz" -C dist .
       - uses: actions/upload-artifact@v4
         with:
-          name: release-bundle
-          path: release-bundle/
+          name: frontend-dist-tgz
+          path: frontend-dist.tar.gz
           retention-days: 30
-          if-no-files-found: error
+      - name: Summary
+        run: |
+          echo "### Published image" >> "$GITHUB_STEP_SUMMARY"
+          echo "\`${{ steps.meta.outputs.sha_image }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "Digest: \`${{ steps.build.outputs.digest }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "SSH auto-deploy was NOT run. Pull this tag on Ubuntu manually." >> "$GITHUB_STEP_SUMMARY"

@@ -124,6 +124,9 @@ tron:
     firecrawl:
       api-key: ${FIRECRAWL_API_KEY:}
       base-url: ${FIRECRAWL_BASE_URL:https://api.firecrawl.dev}
+  rabbitmq:
+    # Default on for local/dev. Production compose sets TRON_RABBITMQ_ENABLED=false.
+    enabled: ${TRON_RABBITMQ_ENABLED:true}
   secrets:
     infisical:
       # Disabled by default — local/dev must not require Infisical Cloud.
@@ -180,6 +183,17 @@ voicevox:
   audio-ttl-seconds: ${VOICE_AUDIO_TTL_SECONDS:600}
   max-stored-clips: ${MAX_STORED_VOICE_CLIPS:20}
 
+
+# ── Career Job Finder (CP-04) ─────────────────────────────────────────────────
+career:
+  jobs:
+    mynavi:
+      enabled: ${CAREER_JOBS_MYNAVI_ENABLED:true}
+    careermap:
+      enabled: ${CAREER_JOBS_CAREERMAP_ENABLED:true}
+      oauth-enabled: ${CAREER_JOBS_CAREERMAP_OAUTH:false}
+      max-fetches-per-search: ${CAREER_JOBS_CAREERMAP_MAX_FETCHES:40}
+      fetch-delay-ms: ${CAREER_JOBS_CAREERMAP_DELAY_MS:250}
 
 # ── Springdoc / OpenAPI ───────────────────────────────────────────────────────
 springdoc:

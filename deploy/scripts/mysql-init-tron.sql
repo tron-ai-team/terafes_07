@@ -1,10 +1,13 @@
--- Run on the EXISTING MySQL server as an admin user.
--- Creates an isolated schema and least-privilege account for TRON AI.
--- Does NOT drop or modify other databases.
+-- LEGACY / OPTIONAL helper for host MySQL.
+-- Current production Compose uses a DEDICATED MySQL container
+-- (service "mysql" in deploy/compose.prod.yml) with volume tron_ai_mysql_data.
 --
--- Replace REPLACE_WITH_STRONG_PASSWORD before running.
+-- Do NOT run this against the host MySQL used by nijotours / techtitans / ttcomputers
+-- unless you explicitly chose host-MySQL mode (not the default anymore).
 --
--- Example:
+-- If you ever need a host schema instead of Docker MySQL, replace the password
+-- placeholders and run as an admin — this script never DROPs databases.
+--
 --   sudo mysql < /opt/tron-ai/deploy/scripts/mysql-init-tron.sql
 
 CREATE DATABASE IF NOT EXISTS tron_ai

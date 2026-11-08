@@ -1,60 +1,56 @@
-# TRON AI — production compose for the Ubuntu core server.
-# Does NOT create MySQL, Nginx, Cloudflare, or Ollama.
-# Reuses the host MySQL (separate schema) and existing Nginx + tunnel.
+# TRON AI — isolated production Compose stack for the Ubuntu core server.
+#
+# Services: Spring Boot backend + dedicated MySQL + Gotenberg
+# Does NOT touch host MySQL, existing systemd apps (8080–8082), Nginx, or Cloudflare.
 #
 # Usage (on Ubuntu, from /opt/tron-ai/deploy):
-#   docker compose --env-file /etc/tron-ai/tron-ai.env -f compose.prod.yml pull
-#   docker compose --env-file /etc/tron-ai/tron-ai.env -f compose.prod.yml up -d
+#   docker compose --project-name tron-ai --env-file /etc/tron-ai/tron-ai.env -f compose.prod.yml config
+#   docker compose --project-name tron-ai --env-file /etc/tron-ai/tron-ai.env -f compose.prod.yml pull
+#   docker compose --project-name tron-ai --env-file /etc/tron-ai/tron-ai.env -f compose.prod.yml up -d
 #
-# Never publish Gotenberg or MySQL to 0.0.0.0.
+# Never publish MySQL or Gotenberg to 0.0.0.0.
+# Backend is loopback-only: 127.0.0.1:18080 → container :8080
 
 name: tron-ai
 
 services:
-  backend:
-    image: ${TRON_BACKEND_IMAGE:-ghcr.io/OWNER/REPO/tron-ai-backend:latest}
-    container_name: tron-ai-backend
+  mysql:
+    image: mysql:8.4
+    container_name: tron-ai-mysql
     restart: unless-stopped
-    env_file:
-      - ${TRON_ENV_FILE:-/etc/tron-ai/tron-ai.env}
     environment:
-      SPRING_PROFILES_ACTIVE: prod
-      SERVER_ADDRESS: 0.0.0.0
-      SERVER_PORT: "8080"
-      # Reach host MySQL / other host services from the container.
-      DB_HOST: ${DB_HOST:-host.docker.internal}
-      GOTENBERG_URL: http://gotenberg:3000
-      TRON_PDF_ENGINE: gotenberg
-      TRON_PDF_ALLOW_LOCAL_LIBREOFFICE: "false"
-      TRON_STORAGE_LOCAL_PATH: /var/lib/tron-ai/object-storage
-      JAVA_OPTS: ${JAVA_OPTS:--Xms256m -Xmx768m -XX:+UseG1GC -XX:+ExitOnOutOfMemoryError}
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
-    ports:
-      # Loopback only — Nginx on the host is the public entry.
-      - "127.0.0.1:${TRON_BACKEND_HOST_PORT:-18080}:8080"
+      MYSQL_DATABASE: ${DB_NAME:-tron_ai}
+      MYSQL_USER: ${DB_USERNAME}
+      MYSQL_PASSWORD: ${DB_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+      - --skip-name-resolve
+      - --max-connections=50
+      - --innodb-buffer-pool-size=256M
+    # No host ports — reachable only on tron_ai_internal as hostname "mysql"
     volumes:
-      - tron_ai_object_storage:/var/lib/tron-ai/object-storage
-      - tron_ai_uploads:/var/lib/tron-ai/uploads
-      - tron_ai_logs:/var/log/tron-ai
+      - tron_ai_mysql_data:/var/lib/mysql
     networks:
       - tron_ai_internal
-    depends_on:
-      gotenberg:
-        condition: service_healthy
-    mem_limit: ${TRON_BACKEND_MEM_LIMIT:-1280m}
-    cpus: ${TRON_BACKEND_CPUS:-1.5}
+    mem_limit: ${TRON_MYSQL_MEM_LIMIT:-768m}
+    cpus: ${TRON_MYSQL_CPUS:-0.75}
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8080/health"]
-      interval: 30s
+      test:
+        [
+          "CMD-SHELL",
+          "mysqladmin ping -h 127.0.0.1 -uroot -p$$MYSQL_ROOT_PASSWORD --silent",
+        ]
+      interval: 10s
       timeout: 5s
-      retries: 5
-      start_period: 120s
+      retries: 12
+      start_period: 40s
     logging:
       driver: json-file
       options:
-        max-size: "20m"
-        max-file: "5"
+        max-size: "10m"
+        max-file: "3"
 
   gotenberg:
     image: gotenberg/gotenberg:8
@@ -84,12 +80,75 @@ services:
         max-size: "10m"
         max-file: "3"
 
+  backend:
+    image: ${TRON_BACKEND_IMAGE:-ghcr.io/tron-ai-team/terafes_07/tron-ai-backend:latest}
+    container_name: tron-ai-backend
+    restart: unless-stopped
+    env_file:
+      # On Ubuntu: /etc/tron-ai/tron-ai.env (chmod 640). required=false so `compose config` works offline.
+      - path: ${TRON_ENV_FILE:-/etc/tron-ai/tron-ai.env}
+        required: false
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      SERVER_ADDRESS: 0.0.0.0
+      SERVER_PORT: "8080"
+      # Dedicated Compose MySQL (not host MySQL).
+      DB_HOST: mysql
+      DB_PORT: "3306"
+      DB_NAME: ${DB_NAME:-tron_ai}
+      DB_USERNAME: ${DB_USERNAME}
+      DB_PASSWORD: ${DB_PASSWORD}
+      GOTENBERG_URL: http://gotenberg:3000
+      TRON_PDF_ENGINE: gotenberg
+      TRON_PDF_ALLOW_LOCAL_LIBREOFFICE: "false"
+      TRON_STORAGE_LOCAL_PATH: /var/lib/tron-ai/object-storage
+      TRON_RABBITMQ_ENABLED: ${TRON_RABBITMQ_ENABLED:-false}
+      RABBITMQ_LISTENER_ENABLED: "false"
+      JAVA_OPTS: ${JAVA_OPTS:--Xms256m -Xmx768m -XX:+UseG1GC -XX:+ExitOnOutOfMemoryError}
+    ports:
+      # Loopback only — Nginx on the host is the public entry.
+      # Conflicts avoided with nijotours:8080, techtitans:8081, ttcomputers:8082.
+      - "127.0.0.1:${TRON_BACKEND_HOST_PORT:-18080}:8080"
+    volumes:
+      - tron_ai_object_storage:/var/lib/tron-ai/object-storage
+      - tron_ai_uploads:/var/lib/tron-ai/uploads
+      - tron_ai_logs:/var/log/tron-ai
+    networks:
+      - tron_ai_internal
+    depends_on:
+      mysql:
+        condition: service_healthy
+      gotenberg:
+        condition: service_healthy
+    mem_limit: ${TRON_BACKEND_MEM_LIMIT:-1280m}
+    cpus: ${TRON_BACKEND_CPUS:-1.5}
+    # Liveness uses Actuator (DB-backed). Diagnostic /health may report AI as degraded.
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "wget",
+          "-qO-",
+          "http://127.0.0.1:8080/actuator/health",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 120s
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "5"
+
 networks:
   tron_ai_internal:
     name: tron_ai_internal
     driver: bridge
 
 volumes:
+  tron_ai_mysql_data:
+    name: tron_ai_mysql_data
   tron_ai_object_storage:
     name: tron_ai_object_storage
   tron_ai_uploads:

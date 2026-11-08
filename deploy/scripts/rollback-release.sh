@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Roll back the Spring Boot container to a previous GHCR image.
 # Does NOT reverse Flyway migrations or restore MySQL dumps.
+# Does NOT touch host MySQL or other projects' containers.
 #
 # Usage:
 #   ./rollback-release.sh [image-ref]
@@ -11,7 +12,8 @@ DEPLOY_DIR="${TRON_DEPLOY_DIR:-/opt/tron-ai/deploy}"
 ENV_FILE="${TRON_ENV_FILE:-/etc/tron-ai/tron-ai.env}"
 COMPOSE_FILE="${DEPLOY_DIR}/compose.prod.yml"
 RELEASES_DIR="${TRON_RELEASES_DIR:-/opt/tron-ai/releases}"
-HEALTH_URL="${TRON_HEALTH_URL:-http://127.0.0.1:18080/health}"
+COMPOSE_PROJECT="${TRON_COMPOSE_PROJECT:-tron-ai}"
+HEALTH_URL="${TRON_HEALTH_URL:-http://127.0.0.1:18080/actuator/health}"
 
 IMAGE_REF="${1:-}"
 if [[ -z "${IMAGE_REF}" ]]; then
@@ -34,7 +36,7 @@ sudo install -m 640 -o root -g root "${TMP_ENV}" "${ENV_FILE}"
 rm -f "${TMP_ENV}"
 
 docker pull "${IMAGE_REF}"
-docker compose --env-file "${ENV_FILE}" -f "${COMPOSE_FILE}" up -d
+docker compose --project-name "${COMPOSE_PROJECT}" --env-file "${ENV_FILE}" -f "${COMPOSE_FILE}" up -d
 
 ok=0
 for _ in $(seq 1 40); do
@@ -52,4 +54,4 @@ if [[ "${ok}" -ne 1 ]]; then
 fi
 
 echo "IMAGE=${IMAGE_REF}" > "${RELEASES_DIR}/CURRENT"
-echo "Rollback OK (application image only; MySQL unchanged)."
+echo "Rollback OK (application image only; MySQL volume unchanged)."

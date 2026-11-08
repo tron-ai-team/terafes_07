@@ -62,7 +62,7 @@ jobs:
         # Those remain manual / local verification; CI gates on the hermetic suite.
         run: >
           ./mvnw -B test
-          -Dtest='!DesktopAgentControlLiveTest,!DesktopAgentLiveE2ETest,!DesktopAgentThreadLiveTest,!GotenbergLiveConvertIT,!Mission09LiveProviderVerificationIT,!CareerCenterV1BuilderIT,!CareerCenterJourneyIT'
+          -Dtest='!DesktopAgentControlLiveTest,!DesktopAgentLiveE2ETest,!DesktopAgentThreadLiveTest,!GotenbergLiveConvertIT,!Mission09LiveProviderVerificationIT,!CareerCenterV1BuilderIT,!CareerCenterJourneyIT,!CareerCenterCp03CvBuilderIT'
       - name: Package
         run: ./mvnw -B -DskipTests package
 
@@ -100,3 +100,18 @@ jobs:
           tags: tron-ai-backend:ci
           cache-from: type=gha
           cache-to: type=gha,mode=max
+      - name: Validate production compose
+        run: |
+          set -euo pipefail
+          cat > /tmp/tron-ai.ci.env <<'EOF'
+          TRON_BACKEND_IMAGE=tron-ai-backend:ci
+          DB_USERNAME=tronai
+          DB_PASSWORD=ci-only-not-for-production
+          MYSQL_ROOT_PASSWORD=ci-only-root-not-for-production
+          JWT_SECRET=ci-only-jwt-secret-must-be-32chars-min
+          CORS_ALLOWED_ORIGINS=https://traonai.tech
+          TRON_FRONTEND_URL=https://traonai.tech
+          TRON_PUBLIC_API_URL=https://api.traonai.tech
+          EOF
+          docker compose --project-name tron-ai --env-file /tmp/tron-ai.ci.env -f deploy/compose.prod.yml config >/dev/null
+          echo "compose.prod.yml is valid"

@@ -23,7 +23,7 @@ export const translations: Record<SupportedLanguage, TranslationSchema> = {
   my,
 };
 
-export const DEFAULT_LANGUAGE: SupportedLanguage = 'en';
+export const DEFAULT_LANGUAGE: SupportedLanguage = 'ja';
 
 export const LANGUAGE_STORAGE_KEY = 'tron_selected_language';
 export const LEGACY_LANGUAGE_STORAGE_KEY = 'tron_lang';

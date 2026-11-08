@@ -32,14 +32,22 @@ import {
   Briefcase,
   Compass,
   Shield,
+  X,
 } from 'lucide-react';
 
 interface SidebarProps {
   collapsed: boolean;
   setCollapsed: (collapsed: boolean) => void;
+  mobileOpen?: boolean;
+  setMobileOpen?: (open: boolean) => void;
 }
 
-export const Sidebar: React.FC<SidebarProps> = ({ collapsed, setCollapsed }) => {
+export const Sidebar: React.FC<SidebarProps> = ({
+  collapsed,
+  setCollapsed,
+  mobileOpen = false,
+  setMobileOpen,
+}) => {
   const location = useLocation();
   const navigate = useNavigate();
   const {
@@ -55,6 +63,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ collapsed, setCollapsed }) => 
     deleteChat,
   } = useApp();
 
+  const handleNavClick = () => {
+    if (setMobileOpen) {
+      setMobileOpen(false);
+    }
+  };
+
   // Strict Mode Detection
   const isChatMode = location.pathname.startsWith('/chat');
   const isVoiceMode = location.pathname.startsWith('/voice');
@@ -66,48 +80,49 @@ export const Sidebar: React.FC<SidebarProps> = ({ collapsed, setCollapsed }) => 
   const isWorkspaceMode = !isChatMode && !isVoiceMode && !isCareerMode;
 
   const handleStartNewChat = () => {
+    handleNavClick();
     createNewChat();
     navigate('/chat');
   };
 
   const handleStartNewVoice = () => {
+    handleNavClick();
     navigate('/voice');
   };
 
   const handleStartNewCodingTask = () => {
+    handleNavClick();
     navigate('/workspace/agent');
   };
 
   const handleStartNewInterview = () => {
+    handleNavClick();
     navigate('/career/interview/setup');
   };
 
   return (
     <aside
       className={`
-        fixed md:static inset-y-0 left-0 z-40 flex flex-col justify-between
-        bg-white/90 backdrop-blur-2xl border-r border-[#E2EEF8] shadow-sm
-        transition-all duration-300 ease-in-out select-none
-        ${collapsed ? 'w-20' : 'w-64'}
+        fixed inset-y-0 left-0 z-50 flex flex-col justify-between
+        bg-white/95 backdrop-blur-2xl border-r border-[#E2EEF8] shadow-xl md:shadow-sm
+        transition-transform duration-300 ease-in-out select-none
+        ${mobileOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
+        md:static md:translate-x-0
+        ${collapsed ? 'md:w-20' : 'md:w-64'}
+        w-72 max-w-[85vw]
       `}
     >
       {/* Top Header with TRON AI logo & collapse button */}
       <div className="flex-1 flex flex-col min-h-0">
         <div className="flex items-center justify-between px-4 py-3.5 border-b border-blue-50/80 shrink-0">
           <Link
-            to={
-              isChatMode
-                ? '/chat'
-                : isVoiceMode
-                ? '/voice'
-                : isCareerMode
-                ? '/career'
-                : '/workspace'
-            }
-            className="flex items-center gap-2.5 group"
+            to="/"
+            onClick={handleNavClick}
+            className="flex items-center gap-2.5 group hover:opacity-90 transition-opacity"
+            title="Return to TRON AI Homepage"
           >
             <TronLogo size="sm" />
-            {!collapsed && (
+            {(!collapsed || mobileOpen) && (
               <div className="flex items-baseline gap-1 font-display tracking-tight font-extrabold text-lg">
                 <span className="text-[#071638]">TRON</span>
                 <span className="text-[#008CFF] drop-shadow-sm">AI</span>
@@ -115,13 +130,24 @@ export const Sidebar: React.FC<SidebarProps> = ({ collapsed, setCollapsed }) => 
             )}
           </Link>
 
-          <button
-            onClick={() => setCollapsed(!collapsed)}
-            className="p-1.5 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-blue-50/80 transition-colors"
-            title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-          >
-            {collapsed ? <PanelLeftOpen className="w-4 h-4" /> : <PanelLeftClose className="w-4 h-4" />}
-          </button>
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={() => setMobileOpen?.(false)}
+              className="p-1.5 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-blue-50/80 transition-colors md:hidden"
+              title="Close sidebar"
+            >
+              <X className="w-5 h-5" />
+            </button>
+            <button
+              type="button"
+              onClick={() => setCollapsed(!collapsed)}
+              className="p-1.5 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-blue-50/80 transition-colors hidden md:block"
+              title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            >
+              {collapsed ? <PanelLeftOpen className="w-4 h-4" /> : <PanelLeftClose className="w-4 h-4" />}
+            </button>
+          </div>
         </div>
 
         {/* MODE SPECIFIC PRIMARY ACTION */}
@@ -220,7 +246,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ collapsed, setCollapsed }) => 
                       `}
                     >
                       <button
-                        onClick={() => selectChat(session.id)}
+                        onClick={() => {
+                          selectChat(session.id);
+                          handleNavClick();
+                        }}
                         className="flex items-center gap-2.5 min-w-0 flex-1 text-left truncate"
                         title={session.title}
                       >
@@ -326,6 +355,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ collapsed, setCollapsed }) => 
                       <Link
                         key={item.path}
                         to={item.path}
+                        onClick={handleNavClick}
                         className={`
                           flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold transition-all
                           ${isActive
@@ -377,6 +407,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ collapsed, setCollapsed }) => 
                       <Link
                         key={item.path}
                         to={item.path}
+                        onClick={handleNavClick}
                         className={`
                           flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold transition-all
                           ${isActive
@@ -449,6 +480,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ collapsed, setCollapsed }) => 
                     <Link
                       key={item.path}
                       to={item.path}
+                      onClick={handleNavClick}
                       className={`
                         flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold transition-all
                         ${isActive
@@ -495,12 +527,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ collapsed, setCollapsed }) => 
               },
               ...((user?.role === 'ADMIN' || user?.role === 'OWNER')
                 ? [
-                    {
-                      title: t.sidebar.admin,
-                      path: '/admin',
-                      icon: <Shield className="w-4 h-4" />,
-                    },
-                  ]
+                  {
+                    title: t.sidebar.admin,
+                    path: '/admin',
+                    icon: <Shield className="w-4 h-4" />,
+                  },
+                ]
                 : []),
             ].map((item) => {
               const isActive = location.pathname === item.path;
@@ -508,6 +540,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ collapsed, setCollapsed }) => 
                 <Link
                   key={item.path}
                   to={item.path}
+                  onClick={handleNavClick}
                   className={`
                     flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium transition-all
                     ${isActive
@@ -558,12 +591,14 @@ export const Sidebar: React.FC<SidebarProps> = ({ collapsed, setCollapsed }) => 
               <div className="grid grid-cols-2 gap-2">
                 <Link
                   to="/auth?mode=signin"
+                  onClick={handleNavClick}
                   className="px-2.5 py-1.5 text-center text-xs font-semibold rounded-xl bg-white border border-[#E2EEF8] text-slate-700 hover:bg-blue-50/60 hover:text-blue-600 shadow-2xs transition-all"
                 >
                   {t.auth.signInBtn}
                 </Link>
                 <Link
                   to="/auth?mode=signup"
+                  onClick={handleNavClick}
                   className="px-2.5 py-1.5 text-center text-xs font-semibold rounded-xl bg-gradient-to-r from-[#008CFF] to-[#0066FF] text-white hover:brightness-105 shadow-2xs shadow-blue-500/20 transition-all"
                 >
                   {t.auth.signUpBtn}
@@ -572,6 +607,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ collapsed, setCollapsed }) => 
             ) : (
               <Link
                 to="/auth?mode=signin"
+                onClick={handleNavClick}
                 className="flex items-center justify-center p-2 rounded-xl bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors"
                 title={t.auth.signInBtn}
               >

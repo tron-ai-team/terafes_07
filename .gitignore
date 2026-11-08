@@ -10,8 +10,6 @@ desktop-agent/target/
 .DS_Store
 
 # Secrets and local env (never commit filled values)
-.env
-.env.*
 !.env.example
 !**/.env.example
 backend/backend-spring/.env
@@ -38,7 +36,6 @@ _v4_golden_evidence/
 # IDE
 .idea/
 *.iml
-.vscode/*
 !.vscode/extensions.json
 !.vscode/settings.json
 
@@ -56,3 +53,4 @@ venv/
 # OS junk
 Thumbs.db
 Desktop.ini
+config.bat

@@ -11,6 +11,8 @@ import type {
   CvTemplateSummary,
   JobSearchRequest,
   OpsProviderStatus,
+  ProfileAiSuggestRequest,
+  ProfileAiSuggestResponse,
 } from '../types/careerCenter';
 import type { CareerJobResult } from '../types/careerAgent';
 
@@ -33,7 +35,60 @@ function suggestionId(s: CvSuggestion): string {
  * Career Center V1 — Spring Boot API client
  * Base paths: /api/v1/career/*
  */
+export interface UserMeWithCandidate {
+  id?: number;
+  email?: string;
+  displayName?: string;
+  role?: string;
+  createdAt?: string;
+  candidateProfile?: {
+    profileExists?: boolean;
+    fullName?: string | null;
+    nameJa?: string | null;
+    furigana?: string | null;
+    photoUrl?: string | null;
+    hasPhoto?: boolean;
+    education?: string[];
+    expectedGraduationYear?: string | null;
+    targetJobs?: string[];
+    preferredLocations?: string[];
+    skills?: string[];
+    certifications?: string[];
+    jlptLevel?: string | null;
+    projects?: string[];
+    completenessScore?: number;
+    missingFields?: string[];
+    contactEmail?: string | null;
+  };
+}
+
 export const careerCenterClient = {
+  // ── User Profile (auth + live Candidate Profile summary) ───────────
+  async getUserMe(): Promise<UserMeWithCandidate> {
+    const res = await apiFetch('/api/v1/users/me');
+    return jsonOrThrow(res);
+  },
+
+  /** Fetch authorized profile photo as an object URL (caller must revoke). */
+  async getProfilePhotoObjectUrl(): Promise<string | null> {
+    const headers = new Headers();
+    const token = getAccessToken();
+    if (token) headers.set('Authorization', `Bearer ${token}`);
+    const res = await fetch(`${CORE_API_URL}/api/v1/career/profile/photo`, {
+      method: 'GET',
+      credentials: 'include',
+      headers,
+    });
+    if (res.status === 404) return null;
+    if (!res.ok) {
+      const detail = await parseErrorDetail(res);
+      throw new ApiError(res.status, detail);
+    }
+    const blob = await res.blob();
+    if (!blob || blob.size === 0) return null;
+    return URL.createObjectURL(blob);
+  },
+
   // ── Candidate Profile ──────────────────────────────────────────────
   async getProfile(): Promise<CandidateProfile> {
     const res = await apiFetch('/api/v1/career/profile');
@@ -48,6 +103,24 @@ export const careerCenterClient = {
   async upsertProfile(body: CandidateProfileRequest): Promise<CandidateProfile> {
     const res = await apiFetch('/api/v1/career/profile', {
       method: 'PUT',
+      body: JSON.stringify(body),
+    });
+    return jsonOrThrow(res);
+  },
+
+  async uploadProfilePhoto(file: File): Promise<CandidateProfile> {
+    const form = new FormData();
+    form.append('file', file);
+    const res = await apiFetch('/api/v1/career/profile/photo', {
+      method: 'POST',
+      body: form,
+    });
+    return jsonOrThrow(res);
+  },
+
+  async suggestProfileText(body: ProfileAiSuggestRequest): Promise<ProfileAiSuggestResponse> {
+    const res = await apiFetch('/api/v1/career/profile/ai-suggest', {
+      method: 'POST',
       body: JSON.stringify(body),
     });
     return jsonOrThrow(res);
@@ -100,6 +173,141 @@ export const careerCenterClient = {
       method: 'PUT',
       body: JSON.stringify(body),
     });
+    return jsonOrThrow(res);
+  },
+
+  async deleteDraft(draftId: string): Promise<{ id: string; deleted: boolean; status?: string; message?: string }> {
+    const res = await apiFetch(`/api/v1/career/cv-builder/drafts/${encodeURIComponent(draftId)}`, {
+      method: 'DELETE',
+    });
+    return jsonOrThrow(res);
+  },
+
+  async uploadDraftPhoto(draftId: string, file: File, alsoUpdateProfile = false): Promise<CvDraft> {
+    const form = new FormData();
+    form.append('file', file);
+    const q = alsoUpdateProfile ? '?alsoUpdateProfile=true' : '';
+    const res = await apiFetch(
+      `/api/v1/career/cv-builder/drafts/${encodeURIComponent(draftId)}/photo${q}`,
+      { method: 'POST', body: form }
+    );
+    return jsonOrThrow(res);
+  },
+
+  async useProfilePhotoForDraft(draftId: string): Promise<CvDraft> {
+    const res = await apiFetch(
+      `/api/v1/career/cv-builder/drafts/${encodeURIComponent(draftId)}/photo/from-profile`,
+      { method: 'POST', body: '{}' }
+    );
+    return jsonOrThrow(res);
+  },
+
+  async removeDraftPhoto(draftId: string): Promise<CvDraft> {
+    const res = await apiFetch(
+      `/api/v1/career/cv-builder/drafts/${encodeURIComponent(draftId)}/photo`,
+      { method: 'DELETE' }
+    );
+    return jsonOrThrow(res);
+  },
+
+  async getDraftPhotoObjectUrl(draftId: string): Promise<string | null> {
+    const headers = new Headers();
+    const token = getAccessToken();
+    if (token) headers.set('Authorization', `Bearer ${token}`);
+    const res = await fetch(
+      `${CORE_API_URL}/api/v1/career/cv-builder/drafts/${encodeURIComponent(draftId)}/photo`,
+      { method: 'GET', credentials: 'include', headers }
+    );
+    if (res.status === 404) return null;
+    if (!res.ok) {
+      const detail = await parseErrorDetail(res);
+      throw new ApiError(res.status, detail);
+    }
+    const blob = await res.blob();
+    if (!blob || blob.size === 0) return null;
+    return URL.createObjectURL(blob);
+  },
+
+  async magicFill(
+    draftId: string,
+    body?: {
+      payload?: Record<string, unknown>;
+      language?: string;
+      companyContext?: string;
+      allowCloud?: boolean;
+    }
+  ): Promise<{
+    draftId: string;
+    suggestions: CvSuggestion[];
+    missingRequired?: string[];
+    warnings?: string[];
+    engine?: string;
+    ollamaUsed?: boolean;
+    cloudUsed?: boolean;
+    applied?: boolean;
+    message?: string;
+  }> {
+    const res = await apiFetch(
+      `/api/v1/career/cv-builder/drafts/${encodeURIComponent(draftId)}/magic-fill`,
+      { method: 'POST', body: JSON.stringify(body || {}) }
+    );
+    return jsonOrThrow(res);
+  },
+
+  async decideMagicFill(
+    draftId: string,
+    body: { acceptIds?: string[]; rejectIds?: string[]; acceptAll?: boolean; rejectAll?: boolean }
+  ): Promise<{ draftId: string; accepted: number; rejected: number; draft?: CvDraft }> {
+    const res = await apiFetch(
+      `/api/v1/career/cv-builder/drafts/${encodeURIComponent(draftId)}/magic-fill/decide`,
+      { method: 'POST', body: JSON.stringify(body) }
+    );
+    return jsonOrThrow(res);
+  },
+
+  async previewDraft(draftId: string, format: 'pdf' | 'xlsx' = 'pdf'): Promise<CvExportMeta> {
+    const res = await apiFetch(
+      `/api/v1/career/cv-builder/drafts/${encodeURIComponent(draftId)}/preview?format=${encodeURIComponent(format)}`,
+      { method: 'POST', body: '{}' }
+    );
+    return jsonOrThrow(res);
+  },
+
+  async refreshFromProfile(draftId: string, replaceAll = false): Promise<CvDraft> {
+    const res = await apiFetch(
+      `/api/v1/career/cv-builder/drafts/${encodeURIComponent(draftId)}/refresh-from-profile`,
+      { method: 'POST', body: JSON.stringify({ replaceAll }) }
+    );
+    return jsonOrThrow(res);
+  },
+
+  async educationPreview(draftId: string): Promise<import('../types/careerCenter').CvEducationPreview> {
+    const res = await apiFetch(
+      `/api/v1/career/cv-builder/drafts/${encodeURIComponent(draftId)}/education-preview`
+    );
+    return jsonOrThrow(res);
+  },
+
+  async sanitizeEducation(draftId: string): Promise<CvDraft> {
+    const res = await apiFetch(
+      `/api/v1/career/cv-builder/drafts/${encodeURIComponent(draftId)}/sanitize-education`,
+      { method: 'POST', body: '{}' }
+    );
+    return jsonOrThrow(res);
+  },
+
+  async listVersions(draftId: string): Promise<import('../types/careerCenter').CvVersionSummary[]> {
+    const res = await apiFetch(
+      `/api/v1/career/cv-builder/drafts/${encodeURIComponent(draftId)}/versions`
+    );
+    return jsonOrThrow(res);
+  },
+
+  async restoreVersion(draftId: string, versionId: string): Promise<CvDraft> {
+    const res = await apiFetch(
+      `/api/v1/career/cv-builder/drafts/${encodeURIComponent(draftId)}/versions/${encodeURIComponent(versionId)}/restore`,
+      { method: 'POST', body: '{}' }
+    );
     return jsonOrThrow(res);
   },
 
@@ -193,6 +401,37 @@ export const careerCenterClient = {
       method: 'POST',
       body: JSON.stringify(request),
     });
+    return jsonOrThrow(res);
+  },
+
+  async getJobSources(request: JobSearchRequest = {}): Promise<{
+    providers?: OpsProviderStatus[];
+    externalSearchUrls?: string[];
+    emptyStateMessage?: string;
+  }> {
+    const res = await apiFetch('/api/v1/career/jobs/sources', {
+      method: 'POST',
+      body: JSON.stringify(request),
+    });
+    return jsonOrThrow(res);
+  },
+
+  async refreshJobs(request: JobSearchRequest): Promise<{
+    success?: boolean;
+    count?: number;
+    results?: CareerJobResult[];
+    mynaviStatus?: string;
+    careermapStatus?: string;
+  }> {
+    const res = await apiFetch('/api/v1/career/jobs/refresh', {
+      method: 'POST',
+      body: JSON.stringify({ ...request, forceRefresh: true }),
+    });
+    return jsonOrThrow(res);
+  },
+
+  async listSavedJobs(): Promise<CareerJobResult[]> {
+    const res = await apiFetch('/api/v1/career/jobs/saved');
     return jsonOrThrow(res);
   },
 

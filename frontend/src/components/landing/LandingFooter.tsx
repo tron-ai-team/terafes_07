@@ -24,14 +24,14 @@ export const LandingFooter: React.FC = () => {
   return (
     <footer className="relative bg-white border-t border-slate-200/80 pt-16 pb-12 overflow-hidden text-left" aria-label="TRON AI Footer">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        
+
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-10 pb-12 border-b border-slate-100">
-          
+
           {/* Brand Column */}
           <div className="lg:col-span-2 space-y-4">
             <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-blue-700 via-blue-600 to-cyan-400 flex items-center justify-center shadow-md shadow-cyan-500/20 overflow-hidden bg-white p-1">
-                <img src="/images/assets/tron-logo.png" alt="TRON AI Logo" className="w-full h-full object-contain" />
+              <div className="w-9 h-9 flex items-center justify-center shrink-0">
+                <img src="/images/assets/tron-logo.png" alt="TRON AI Logo" className="w-full h-full object-contain filter drop-shadow-[0_2px_8px_rgba(0,180,255,0.45)]" />
               </div>
               <span className="text-xl font-extrabold font-heading text-slate-900">
                 TRON <span className="text-blue-600">AI</span>
@@ -51,11 +51,10 @@ export const LandingFooter: React.FC = () => {
                     key={l.code}
                     id={`footer-lang-${l.code}`}
                     onClick={() => handleSelectLang(l.code)}
-                    className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all ${
-                      currentLang === l.code
+                    className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all ${currentLang === l.code
                         ? 'bg-blue-600 text-white shadow-sm'
                         : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-                    }`}
+                      }`}
                   >
                     {l.nativeName}
                   </button>

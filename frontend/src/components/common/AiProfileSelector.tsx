@@ -72,6 +72,7 @@ export const AiProfileSelector: React.FC<AiProfileSelectorProps> = ({
   onChange,
   locked = false,
   availableProfiles = [],
+  compact = false,
   showDescriptions = true,
   placement = 'auto',
   className = '',
@@ -202,18 +203,17 @@ export const AiProfileSelector: React.FC<AiProfileSelectorProps> = ({
     placement === 'top'
       ? 'bottom-full mb-2'
       : placement === 'bottom'
-      ? 'top-full mt-2'
-      : 'bottom-full mb-2 sm:bottom-auto sm:top-full sm:mt-2'; // default auto
+        ? 'top-full mt-2'
+        : 'bottom-full mb-2 sm:bottom-auto sm:top-full sm:mt-2'; // default auto
 
   // ── Render Locked State ────────────────────────────────────────────────────
   if (locked) {
     return (
       <div
-        className={`relative inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border backdrop-blur-md transition-all select-none cursor-default ${
-          activeDef.id === 'QUALITY'
+        className={`relative inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border backdrop-blur-md transition-all select-none cursor-default ${activeDef.id === 'QUALITY'
             ? 'bg-purple-50/80 border-purple-200 text-purple-800 shadow-2xs'
             : 'bg-cyan-50/80 border-cyan-200 text-cyan-800 shadow-2xs'
-        } ${className}`}
+          } ${className}`}
         title={disabledTooltip}
         aria-label={`${activeDef.displayName} AI Model (Locked: ${disabledTooltip})`}
       >
@@ -240,7 +240,7 @@ export const AiProfileSelector: React.FC<AiProfileSelectorProps> = ({
         aria-controls={listboxId}
         aria-label={`Select AI Model. Currently selected: ${activeDef.displayName}`}
         className={`
-          group inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold
+          group inline-flex items-center gap-1.5 ${compact ? 'px-2 sm:px-3' : 'px-3'} py-1.5 rounded-full text-xs font-bold
           border bg-white/95 backdrop-blur-xl shadow-2xs transition-all duration-200
           hover:shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-[#008CFF]/40
           ${isOpen ? 'border-[#008CFF] ring-2 ring-[#008CFF]/20' : activeTheme.pillBorder}
@@ -248,11 +248,10 @@ export const AiProfileSelector: React.FC<AiProfileSelectorProps> = ({
         `}
       >
         {getProfileIcon(activeDef.id, activeDef.icon, 'w-3.5 h-3.5')}
-        <span className="truncate max-w-[120px]">{activeDef.displayName}</span>
+        <span className={`truncate ${compact ? 'max-w-[70px] sm:max-w-[120px]' : 'max-w-[120px]'}`}>{activeDef.displayName}</span>
         <ChevronDown
-          className={`w-3 h-3 text-slate-400 transition-transform duration-200 ${
-            isOpen ? 'rotate-180 text-[#008CFF]' : 'group-hover:text-slate-600'
-          }`}
+          className={`w-3 h-3 text-slate-400 transition-transform duration-200 ${isOpen ? 'rotate-180 text-[#008CFF]' : 'group-hover:text-slate-600'
+            }`}
           aria-hidden="true"
         />
       </button>
@@ -307,10 +306,9 @@ export const AiProfileSelector: React.FC<AiProfileSelectorProps> = ({
                         }}
                         className={`
                           w-full flex items-start justify-between p-2.5 rounded-xl text-left transition-all
-                          ${
-                            isSelected
-                              ? 'bg-blue-50/80 border border-blue-200/80 shadow-2xs'
-                              : isAvailable
+                          ${isSelected
+                            ? 'bg-blue-50/80 border border-blue-200/80 shadow-2xs'
+                            : isAvailable
                               ? 'hover:bg-slate-50 border border-transparent hover:border-slate-100'
                               : 'opacity-40 cursor-not-allowed bg-slate-50/50 border border-transparent'
                           }
@@ -384,10 +382,9 @@ export const AiProfileSelector: React.FC<AiProfileSelectorProps> = ({
                         }}
                         className={`
                           w-full flex items-start justify-between p-2.5 rounded-xl text-left transition-all
-                          ${
-                            isSelected
-                              ? 'bg-blue-50/80 border border-blue-200/80 shadow-2xs'
-                              : isAvailable
+                          ${isSelected
+                            ? 'bg-blue-50/80 border border-blue-200/80 shadow-2xs'
+                            : isAvailable
                               ? 'hover:bg-slate-50 border border-transparent hover:border-slate-100'
                               : 'opacity-40 cursor-not-allowed bg-slate-50/50 border border-transparent'
                           }

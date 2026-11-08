@@ -27,6 +27,13 @@ public class HybridRoutingService {
     @Value("${tron.hybrid.rtx-probe-timeout-ms:1500}")
     private int rtxProbeTimeoutMs;
 
+    /**
+     * Test-only deterministic mode. When true, skip the live HTTP probe and treat local
+     * Ollama as reachable (still subject to FORCE_OFFLINE / admin local-routing flags).
+     */
+    @Value("${tron.hybrid.assume-local-healthy:false}")
+    private boolean assumeLocalHealthy;
+
     public HybridRoutingService(PlatformControlRepository controls) {
         this.controls = controls;
     }
@@ -71,6 +78,9 @@ public class HybridRoutingService {
             return false;
         }
         if ("FORCE_ONLINE".equalsIgnoreCase(s.getRtxOverride())) {
+            return true;
+        }
+        if (assumeLocalHealthy) {
             return true;
         }
         return probe(ollamaHealthUrl);

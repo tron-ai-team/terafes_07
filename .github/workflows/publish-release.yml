@@ -1,5 +1,11 @@
 # Manual GHCR publication — no SSH / no Ubuntu deploy.
 # Use this after CI is green and before first manual server pull.
+#
+# Tag policy:
+# - Always publishes immutable sha-<12> tags from the checked-out ref.
+# - production / latest are ONLY published from an explicitly confirmed
+#   workflow_dispatch on refs/heads/main (approved main-branch release).
+# - Feature branches must never overwrite production or latest.
 name: Publish production image
 
 on:
@@ -10,7 +16,7 @@ on:
         required: true
         default: ""
       ref_label:
-        description: "Optional extra tag (e.g. beta-1). Always publishes sha-* and production."
+        description: "Optional extra tag (e.g. beta-1). Never use production/latest. Mutable production tags require main."
         required: false
         default: ""
 
@@ -35,6 +41,13 @@ jobs:
             echo "Manual GHCR publish requires confirm=publish-ghcr"
             exit 1
           fi
+          REF_LABEL="${{ github.event.inputs.ref_label }}"
+          case "${REF_LABEL}" in
+            production|latest)
+              echo "ref_label may not be 'production' or 'latest' (reserved mutable tags)."
+              exit 1
+              ;;
+          esac
 
   test:
     needs: [guard]
@@ -62,13 +75,24 @@ jobs:
           REPO_LC="$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')"
           SHA_TAG="sha-${GITHUB_SHA::12}"
           BASE="ghcr.io/${REPO_LC}/${IMAGE_NAME}"
+          IS_MAIN_RELEASE=false
+          if [ "${GITHUB_REF}" = "refs/heads/main" ]; then
+            IS_MAIN_RELEASE=true
+          fi
+
           echo "base=${BASE}" >> "$GITHUB_OUTPUT"
           echo "sha_image=${BASE}:${SHA_TAG}" >> "$GITHUB_OUTPUT"
+          echo "is_main_release=${IS_MAIN_RELEASE}" >> "$GITHUB_OUTPUT"
+
           {
             echo "tags<<EOF"
             echo "${BASE}:${SHA_TAG}"
-            echo "${BASE}:production"
-            echo "${BASE}:latest"
+            if [ "${IS_MAIN_RELEASE}" = "true" ]; then
+              echo "${BASE}:production"
+              echo "${BASE}:latest"
+            else
+              echo "Non-main ref ${GITHUB_REF}: publishing immutable SHA tag only (skipping production/latest)." >&2
+            fi
             if [ -n "${{ github.event.inputs.ref_label }}" ]; then
               echo "${BASE}:${{ github.event.inputs.ref_label }}"
             fi
@@ -107,4 +131,10 @@ jobs:
           echo "### Published image" >> "$GITHUB_STEP_SUMMARY"
           echo "\`${{ steps.meta.outputs.sha_image }}\`" >> "$GITHUB_STEP_SUMMARY"
           echo "Digest: \`${{ steps.build.outputs.digest }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "Ref: \`${{ github.ref }}\`" >> "$GITHUB_STEP_SUMMARY"
+          if [ "${{ steps.meta.outputs.is_main_release }}" = "true" ]; then
+            echo "Mutable tags: \`production\`, \`latest\` (main-branch release)." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "Mutable tags: skipped (feature/non-main publish — SHA tag only)." >> "$GITHUB_STEP_SUMMARY"
+          fi
           echo "SSH auto-deploy was NOT run. Pull this tag on Ubuntu manually." >> "$GITHUB_STEP_SUMMARY"

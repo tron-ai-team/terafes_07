@@ -49,7 +49,8 @@ def require(condition, message):
 def run(*args, label, timeout=45, extra_env=None):
     # Compose and Docker diagnostics can include runtime secrets; never print raw output.
     env = {"PATH": "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
-           "HOME": "/root", "DOCKER_HOST": "unix:///var/run/docker.sock", "GH_PROMPT_DISABLED": "1"}
+           "HOME": "/root", "DOCKER_HOST": "unix:///var/run/docker.sock", "GH_PROMPT_DISABLED": "1",
+           "COMPOSE_REMOVE_ORPHANS": "false", "COMPOSE_IGNORE_ORPHANS": "true"}
     env.update(extra_env or {})
     try:
         return subprocess.run(args, check=True, capture_output=True, text=True,
@@ -328,12 +329,13 @@ def deploy(sha, digest):
     try:
         activate(image, image_id, candidate=True)
         finish(state)
-    except (Exception, KeyboardInterrupt):
+    except (Exception, KeyboardInterrupt) as error:
         try:
             restore(state)
         except (Exception, KeyboardInterrupt):
             raise ReleaseError("ROLLBACK FAILED; pending journal preserved; operator action required") from None
-        raise ReleaseError("Release failed; the previous backend was restored") from None
+        detail = str(error) if isinstance(error, ReleaseError) else "interrupted or unexpected error"
+        raise ReleaseError(f"Release failed; the previous backend was restored ({detail})") from None
     print(f"Backend deployed and healthy: {image}", flush=True)
 
 
@@ -387,7 +389,11 @@ def main():
             preflight()
         elif args == ["rollback"]:
             require(JOURNAL.is_file(), "No recorded rollback target")
-            restore(json.loads(JOURNAL.read_text()))
+            state = json.loads(JOURNAL.read_text())
+            if not state["pending"]:
+                require(inspect_container("backend")["Image"] in {state["target_id"], state["previous_id"]},
+                        "Live backend no longer belongs to the recorded release; reconcile before rollback")
+            restore(state)
         elif len(args) == 3 and REQUEST.fullmatch(" ".join(args)):
             trusted_file(TOKEN_FILE, private=True)
             deploy(*args[1:])

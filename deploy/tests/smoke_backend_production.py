@@ -46,8 +46,12 @@ with tempfile.TemporaryDirectory() as directory:
         broken_id = subprocess.check_output(["docker", "image", "inspect", "--format={{.Id}}", broken],
                                             text=True).strip()
         original_health = controller.healthy
+        saw_broken_candidate = False
 
         def fixture_health(image_id, candidate=False, seconds=240):
+            global saw_broken_candidate
+            if image_id == broken_id:
+                saw_broken_candidate = controller.inspect_container("backend")["Image"] == broken_id
             return original_health(image_id, candidate, min(12, seconds) if image_id == broken_id else seconds)
 
         with (patch.object(controller, "verify_main"),
@@ -57,10 +61,12 @@ with tempfile.TemporaryDirectory() as directory:
             try:
                 controller.deploy("a" * 40, "sha256:" + "b" * 64)
             except controller.ReleaseError as error:
-                assert str(error) == "Release failed; the previous backend was restored", str(error)
+                assert str(error).startswith("Release failed; the previous backend was restored"), str(error)
             else:
                 raise AssertionError("An unhealthy candidate must fail the release")
-        assert controller.preflight()["Image"] == baseline["Image"]
+        assert saw_broken_candidate, "The unhealthy image must have replaced the baseline before rollback"
+        restored = controller.preflight()
+        assert restored["Image"] == baseline["Image"] and restored["Mounts"] == baseline["Mounts"]
         journal = json.loads(controller.JOURNAL.read_text())
         assert journal["rolled_back"] and not journal["pending"]
         assert dependencies == {service: controller.inspect_container(service)["Id"]
@@ -71,4 +77,4 @@ with tempfile.TemporaryDirectory() as directory:
         subprocess.run([*command, "logs", "--tail", "80"], check=False, timeout=25)
         raise
     finally:
-        subprocess.run([*command, "down", "--volumes"], check=True, timeout=90)
+        subprocess.run([*command, "down"], check=True, timeout=90)

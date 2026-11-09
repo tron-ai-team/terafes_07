@@ -18,7 +18,7 @@ permissions:
 jobs:
   deployment:
     name: Deployment recovery tests
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
         with:
@@ -39,7 +39,7 @@ jobs:
 
   frontend:
     name: Frontend build
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     defaults:
       run:
         working-directory: frontend
@@ -67,7 +67,7 @@ jobs:
 
   backend:
     name: Backend Maven tests
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     defaults:
       run:
         working-directory: backend/backend-spring
@@ -89,7 +89,7 @@ jobs:
 
   security:
     name: Security checks
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - name: Block committed secrets (heuristic)
@@ -107,7 +107,7 @@ jobs:
 
   docker:
     name: Docker image build (no push)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: [backend]
     steps:
       - uses: actions/checkout@v4

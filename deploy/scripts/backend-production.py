@@ -58,7 +58,7 @@ def require(condition, message):
         raise ReleaseError(message)
 
 
-def run(*args, label, timeout=45, extra_env=None):
+def run(*args, label, timeout=45, extra_env=None, input_text=None):
     # Compose and Docker diagnostics can include runtime secrets; never print raw output.
     env = {"PATH": "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
            "HOME": pwd.getpwuid(os.geteuid()).pw_dir,
@@ -66,19 +66,21 @@ def run(*args, label, timeout=45, extra_env=None):
            "COMPOSE_REMOVE_ORPHANS": "false", "COMPOSE_IGNORE_ORPHANS": "true"}
     env.update(extra_env or {})
     try:
-        return subprocess.run(args, check=True, capture_output=True, text=True,
+        return subprocess.run(args, check=True, capture_output=True, text=True, input=input_text,
                               env=env, cwd="/", timeout=timeout).stdout.strip()
     except (subprocess.SubprocessError, OSError) as error:
         raise ReleaseError(f"{label} failed; inspect locally on Ubuntu") from error
 
 
-def compose(*args, override=None, timeout=45):
+def compose(*args, override=None, timeout=45, input_text=None):
     command = ["docker", "compose", "--project-name", PROJECT, "--project-directory",
                str(BASE.parent), "--env-file", str(ENV_FILE), "-f", str(BASE)]
     if override is not None:
         command.extend(("-f", str(override)))
+    if input_text is not None:
+        command.extend(("-f", "-"))
     return run(*command, *args, timeout=timeout, label=f"Compose {args[0]}",
-               extra_env={"TRON_ENV_FILE": str(ENV_FILE)})
+               extra_env={"TRON_ENV_FILE": str(ENV_FILE)}, input_text=input_text)
 
 
 def atomic_json(path, value):
@@ -117,8 +119,8 @@ def inspect_container(service):
     return value
 
 
-def compose_hash(override):
-    result = compose("config", "--hash=backend", override=override).split()
+def compose_hash(settings):
+    result = compose("config", "--hash=backend", input_text=json.dumps(settings)).split()
     require(len(result) == 2 and result[0] == "backend" and re.fullmatch(r"[0-9a-f]{64}", result[1]),
             "Unexpected Compose service hash format")
     return result[1]
@@ -138,22 +140,23 @@ def verify_live_resources(service, value):
             f"Unexpected live TRON {service} network")
 
 
-def drift_guard(backend):
-    # Re-render with the image ref the live container was created with. This catches
-    # a different Compose version/configuration or changed runtime env before recreation.
-    with tempfile.TemporaryDirectory(dir=STATE) as directory:
-        candidate = Path(directory) / "verify.json"
-        atomic_json(candidate, image_override(backend["Config"]["Image"]))
-        require(compose_hash(candidate) == backend["Config"]["Labels"].get("com.docker.compose.config-hash"),
-                "Installed Compose settings differ from the running backend; reconcile with an operator")
+def drift_guard(backend, environment):
+    # Match the actual image reference, even if the operator originally set it in
+    # the shell. Older Compose versions skip env_file resolution for config --hash
+    # (docker/compose#14001); pass its resolved values as explicit settings on stdin.
+    # Escape dollars so Compose does not interpolate the already resolved values.
+    settings = image_override(backend["Config"]["Image"])
+    settings["services"]["backend"]["environment"] = {
+        key: value.replace("$", "$$") if value is not None else None
+        for key, value in environment.items()
+    }
+    require(compose_hash(settings) == backend["Config"]["Labels"].get("com.docker.compose.config-hash"),
+            "Installed Compose settings differ from the running backend; reconcile with an operator")
     # If the backend was already deployed by this controller, its durable override
     # must still point at the image actually running.
     if OVERRIDE.exists():
         require(json.loads(OVERRIDE.read_text()) == image_override(backend["Config"]["Image"]),
                 "Saved image override does not match the running backend")
-    else:
-        require(compose_hash(None) == backend["Config"]["Labels"].get("com.docker.compose.config-hash"),
-                "Installed Compose does not reproduce the running backend without an override")
 
 
 class NoRedirect(urllib.request.HTTPRedirectHandler):
@@ -243,7 +246,7 @@ def preflight():
     require(current["HostConfig"].get("PortBindings") ==
             {"8080/tcp": [{"HostIp": "127.0.0.1", "HostPort": "18080"}]},
             "The live backend port binding is not the expected loopback mapping")
-    drift_guard(current)
+    drift_guard(current, backend["environment"])
     healthy(current["Image"], seconds=0)
     print("TRON Compose identity and baseline health verified.", flush=True)
     return current

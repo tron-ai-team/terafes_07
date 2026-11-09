@@ -28,7 +28,6 @@ with tempfile.TemporaryDirectory() as directory:
     controller.ENV_FILE = controller.STATE / "test.env"
     env = (
         f"TRON_ENV_FILE={controller.ENV_FILE}\n"
-        "TRON_BACKEND_IMAGE=tron-ai-backend:ci\n"
         "DB_USERNAME=tron_ci\n"
         "DB_PASSWORD=disposable-db-password\n"
         "MYSQL_ROOT_PASSWORD=disposable-root-password\n"
@@ -37,6 +36,7 @@ with tempfile.TemporaryDirectory() as directory:
         "TRON_FRONTEND_URL=https://example.invalid\n"
         "TRON_PUBLIC_API_URL=https://api.example.invalid\n"
         "OLLAMA_BASE_URL=http://127.0.0.1:11434\n"
+        "CI_ENV_LITERAL='literal-$HOME-${PATH}'\n"
     )
     controller.ENV_FILE.write_text(env)
     controller.OVERRIDE = controller.STATE / "compose.backend.json"
@@ -51,7 +51,8 @@ with tempfile.TemporaryDirectory() as directory:
                                             "label=com.docker.compose.project=tron-ai"], text=True)
         assert not existing.strip(), f"Expected no existing tron-ai {resource}s"
     try:
-        subprocess.run([*command, "up", "-d", "--wait", "--wait-timeout", "300"], check=True, timeout=500)
+        subprocess.run([*command, "up", "-d", "--wait", "--wait-timeout", "300"], check=True, timeout=500,
+                       env={**os.environ, "TRON_BACKEND_IMAGE": "tron-ai-backend:ci"})
         baseline = controller.preflight()
         dependencies = {service: controller.inspect_container(service)["Id"] for service in ("mysql", "gotenberg")}
         controller.healthy(baseline["Image"], candidate=True, seconds=20)

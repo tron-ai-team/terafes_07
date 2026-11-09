@@ -4,7 +4,7 @@
 
 [Draft PR #11](https://github.com/tron-ai-team/terafes_07/pull/11) reconciles the exact live backend revision from PR #8 with protected `main` and adds a gated, backend-only release workflow. The production Compose definition and Flyway migrations are identical to the operator-reported live revision. The controller uses a root-owned copy of the reviewed Compose file and can restore the previous backend image if health checks fail.
 
-**Automatic deployment is disabled.** `TRON_BACKEND_CD_ENABLED` was absent when checked. Production was not accessed, modified, or deployed to. Neither PR was merged. Treat GitHub CI on the current PR head, protected environment configuration, private access, and an isolated rehearsal as prerequisites for activation.
+All five required GitHub checks passed on the tested implementation. **Automatic deployment is disabled.** `TRON_BACKEND_CD_ENABLED` was absent when checked. Production was not accessed, modified, or deployed to. Neither PR was merged. Confirm the current PR head's check suite, then complete review, protected environment configuration, private access, and an isolated rehearsal before considering activation.
 
 ## B. GitHub information and checks
 
@@ -14,15 +14,17 @@
 - [Run 42671980947](https://github.com/tron-ai-team/terafes_07/actions/runs/42671980947) at `e48387b5fd19cedc881ec882895177585c7f12aa` failed at the run level. Attempts 1 and 3 report no jobs; attempt 2 reports only successful recovery. GitHub did not expose the root cause of incomplete job scheduling in the job API or logs. **NOT VERIFIED:** that this run's failure was due to a repository defect or a particular GitHub incident.
 - [Rollback regression run 42674171419](https://github.com/tron-ai-team/terafes_07/actions/runs/42674171419) at `adb25abc` passed recovery, frontend and security; Maven did not report a job and Docker was skipped because it needs Maven. Use [PR #11 checks](https://github.com/tron-ai-team/terafes_07/pull/11/checks) for the final head. A green job from an earlier SHA does not satisfy current branch protection.
 
-| Required GitHub check | Last conclusive historical result before the fresh run |
-| --- | --- |
-| Deployment recovery tests | Passed on run 42671980947, attempt 2 |
-| Frontend build | Passed on run 42670106652 |
-| Backend Maven tests | Passed on run 42670106652 |
-| Security checks | Passed on run 42670106652; dependency review is advisory and unavailable for this repo |
-| Docker image build (no push) | Built the image; failed the production-topology smoke on run 42670106652. The root cause was fixed and independently retested locally |
+The complete [implementation verification run 42674554841](https://github.com/tron-ai-team/terafes_07/actions/runs/42674554841) passed on `2f6eeca80d1f3bea3fdfaa70e5f12a16dc6e2862`. This evidence update changes only this Markdown file. The PR description records the exact final handoff commit and its independent run.
 
-GitHub's [Vercel preview check](https://vercel.com/tron-ai2/tron-ai/3xMA5k94Jj6vPFkHPiPn987Bz5ct) passed for `e48387b5`. The Vercel connector did not return the project team for the current connection. **NOT VERIFIED:** current Vercel production deployment or application behavior against a new backend. No Vercel project changes are needed for this workflow.
+| Required GitHub check | Result on the tested implementation |
+| --- | --- |
+| Deployment recovery tests | [Passed](https://github.com/tron-ai-team/terafes_07/actions/runs/42674554841/job/129352430547), including live SHA ancestry |
+| Frontend build | [Passed](https://github.com/tron-ai-team/terafes_07/actions/runs/42674554841/job/129352227386) |
+| Backend Maven tests | [Passed](https://github.com/tron-ai-team/terafes_07/actions/runs/42674554841/job/129352302051), tests and package |
+| Security checks | [Passed](https://github.com/tron-ai-team/terafes_07/actions/runs/42674554841/job/129352228141); existing advisory dependency review is unavailable for this repo |
+| Docker image build (no push) | [Passed](https://github.com/tron-ai-team/terafes_07/actions/runs/42674554841/job/129352883298), including the relay MySQL/PDF smoke and production-topology drift and rollback |
+
+GitHub's [Vercel preview check](https://vercel.com/tron-ai2/tron-ai/DULNK46fyXTiFeZhXmkNhunySkKy) passed for the tested implementation. The Vercel connector did not return the project team for the current connection. **NOT VERIFIED:** current Vercel production deployment or application behavior against a new backend. No Vercel project changes are needed for this workflow.
 
 ## C. Changes and diagnosis
 
@@ -52,7 +54,7 @@ After activation, a `main` push or a dispatch on `main` in the canonical reposit
 
 ## G. Rollback and recovery
 
-Before replacement the controller retains the exact running image ID under a local rollback alias and journals the target and configuration fingerprint. Failed health checks restore the prior image, verify it and close the journal. A host lock serializes releases; a transient systemd unit survives SSH disconnect. A pending journal remains if rollback cannot complete or the host loses power. The exact image restore, dependency IDs, mount equality and health were observed in the disposable local fixture. The follow-up regression also checks data sentinels. **NOT VERIFIED:** live restart, production credentials, Cloudflare, and interruption recovery on the actual host. No Docker volume or database was deleted.
+Before replacement the controller retains the exact running image ID under a local rollback alias and journals the target and configuration fingerprint. Failed health checks restore the prior image, verify it and close the journal. A host lock serializes releases; a transient systemd unit survives SSH disconnect. A pending journal remains if rollback cannot complete or the host loses power. Local Docker and the GitHub-hosted disposable fixture confirmed the exact image restore, health, unchanged dependency IDs and backend mounts, and preservation of the MySQL row and upload marker. **NOT VERIFIED:** live restart, production credentials, Cloudflare, and interruption recovery on the actual host. No Docker volume or database was deleted.
 
 With separate approval for host access, inspect `sudo journalctl -u tron-backend-release.service --since today` and the root-only journal. Run `sudo /usr/local/sbin/tron-backend-release rollback` for a pending transaction or to revert the latest recorded release, then verify local and public health. If the env/Compose fingerprint changed, stop and reconcile with an operator. Preserve the rollback image and existing volumes. Do not run `down -v` or prune the image before sign-off.
 

@@ -46,7 +46,7 @@ Leave `TRON_BACKEND_CD_ENABLED` unset or `false` during review and rehearsal. Ke
 3. **Ubuntu controller.** Use the existing approved admin channel. Compare the installed project, Compose path, root ownership, Docker context, image revision, mounts, ports and Compose version to the controller's preflight; a different path or topology requires review. Check only non-secret inspection fields; do not print rendered Compose, environment, or raw container inspection output in shared logs. Confirm Linux/amd64, Compose v2 supporting `config --hash` and `up --pull never`, Python 3.10+, systemd, and a supported [GitHub CLI](https://github.com/cli/cli/blob/trunk/docs/install_linux.md) with `gh attestation verify --source-digest`. From a reviewed checkout of this branch/its eventual merge commit:
 
    ```bash
-   sudo install -d -o root -g root -m 0700 /var/lib/tron-backend-release
+   sudo install -d -o root -g root -m 0700 /var/lib/tron-backend-release /var/lib/tron-backend-release/registry
    sudo install -o root -g root -m 0755 deploy/scripts/backend-production.py /usr/local/sbin/tron-backend-release
    sudo /usr/local/sbin/tron-backend-release preflight
    live_id="$(sudo docker inspect --format '{{.Image}}' tron-ai-backend)"
@@ -65,7 +65,15 @@ Leave `TRON_BACKEND_CD_ENABLED` unset or `false` during review and rehearsal. Ke
    unset verifier
    ```
 
-   For a private GHCR package, grant a service account read access and create its classic PAT scoped to `read:packages`, with SSO authorization if required. Store it using root's existing Docker credential configuration (prefer a credential helper), via `read -rsp 'GHCR pull token: ' pull_token; printf '\n'; printf '%s' "$pull_token" | sudo -H docker login ghcr.io -u '<pull-service-account>' --password-stdin; unset pull_token`. Do not overwrite an existing working GHCR login without checking its consumers. A public package can be pulled without that credential. Verify root can pull and `gh` can attest-verify using these credentials on the rehearsal host. See [GHCR authentication](https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-container-registry) and [attestation verification](https://cli.github.com/manual/gh_attestation_verify).
+   For a private GHCR package, grant a service account read access and create its classic PAT scoped to `read:packages`, with SSO authorization if required. Use the controller's dedicated Docker credential configuration so existing projects' logins are untouched. Enter the token without echo:
+
+   ```bash
+   read -rsp 'GHCR pull token: ' pull_token; printf '\n'
+   printf '%s' "$pull_token" | sudo -H docker --config /var/lib/tron-backend-release/registry login ghcr.io -u '<pull-service-account>' --password-stdin
+   unset pull_token
+   ```
+
+   Prefer a credential helper configured for this directory when one is available. A public package can use an empty registry directory. Verify root can pull and `gh` can attest-verify with this `DOCKER_CONFIG` on the rehearsal host. See [GHCR authentication](https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-container-registry) and [attestation verification](https://cli.github.com/manual/gh_attestation_verify).
 
 4. **Restricted SSH.** On a trusted admin machine generate a unique key: `umask 077; ssh-keygen -t ed25519 -f ./tron-backend-cd -C tron-backend-cd -N ''`. Create the dedicated account (after confirming the name is unused) and root-managed key path on Ubuntu:
 

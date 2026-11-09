@@ -242,11 +242,15 @@ def config_fingerprint():
 
 def pull_verified(sha, digest):
     image = f"{PACKAGE}@{digest}"
+    registry = STATE / "registry"
+    require(registry.is_dir() and not registry.is_symlink() and registry.stat().st_uid == 0
+            and registry.stat().st_mode & 0o077 == 0, "Registry credential directory must be root-only")
+    registry_env = {"DOCKER_CONFIG": str(registry)}
     run("gh", "attestation", "verify", "oci://" + image, "--repo", REPO,
         "--signer-workflow", WORKFLOW, "--source-ref", "refs/heads/main", "--source-digest", sha,
         "--deny-self-hosted-runners", label="Verify GitHub image attestation", timeout=90,
-        extra_env={"GH_TOKEN": TOKEN_FILE.read_text().strip()})
-    run("docker", "pull", image, label="Pull attested backend", timeout=240)
+        extra_env={**registry_env, "GH_TOKEN": TOKEN_FILE.read_text().strip()})
+    run("docker", "pull", image, label="Pull attested backend", timeout=240, extra_env=registry_env)
     value, = json.loads(run("docker", "image", "inspect", image, label="Inspect attested image"))
     require(image in value["RepoDigests"] and value["Os"] == "linux" and value["Architecture"] == "amd64"
             and not value["Config"].get("Volumes"), "Unexpected candidate image digest, platform or volumes")

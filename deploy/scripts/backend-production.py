@@ -225,7 +225,9 @@ def verify_lineage(current, sha):
     require(labels.get("org.opencontainers.image.source") == f"https://github.com/{REPO}" and
             re.fullmatch(r"[0-9a-f]{40}", live), "Live image has no verifiable repository revision")
     if live != sha:
-        comparison = github_api(f"compare/{live}...{sha}?per_page=1")
+        # The compare API reports ancestry on every page, but includes file
+        # patches only on page one. Avoid retrieving a potentially large diff.
+        comparison = github_api(f"compare/{live}...{sha}?per_page=1&page=2")
         require(comparison.get("status") == "ahead" and comparison.get("behind_by") == 0,
                 "Live revision is not an ancestor of main; reconcile production before enabling deployment")
 

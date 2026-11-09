@@ -144,12 +144,9 @@ def drift_guard(backend, environment):
     # Match the actual image reference, even if the operator originally set it in
     # the shell. Older Compose versions skip env_file resolution for config --hash
     # (docker/compose#14001); pass its resolved values as explicit settings on stdin.
-    # Escape dollars so Compose does not interpolate the already resolved values.
+    # Compose config already escapes literal dollars for reuse as Compose input.
     settings = image_override(backend["Config"]["Image"])
-    settings["services"]["backend"]["environment"] = {
-        key: value.replace("$", "$$") if value is not None else None
-        for key, value in environment.items()
-    }
+    settings["services"]["backend"]["environment"] = environment
     require(compose_hash(settings) == backend["Config"]["Labels"].get("com.docker.compose.config-hash"),
             "Installed Compose settings differ from the running backend; reconcile with an operator")
     # If the backend was already deployed by this controller, its durable override

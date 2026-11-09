@@ -7,6 +7,7 @@ import json
 import os
 from pathlib import Path
 import platform
+import pwd
 import re
 import signal
 import stat
@@ -49,14 +50,15 @@ def require(condition, message):
 def run(*args, label, timeout=45, extra_env=None):
     # Compose and Docker diagnostics can include runtime secrets; never print raw output.
     env = {"PATH": "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
-           "HOME": "/root", "DOCKER_HOST": "unix:///var/run/docker.sock", "GH_PROMPT_DISABLED": "1",
+           "HOME": pwd.getpwuid(os.geteuid()).pw_dir,
+           "DOCKER_HOST": "unix:///var/run/docker.sock", "GH_PROMPT_DISABLED": "1",
            "COMPOSE_REMOVE_ORPHANS": "false", "COMPOSE_IGNORE_ORPHANS": "true"}
     env.update(extra_env or {})
     try:
         return subprocess.run(args, check=True, capture_output=True, text=True,
                               env=env, cwd="/", timeout=timeout).stdout.strip()
-    except (subprocess.SubprocessError, OSError):
-        raise ReleaseError(f"{label} failed; inspect locally on Ubuntu") from None
+    except (subprocess.SubprocessError, OSError) as error:
+        raise ReleaseError(f"{label} failed; inspect locally on Ubuntu") from error
 
 
 def compose(*args, override=None, timeout=45):

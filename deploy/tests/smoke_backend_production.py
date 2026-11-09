@@ -72,8 +72,10 @@ with tempfile.TemporaryDirectory() as directory:
         assert dependencies == {service: controller.inspect_container(service)["Id"]
                                 for service in dependencies}
         print("Dedicated MySQL/Gotenberg smoke and backend-only rollback passed.")
-    except Exception:
+    except Exception as error:
         # The fixture contains only synthetic data and credentials.
+        if isinstance(error.__cause__, subprocess.CalledProcessError):
+            print(error.__cause__.stderr, flush=True)
         subprocess.run([*command, "logs", "--tail", "80"], check=False, timeout=25)
         raise
     finally:

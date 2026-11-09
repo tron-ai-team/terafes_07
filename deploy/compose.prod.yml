@@ -1,74 +1,73 @@
-# TRON AI — production compose for the Ubuntu core server.
-# Does NOT create MySQL, Nginx, Cloudflare, or Ollama.
-# Reuses the host MySQL (separate schema) and existing Nginx + tunnel.
+# TRON AI — isolated production Compose stack for the Ubuntu core server.
+#
+# Services: Spring Boot backend + dedicated MySQL + Gotenberg
+# Does NOT touch host MySQL, existing systemd apps (8080–8082), Nginx, or Cloudflare.
 #
 # Usage (on Ubuntu, from /opt/tron-ai/deploy):
-#   docker compose --env-file /etc/tron-ai/tron-ai.env -f compose.prod.yml pull
-#   docker compose --env-file /etc/tron-ai/tron-ai.env -f compose.prod.yml up -d
+#   docker compose --project-name tron-ai --env-file /etc/tron-ai/tron-ai.env -f compose.prod.yml config
+#   docker compose --project-name tron-ai --env-file /etc/tron-ai/tron-ai.env -f compose.prod.yml pull
+#   docker compose --project-name tron-ai --env-file /etc/tron-ai/tron-ai.env -f compose.prod.yml up -d
 #
-# Never publish Gotenberg or MySQL to 0.0.0.0.
+# Never publish MySQL or Gotenberg to 0.0.0.0.
+# Backend is loopback-only: 127.0.0.1:18080 → container :8080
 
+name: tron-ai
 
 services:
-  backend:
-    image: ${TRON_BACKEND_IMAGE:?Use a verified release digest}
+  mysql:
+    image: mysql:8.4
+    container_name: tron-ai-mysql
     restart: unless-stopped
-    env_file:
-      - ${TRON_ENV_FILE:?Runtime env path required}
     environment:
-      SPRING_PROFILES_ACTIVE: prod
-      SERVER_ADDRESS: 0.0.0.0
-      SERVER_PORT: "8080"
-      # Connect through the private Unix-socket proxy; no host MySQL bind changes.
-      DB_HOST: mysql-proxy
-      GOTENBERG_URL: http://gotenberg:3000
-      TRON_PDF_ENGINE: gotenberg
-      TRON_PDF_ALLOW_LOCAL_LIBREOFFICE: "false"
-      TRON_STORAGE_LOCAL_PATH: /var/lib/tron-ai/object-storage
-      JAVA_OPTS: ${JAVA_OPTS:--Xms256m -Xmx768m -XX:+UseG1GC -XX:+ExitOnOutOfMemoryError}
-    ports:
-      # Loopback only — Nginx on the host is the public entry.
-      - "127.0.0.1:${TRON_BACKEND_HOST_PORT:?Isolated port required}:8080"
+      MYSQL_DATABASE: ${DB_NAME:-tron_ai}
+      MYSQL_USER: ${DB_USERNAME}
+      MYSQL_PASSWORD: ${DB_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+      - --skip-name-resolve
+      - --max-connections=50
+      - --innodb-buffer-pool-size=256M
+    # No host ports — reachable only on tron_ai_internal as hostname "mysql"
     volumes:
-      - tron_ai_object_storage:/var/lib/tron-ai/object-storage
-      - tron_ai_uploads:/var/lib/tron-ai/uploads
-      - tron_ai_logs:/var/log/tron-ai
+      - tron_ai_mysql_data:/var/lib/mysql
     networks:
       - tron_ai_internal
-    depends_on:
-      mysql-proxy:
-        condition: service_started
-      gotenberg:
-        condition: service_healthy
-    mem_limit: ${TRON_BACKEND_MEM_LIMIT:-1280m}
-    cpus: ${TRON_BACKEND_CPUS:-1.0}
+    mem_limit: ${TRON_MYSQL_MEM_LIMIT:-768m}
+    cpus: ${TRON_MYSQL_CPUS:-0.75}
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8080/health/ready"]
-      interval: 30s
+      test:
+        [
+          "CMD-SHELL",
+          "mysqladmin ping -h 127.0.0.1 -uroot -p$$MYSQL_ROOT_PASSWORD --silent",
+        ]
+      interval: 10s
       timeout: 5s
-      retries: 5
-      start_period: 120s
+      retries: 12
+      start_period: 40s
     logging:
       driver: json-file
       options:
-        max-size: "20m"
-        max-file: "5"
+        max-size: "10m"
+        max-file: "3"
 
   gotenberg:
-    image: ${TRON_GOTENBERG_IMAGE:?Pin Gotenberg by digest}
+    image: gotenberg/gotenberg:8
+    container_name: tron-ai-gotenberg
     restart: unless-stopped
     # LibreOffice PDF path only — disable Chromium routes to save RAM.
     command:
       - "gotenberg"
       - "--api-timeout=120s"
       - "--libreoffice-restart-after=10"
-      - "--libreoffice-max-queue-size=1"
+      - "--libreoffice-max-queue-size=2"
       - "--chromium-disable-routes=true"
     # No host ports: reachable only on tron_ai_internal as http://gotenberg:3000
     networks:
       - tron_ai_internal
     mem_limit: ${TRON_GOTENBERG_MEM_LIMIT:-1024m}
-    cpus: ${TRON_GOTENBERG_CPUS:-0.5}
+    cpus: ${TRON_GOTENBERG_CPUS:-1.0}
     healthcheck:
       test: ["CMD", "curl", "-f", "http://127.0.0.1:3000/health"]
       interval: 30s
@@ -81,57 +80,78 @@ services:
         max-size: "10m"
         max-file: "3"
 
-  # Private bridge -> restricted Unix relay -> existing loopback TCP MySQL.
-  mysql-proxy:
-    image: ${TRON_MYSQL_PROXY_IMAGE:?Pin socket proxy by digest}
-    entrypoint: ["socat"]
-    command: ["TCP-LISTEN:3306,fork,reuseaddr", "UNIX-CONNECT:/run/mysqld/mysqld.sock"]
-    user: "65534:65534"
-    group_add: ["${TRON_MYSQL_SOCKET_GID:?Administrator must configure relay socket group GID}"]
-    read_only: true
-    cap_drop: [ALL]
-    security_opt: ["no-new-privileges:true"]
+  backend:
+    image: ${TRON_BACKEND_IMAGE:-ghcr.io/tron-ai-team/terafes_07/tron-ai-backend:latest}
+    container_name: tron-ai-backend
     restart: unless-stopped
-    volumes:
-      - ${TRON_MYSQL_SOCKET_DIR:-/run/tron-ai-mysql}:/run/mysqld:ro
-    networks:
-      - tron_ai_internal
-    mem_limit: 32m
-    cpus: 0.1
-    logging:
-      driver: json-file
-      options:
-        max-size: "5m"
-        max-file: "3"
-
-  frontend:
-    image: ${TRON_FRONTEND_IMAGE:?Pin frontend Nginx by digest}
-    restart: unless-stopped
+    env_file:
+      # On Ubuntu: /etc/tron-ai/tron-ai.env (chmod 640). required=false so `compose config` works offline.
+      - path: ${TRON_ENV_FILE:-/etc/tron-ai/tron-ai.env}
+        required: false
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      SERVER_ADDRESS: 0.0.0.0
+      SERVER_PORT: "8080"
+      # Dedicated Compose MySQL (not host MySQL).
+      DB_HOST: mysql
+      DB_PORT: "3306"
+      DB_NAME: ${DB_NAME:-tron_ai}
+      DB_USERNAME: ${DB_USERNAME}
+      DB_PASSWORD: ${DB_PASSWORD}
+      GOTENBERG_URL: http://gotenberg:3000
+      TRON_PDF_ENGINE: gotenberg
+      TRON_PDF_ALLOW_LOCAL_LIBREOFFICE: "false"
+      TRON_STORAGE_LOCAL_PATH: /var/lib/tron-ai/object-storage
+      TRON_RABBITMQ_ENABLED: ${TRON_RABBITMQ_ENABLED:-false}
+      RABBITMQ_LISTENER_ENABLED: "false"
+      JAVA_OPTS: ${JAVA_OPTS:--Xms256m -Xmx768m -XX:+UseG1GC -XX:+ExitOnOutOfMemoryError}
     ports:
-      - "127.0.0.1:${TRON_FRONTEND_HOST_PORT:?Isolated frontend port required}:8080"
+      # Loopback only — Nginx on the host is the public entry.
+      # Conflicts avoided with nijotours:8080, techtitans:8081, ttcomputers:8082.
+      - "127.0.0.1:${TRON_BACKEND_HOST_PORT:-18080}:8080"
     volumes:
-      - ${TRON_FRONTEND_DIR:?Matched frontend required}:/usr/share/nginx/html:ro
-      - ${TRON_NGINX_CONFIG:?Private proxy configuration required}:/etc/nginx/conf.d/default.conf:ro
+      - tron_ai_object_storage:/var/lib/tron-ai/object-storage
+      - tron_ai_uploads:/var/lib/tron-ai/uploads
+      - tron_ai_logs:/var/log/tron-ai
     networks:
       - tron_ai_internal
-    mem_limit: 64m
-    cpus: 0.25
+    depends_on:
+      mysql:
+        condition: service_healthy
+      gotenberg:
+        condition: service_healthy
+    mem_limit: ${TRON_BACKEND_MEM_LIMIT:-1280m}
+    cpus: ${TRON_BACKEND_CPUS:-1.5}
+    # Liveness uses Actuator (DB-backed). Diagnostic /health may report AI as degraded.
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8080/"]
-      interval: 10s
-      timeout: 3s
-      retries: 3
+      test:
+        [
+          "CMD",
+          "wget",
+          "-qO-",
+          "http://127.0.0.1:8080/actuator/health",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 120s
     logging:
       driver: json-file
       options:
-        max-size: "5m"
-        max-file: "3"
+        max-size: "20m"
+        max-file: "5"
 
 networks:
   tron_ai_internal:
+    name: tron_ai_internal
     driver: bridge
 
 volumes:
-  tron_ai_object_storage: {}
-  tron_ai_uploads: {}
-  tron_ai_logs: {}
+  tron_ai_mysql_data:
+    name: tron_ai_mysql_data
+  tron_ai_object_storage:
+    name: tron_ai_object_storage
+  tron_ai_uploads:
+    name: tron_ai_uploads
+  tron_ai_logs:
+    name: tron_ai_logs

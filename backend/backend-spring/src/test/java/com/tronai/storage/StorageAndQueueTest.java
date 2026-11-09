@@ -1,10 +1,12 @@
 package com.tronai.storage;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.tronai.ai.AiProvider;
 import com.tronai.auth.JwtService;
 import com.tronai.cv.PdfTestUtils;
 import com.tronai.queue.BackgroundJobPublisher;
 import com.tronai.queue.TronEvent;
+import com.tronai.stt.SpeechToTextProvider;
+import com.tronai.tts.TextToSpeechProvider;
 import com.tronai.user.User;
 import com.tronai.user.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -48,16 +50,29 @@ class StorageAndQueueTest {
     private ObjectStorageService objectStorageService;
 
     @MockitoBean
-    private com.tronai.ai.AiProvider aiProvider;
+    private BackgroundJobPublisher backgroundJobPublisher;
 
     @MockitoBean
-    private BackgroundJobPublisher backgroundJobPublisher;
+    private AiProvider aiProvider;
+
+    @MockitoBean
+    private SpeechToTextProvider speechToTextProvider;
+
+    @MockitoBean
+    private TextToSpeechProvider textToSpeechProvider;
 
     private String authHeader;
     private User user;
 
     @BeforeEach
     void setUp() {
+        lenient().when(aiProvider.isAvailable()).thenReturn(true);
+        lenient().when(aiProvider.getProviderName()).thenReturn("ollama");
+        lenient().when(speechToTextProvider.isAvailable()).thenReturn(true);
+        lenient().when(textToSpeechProvider.isAvailable()).thenReturn(true);
+        lenient().when(objectStorageService.isAvailable()).thenReturn(true);
+        lenient().when(backgroundJobPublisher.isAvailable()).thenReturn(true);
+
         user = userRepository.findByEmailIgnoreCase("storage@tron.ai")
                 .orElseGet(() -> userRepository.save(User.builder()
                         .email("storage@tron.ai")
@@ -121,7 +136,6 @@ class StorageAndQueueTest {
     @Test
     @DisplayName("GET /health reports comprehensive component status")
     void healthReportsAllComponents() throws Exception {
-        when(aiProvider.isAvailable()).thenReturn(true);
         mockMvc.perform(get("/health"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("ok"))

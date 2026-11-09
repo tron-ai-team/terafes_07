@@ -24,13 +24,24 @@ PACKAGE = f"ghcr.io/{REPO}/tron-ai-backend"
 WORKFLOW = f"{REPO}/.github/workflows/backend-production.yml"
 PROGRAM = "/usr/local/sbin/tron-backend-release"
 STATE = Path("/var/lib/tron-backend-release")
-BASE = Path("/opt/tron-ai/deploy/compose.prod.yml")
+LIVE_BASE = Path("/home/thushan/Desktop/x/tron-ai-github/deploy/compose.prod.yml")
+BASE = Path("/etc/tron-ai/backend-release/compose.prod.yml")
 ENV_FILE = Path("/etc/tron-ai/tron-ai.env")
 OVERRIDE = STATE / "compose.backend.json"
 JOURNAL = STATE / "transaction.json"
 TOKEN_FILE = Path("/etc/tron-ai/backend-release-github.token")
 PROJECT = "tron-ai"
 CONTAINERS = {"backend": "tron-ai-backend", "mysql": "tron-ai-mysql", "gotenberg": "tron-ai-gotenberg"}
+NETWORK = "tron_ai_internal"
+MOUNTS = {
+    "backend": {
+        "/var/lib/tron-ai/object-storage": "tron_ai_object_storage",
+        "/var/lib/tron-ai/uploads": "tron_ai_uploads",
+        "/var/log/tron-ai": "tron_ai_logs",
+    },
+    "mysql": {"/var/lib/mysql": "tron_ai_mysql_data"},
+    "gotenberg": {},
+}
 LOCAL = "http://127.0.0.1:18080"
 PUBLIC = "https://api.tronai.tech"
 DIGEST = r"sha256:[0-9a-f]{64}"
@@ -66,7 +77,8 @@ def compose(*args, override=None, timeout=45):
                str(BASE.parent), "--env-file", str(ENV_FILE), "-f", str(BASE)]
     if override is not None:
         command.extend(("-f", str(override)))
-    return run(*command, *args, timeout=timeout, label=f"Compose {args[0]}")
+    return run(*command, *args, timeout=timeout, label=f"Compose {args[0]}",
+               extra_env={"TRON_ENV_FILE": str(ENV_FILE)})
 
 
 def atomic_json(path, value):
@@ -110,6 +122,20 @@ def compose_hash(override):
     require(len(result) == 2 and result[0] == "backend" and re.fullmatch(r"[0-9a-f]{64}", result[1]),
             "Unexpected Compose service hash format")
     return result[1]
+
+
+def verify_live_resources(service, value):
+    labels = value["Config"]["Labels"]
+    # Treat the desktop checkout path as provenance only; never read it as root.
+    sources = labels.get("com.docker.compose.project.config_files", "")
+    require(sources in {str(LIVE_BASE), str(BASE), f"{BASE},{OVERRIDE}"},
+            f"TRON {service} was created from an unexpected Compose configuration")
+    mounts = value.get("Mounts", [])
+    require(all(item.get("Type") == "volume" and item.get("RW") for item in mounts) and
+            {item["Destination"]: item["Name"] for item in mounts} == MOUNTS[service] and
+            len(mounts) == len(MOUNTS[service]), f"Unexpected live TRON {service} mounts")
+    require(set(value["NetworkSettings"]["Networks"]) == {NETWORK},
+            f"Unexpected live TRON {service} network")
 
 
 def drift_guard(backend):
@@ -188,6 +214,19 @@ def preflight():
     require(not backend.get("build") and backend["environment"].get("DB_HOST") == "mysql" and
             backend["environment"].get("GOTENBERG_URL") == "http://gotenberg:3000",
             "Backend Compose dependencies differ from the approved topology")
+    require(set(model.get("networks", {})) == {NETWORK} and
+            model["networks"][NETWORK].get("name") == NETWORK and
+            set(model.get("volumes", {})) == {name for mounts in MOUNTS.values() for name in mounts.values()},
+            "Unexpected TRON Compose networks or volumes")
+    for service, mounts in MOUNTS.items():
+        definitions = services[service].get("volumes", [])
+        require(len(definitions) == len(mounts) and all(
+            entry.get("type") == "volume" and not entry.get("read_only") and
+            entry.get("source") in model["volumes"] and
+            model["volumes"][entry["source"]].get("name") == mounts.get(entry.get("target"))
+            for entry in definitions), f"Unexpected configured TRON {service} mounts")
+        require(set(services[service].get("networks", {})) == {NETWORK},
+                f"Unexpected configured TRON {service} network")
     require(not services["mysql"].get("ports") and not services["gotenberg"].get("ports") and
             len(backend.get("ports", [])) == 1 and
             backend["ports"][0].get("host_ip") == "127.0.0.1" and
@@ -195,10 +234,12 @@ def preflight():
             str(backend["ports"][0].get("target")) == "8080", "Unexpected TRON Compose port exposure")
     for service in ("mysql", "gotenberg"):
         value = inspect_container(service)
+        verify_live_resources(service, value)
         require(value["State"]["Running"] and value["State"].get("Health", {}).get("Status") == "healthy" and
                 value["HostConfig"].get("PortBindings") in (None, {}),
                 f"TRON {service} must already be healthy and private")
     current = inspect_container("backend")
+    verify_live_resources("backend", current)
     require(current["HostConfig"].get("PortBindings") ==
             {"8080/tcp": [{"HostIp": "127.0.0.1", "HostPort": "18080"}]},
             "The live backend port binding is not the expected loopback mapping")

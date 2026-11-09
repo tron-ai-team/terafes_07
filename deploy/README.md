@@ -1,4 +1,8 @@
-# Reviewed private-release protocol
+# TRON AI deployment
+
+The live dedicated MySQL/Gotenberg stack uses [the backend production runbook](BACKEND_PRODUCTION_CD.md). The protocol below documents the older isolated relay topology in `compose.relay.yml`, retained for staging and recovery tests. Its historical production commands and credentials do not apply to the live host.
+
+## Legacy private-release protocol
 
 This protocol supersedes the historical image-tag/rsync deployment examples in the server guide. The new CLI does **not** accept arbitrary images or archives. Production remains manual; no automatic triggers were enabled.
 

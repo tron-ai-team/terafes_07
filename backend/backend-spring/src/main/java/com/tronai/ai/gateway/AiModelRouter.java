@@ -47,27 +47,40 @@ public class AiModelRouter {
 
         Route overrideRoute = resolveOverrides(context);
         if (overrideRoute != null) {
+            if (!context.isAllowCloud() && overrideRoute.provider() != GatewayProviderId.OLLAMA) {
+                throw new IllegalArgumentException(
+                        "Cloud provider override blocked by privacy policy (local-only request)");
+            }
             return overrideRoute;
         }
 
-        Route primary = pickPrimary(mode);
+        Route primary = pickPrimary(context, mode);
         if (primary == null) {
             if (mode == AiMode.ULTRA) {
                 throw new IllegalStateException(
                         "Ultra AI mode is not available: no configured ultra providers.");
+            }
+            if (!context.isAllowCloud()) {
+                throw new IllegalStateException(
+                        "No local AI provider available (cloud disabled for this request). Start Ollama.");
             }
             throw new IllegalStateException("No AI provider route available for mode " + mode);
         }
         return primary;
     }
 
-    public List<Route> fallbackCandidates(AiMode effectiveMode) {
+    public List<Route> fallbackCandidates(AiRequestContext context, AiMode effectiveMode) {
         AiMode mode = effectiveMode != null ? effectiveMode.routingMode() : AiMode.SMART;
-        List<Route> ordered = orderedCandidates(mode);
+        List<Route> ordered = orderedCandidates(context, mode);
         if (ordered.size() <= 1) {
             return List.of();
         }
         return List.copyOf(ordered.subList(1, ordered.size()));
+    }
+
+    /** @deprecated use {@link #fallbackCandidates(AiRequestContext, AiMode)} */
+    public List<Route> fallbackCandidates(AiMode effectiveMode) {
+        return fallbackCandidates(AiRequestContext.builder().allowCloud(true).build(), effectiveMode);
     }
 
     private Route resolveOverrides(AiRequestContext context) {
@@ -116,23 +129,46 @@ public class AiModelRouter {
         return null;
     }
 
-    private Route pickPrimary(AiMode mode) {
-        List<Route> candidates = orderedCandidates(mode);
+    private Route pickPrimary(AiRequestContext context, AiMode mode) {
+        List<Route> candidates = orderedCandidates(context, mode);
         return candidates.isEmpty() ? null : candidates.get(0);
     }
 
-    private List<Route> orderedCandidates(AiMode mode) {
+    private List<Route> orderedCandidates(AiRequestContext context, AiMode mode) {
         List<Route> routes = new ArrayList<>();
         Set<String> seen = new LinkedHashSet<>();
+        boolean cloudOk = context == null || context.isAllowCloud();
 
         switch (mode) {
-            case FAST -> addRoute(routes, seen, tryOllamaFast(), tryGroqFast(), tryCloudflareFast());
-            // Stage A benchmark (2026-10-24): OPENROUTER 10/10 @ ~3.8s avg beat GROQ fallback mix
-            // and GEMINI (0/10 — keys/config unavailable). Prefer OpenRouter for SMART defaults.
-            case SMART, QUALITY -> addRoute(routes, seen,
-                    tryOpenRouterSmart(), tryGroqSmart(), tryMistralSmart(), tryOllamaQuality(), tryOllamaFast());
-            case ULTRA -> addRoute(routes, seen, tryGeminiUltra(), tryOpenRouterUltra(), tryMistralUltra());
-            case AUTO -> addRoute(routes, seen, orderedCandidates(autoMode(null)).toArray(new Route[0]));
+            case FAST -> {
+                if (cloudOk) {
+                    addRoute(routes, seen, tryOllamaFast(), tryGroqFast(), tryCloudflareFast());
+                } else {
+                    addRoute(routes, seen, tryOllamaFast());
+                }
+            }
+            case SMART, QUALITY -> {
+                if (!cloudOk) {
+                    addRoute(routes, seen, tryOllamaQuality(), tryOllamaFast());
+                } else if (properties.isPreferGroqForSmart()) {
+                    addRoute(routes, seen,
+                            tryGroqSmart(), tryOpenRouterSmart(), tryMistralSmart(),
+                            tryOllamaQuality(), tryOllamaFast());
+                } else {
+                    addRoute(routes, seen,
+                            tryOpenRouterSmart(), tryGroqSmart(), tryMistralSmart(),
+                            tryOllamaQuality(), tryOllamaFast());
+                }
+            }
+            case ULTRA -> {
+                if (!cloudOk) {
+                    // Ultra is cloud-only by design; do not silently downgrade.
+                    break;
+                }
+                addRoute(routes, seen, tryGeminiUltra(), tryOpenRouterUltra(), tryMistralUltra());
+            }
+            case AUTO -> addRoute(routes, seen,
+                    orderedCandidates(context, autoMode(context)).toArray(new Route[0]));
             default -> { }
         }
         return routes;
@@ -162,7 +198,7 @@ public class AiModelRouter {
 
         return switch (feature) {
             case CHAT, VOICE_REASONING -> AiMode.FAST;
-            case CV_REVIEW, CV_GENERATION, CAREER_JOB_MATCHING, INTERVIEW_FEEDBACK -> AiMode.SMART;
+            case CV_REVIEW, CV_GENERATION, COMPANY_RESEARCH, CAREER_JOB_MATCHING, INTERVIEW_FEEDBACK -> AiMode.SMART;
             case CODING_AGENT, BROWSER_AGENT, INTERVIEW ->
                     complexityHint(context) ? AiMode.SMART : AiMode.FAST;
             default -> AiMode.SMART;

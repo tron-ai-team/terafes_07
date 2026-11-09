@@ -36,7 +36,7 @@ with tempfile.TemporaryDirectory() as temporary:
     release.mkdir()
     (release/'frontend').mkdir()
     (release/'frontend/index.html').write_text('<html>TRON release smoke fixture</html>')
-    (release/'compose.yml').write_text((root/'compose.prod.yml').read_text())
+    (release/'compose.yml').write_text((root/'compose.relay.yml').read_text())
     (release/'nginx.conf').write_text((root/'nginx/private.conf').read_text())
     (release/'compose.env').write_text(f'TRON_ENV_FILE={runtime}\nTRON_BACKEND_IMAGE=tron-ai-backend:ci\nTRON_FRONTEND_DIR={release}/frontend\nTRON_NGINX_CONFIG={release}/nginx.conf\nTRON_BACKEND_HOST_PORT=18080\nTRON_FRONTEND_HOST_PORT=18081\n')
     releases = r.Releases(directory, 'production', runtime)
@@ -106,5 +106,5 @@ with tempfile.TemporaryDirectory() as temporary:
             pass
         raise
     finally:
-        releases.compose(release,'down','--volumes')  # Explicitly disposable CI-only resources.
+        releases.compose(release,'down')  # Volumes are left to the disposable runner.
         subprocess.run(['docker','rm','-f',relay_name,mysql_name],capture_output=True)

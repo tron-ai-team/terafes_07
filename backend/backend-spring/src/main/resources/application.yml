@@ -105,6 +105,38 @@ tron:
     gemini-api-key-2: ${GEMINI_API_KEY_2:}
     gemini-api-key-3: ${GEMINI_API_KEY_3:}
     gemini-api-key-4: ${GEMINI_API_KEY_4:}
+    # Documented Groq IDs — change via env without code edits.
+    groq-model-fast: ${GROQ_MODEL_FAST:openai/gpt-oss-20b}
+    groq-model-smart: ${GROQ_MODEL_SMART:openai/gpt-oss-120b}
+    prefer-groq-for-smart: ${TRON_AI_PREFER_GROQ_SMART:true}
+    # Personal CV must opt in (request allowCloud=true or enable this flag).
+    cv-assist-cloud-enabled: ${TRON_AI_CV_CLOUD_ENABLED:false}
+    company-analysis-cloud-enabled: ${TRON_AI_COMPANY_CLOUD_ENABLED:true}
+    interview-cloud-enabled: ${TRON_AI_INTERVIEW_CLOUD_ENABLED:true}
+  research:
+    company-advisor-enabled: ${TRON_RESEARCH_COMPANY_ADVISOR:true}
+    max-search-results: ${TRON_RESEARCH_MAX_RESULTS:5}
+    max-extract-chars: ${TRON_RESEARCH_MAX_CHARS:4000}
+    tavily:
+      api-key: ${TAVILY_API_KEY:}
+      base-url: ${TAVILY_BASE_URL:https://api.tavily.com}
+      search-depth: ${TAVILY_SEARCH_DEPTH:basic}
+    firecrawl:
+      api-key: ${FIRECRAWL_API_KEY:}
+      base-url: ${FIRECRAWL_BASE_URL:https://api.firecrawl.dev}
+  rabbitmq:
+    # Default on for local/dev. Production compose sets TRON_RABBITMQ_ENABLED=false.
+    enabled: ${TRON_RABBITMQ_ENABLED:true}
+  secrets:
+    infisical:
+      # Disabled by default — local/dev must not require Infisical Cloud.
+      enabled: ${INFISICAL_ENABLED:false}
+      site-url: ${INFISICAL_SITE_URL:https://app.infisical.com}
+      client-id: ${INFISICAL_CLIENT_ID:}
+      client-secret: ${INFISICAL_CLIENT_SECRET:}
+      project-id: ${INFISICAL_PROJECT_ID:}
+      environment: ${INFISICAL_ENV:development}
+      secret-path: ${INFISICAL_SECRET_PATH:/}
   # V4 hybrid routing / supervisor / agent engines
   hybrid:
     ollama-health-url: ${TRON_OLLAMA_HEALTH_URL:http://127.0.0.1:11434/api/tags}
@@ -151,6 +183,17 @@ voicevox:
   audio-ttl-seconds: ${VOICE_AUDIO_TTL_SECONDS:600}
   max-stored-clips: ${MAX_STORED_VOICE_CLIPS:20}
 
+
+# ── Career Job Finder (CP-04) ─────────────────────────────────────────────────
+career:
+  jobs:
+    mynavi:
+      enabled: ${CAREER_JOBS_MYNAVI_ENABLED:true}
+    careermap:
+      enabled: ${CAREER_JOBS_CAREERMAP_ENABLED:true}
+      oauth-enabled: ${CAREER_JOBS_CAREERMAP_OAUTH:false}
+      max-fetches-per-search: ${CAREER_JOBS_CAREERMAP_MAX_FETCHES:40}
+      fetch-delay-ms: ${CAREER_JOBS_CAREERMAP_DELAY_MS:250}
 
 # ── Springdoc / OpenAPI ───────────────────────────────────────────────────────
 springdoc:

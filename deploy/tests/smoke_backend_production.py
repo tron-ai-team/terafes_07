@@ -19,14 +19,31 @@ spec.loader.exec_module(controller)
 subprocess.run(["docker", "context", "use", "default"], check=True)
 with tempfile.TemporaryDirectory() as directory:
     controller.STATE = Path(directory)
-    controller.BASE = here / "fixtures/backend-production.compose.yml"
+    source = here.parent / "compose.prod.yml"
+    controller.LIVE_BASE = controller.STATE / "checkout/deploy/compose.prod.yml"
+    controller.BASE = controller.STATE / "managed/compose.prod.yml"
+    for path in (controller.LIVE_BASE, controller.BASE):
+        path.parent.mkdir(parents=True)
+        path.write_bytes(source.read_bytes())
     controller.ENV_FILE = controller.STATE / "test.env"
-    controller.ENV_FILE.touch()
+    env = (
+        f"TRON_ENV_FILE={controller.ENV_FILE}\n"
+        "TRON_BACKEND_IMAGE=tron-ai-backend:ci\n"
+        "DB_USERNAME=tron_ci\n"
+        "DB_PASSWORD=disposable-db-password\n"
+        "MYSQL_ROOT_PASSWORD=disposable-root-password\n"
+        "JWT_SECRET=disposable-ci-jwt-secret-longer-than-32-characters\n"
+        "CORS_ALLOWED_ORIGINS=https://example.invalid\n"
+        "TRON_FRONTEND_URL=https://example.invalid\n"
+        "TRON_PUBLIC_API_URL=https://api.example.invalid\n"
+        "OLLAMA_BASE_URL=http://127.0.0.1:11434\n"
+    )
+    controller.ENV_FILE.write_text(env)
     controller.OVERRIDE = controller.STATE / "compose.backend.json"
     controller.JOURNAL = controller.STATE / "transaction.json"
     controller.PUBLIC = controller.LOCAL  # Public Cloudflare routing is verified only at deployment time.
     command = ["docker", "compose", "--project-name", controller.PROJECT, "--env-file",
-               str(controller.ENV_FILE), "-f", str(controller.BASE)]
+               str(controller.ENV_FILE), "-f", str(controller.LIVE_BASE)]
 
     # A runner must never inherit an existing stack or the fixture volume names.
     for resource, filters in (("container", ["-a"]), ("volume", []), ("network", [])):
@@ -38,6 +55,17 @@ with tempfile.TemporaryDirectory() as directory:
         baseline = controller.preflight()
         dependencies = {service: controller.inspect_container(service)["Id"] for service in ("mysql", "gotenberg")}
         controller.healthy(baseline["Image"], candidate=True, seconds=20)
+        # Changing the existing runtime env must fail before recreation. Restore
+        # the synthetic fixture afterward; production env is never written.
+        controller.ENV_FILE.write_text(env + "DB_POOL_MAX=9\n")
+        try:
+            controller.preflight()
+        except controller.ReleaseError as error:
+            assert "differ from the running backend" in str(error), str(error)
+        else:
+            raise AssertionError("Compose drift must block deployment")
+        finally:
+            controller.ENV_FILE.write_text(env)
         # Same jar/migrations, but deliberately cannot serve requests. Mock the
         # remote authorization boundary only; Compose replacement and rollback are real.
         broken = "tron-ai-backend:ci-broken"
@@ -66,7 +94,9 @@ with tempfile.TemporaryDirectory() as directory:
                 raise AssertionError("An unhealthy candidate must fail the release")
         assert saw_broken_candidate, "The unhealthy image must have replaced the baseline before rollback"
         restored = controller.preflight()
-        assert restored["Image"] == baseline["Image"] and restored["Mounts"] == baseline["Mounts"]
+        assert restored["Image"] == baseline["Image"]
+        assert sorted(restored["Mounts"], key=lambda m: m["Destination"]) == sorted(
+            baseline["Mounts"], key=lambda m: m["Destination"])
         journal = json.loads(controller.JOURNAL.read_text())
         assert journal["rolled_back"] and not journal["pending"]
         assert dependencies == {service: controller.inspect_container(service)["Id"]

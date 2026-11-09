@@ -5,6 +5,7 @@ import com.tronai.ai.ChatGenerationRequest;
 import com.tronai.ai.ChatGenerationResult;
 import com.tronai.ai.ChatMessage;
 import com.tronai.ai.AiProviderUnavailableException;
+import com.tronai.ai.FallbackAiProvider;
 import com.tronai.ai.gateway.AiFeature;
 import com.tronai.ai.gateway.AiGateway;
 import com.tronai.ai.gateway.AiMode;
@@ -428,7 +429,9 @@ public class ChatService {
                             .build();
                     return aiProvider.generate(genRequest);
                 } catch (AiProviderUnavailableException localDown) {
-                    if (!hybrid.allowsCloudInference()) {
+                    // FallbackAiProvider already applied local→cloud privacy policy.
+                    if (FallbackAiProvider.LOCAL_UNAVAILABLE_DETAIL.equals(localDown.getMessage())
+                            || !hybrid.allowsCloudInference()) {
                         throw localDown;
                     }
                     log.info("Local FAST/QUALITY failed; falling back to cloud gateway under hybrid policy");

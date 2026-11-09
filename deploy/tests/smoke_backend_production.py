@@ -45,6 +45,14 @@ with tempfile.TemporaryDirectory() as directory:
     command = ["docker", "compose", "--project-name", controller.PROJECT, "--env-file",
                str(controller.ENV_FILE), "-f", str(controller.LIVE_BASE)]
 
+    def mysql(sql):
+        # Only the disposable stack; use its existing synthetic env without
+        # passing a password in command arguments or printing it.
+        return subprocess.check_output(
+            ["docker", "exec", "-i", controller.CONTAINERS["mysql"], "sh", "-ec",
+             'MYSQL_PWD="$MYSQL_PASSWORD" exec mysql --batch --skip-column-names -u "$MYSQL_USER" "$MYSQL_DATABASE"'],
+            input=sql, text=True, timeout=15).strip()
+
     # A runner must never inherit an existing stack or the fixture volume names.
     for resource, filters in (("container", ["-a"]), ("volume", []), ("network", [])):
         existing = subprocess.check_output(["docker", resource, "ls", "-q", *filters, "--filter",
@@ -56,6 +64,11 @@ with tempfile.TemporaryDirectory() as directory:
         baseline = controller.preflight()
         dependencies = {service: controller.inspect_container(service)["Id"] for service in ("mysql", "gotenberg")}
         controller.healthy(baseline["Image"], candidate=True, seconds=20)
+        mysql("CREATE TABLE ci_rollback_probe (marker VARCHAR(64) PRIMARY KEY); "
+              "INSERT INTO ci_rollback_probe VALUES ('present-before-backend-replacement');")
+        subprocess.run(["docker", "exec", controller.CONTAINERS["backend"], "sh", "-ec",
+                        "printf '%s' persistent-upload > /var/lib/tron-ai/uploads/.ci-rollback-probe"],
+                       check=True, timeout=15)
         # Changing the existing runtime env must fail before recreation. Restore
         # the synthetic fixture afterward; production env is never written.
         controller.ENV_FILE.write_text(env + "DB_POOL_MAX=9\n")
@@ -102,6 +115,10 @@ with tempfile.TemporaryDirectory() as directory:
         assert journal["rolled_back"] and not journal["pending"]
         assert dependencies == {service: controller.inspect_container(service)["Id"]
                                 for service in dependencies}
+        assert mysql("SELECT marker FROM ci_rollback_probe;") == "present-before-backend-replacement"
+        assert subprocess.check_output(
+            ["docker", "exec", controller.CONTAINERS["backend"], "cat", "/var/lib/tron-ai/uploads/.ci-rollback-probe"],
+            text=True, timeout=15) == "persistent-upload"
         print("Dedicated MySQL/Gotenberg smoke and backend-only rollback passed.")
     except Exception as error:
         # The fixture contains only synthetic data and credentials.

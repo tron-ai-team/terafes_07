@@ -1,0 +1,129 @@
+name: Backend production release
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backend-production-release
+  cancel-in-progress: false
+
+env:
+  BACKEND_REPOSITORY: ghcr.io/tron-ai-team/terafes_07/tron-ai-backend
+
+jobs:
+  required-checks:
+    if: >-
+      github.repository == 'tron-ai-team/terafes_07' &&
+      github.ref == 'refs/heads/main' &&
+      vars.TRON_BACKEND_CD_ENABLED == 'true'
+    uses: ./.github/workflows/ci.yml
+
+  publish:
+    needs: required-checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    permissions:
+      contents: read
+      packages: write
+      attestations: write
+      id-token: write
+    outputs:
+      digest: ${{ steps.push.outputs.digest }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Build the production candidate
+        run: |
+          docker build --platform linux/amd64 \
+            --label "org.opencontainers.image.source=https://github.com/$GITHUB_REPOSITORY" \
+            --label "org.opencontainers.image.revision=$GITHUB_SHA" \
+            --tag tron-ai-backend:ci backend/backend-spring
+      - name: Smoke test the candidate with dedicated MySQL and Gotenberg
+        run: python3 deploy/tests/smoke_backend_production.py
+      - name: Publish the tested image and capture its digest
+        id: push
+        env:
+          GHCR_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          export DOCKER_CONFIG="$(mktemp -d)"
+          trap 'rm -rf -- "$DOCKER_CONFIG"' EXIT
+          printf '%s' "$GHCR_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+          image="$BACKEND_REPOSITORY:sha-$GITHUB_SHA"
+          docker tag tron-ai-backend:ci "$image"
+          docker push "$image" | tee "$DOCKER_CONFIG/push.log"
+          digest="$(sed -nE 's/^sha-[0-9a-f]{40}: digest: (sha256:[0-9a-f]{64}) size: [0-9]+$/\1/p' "$DOCKER_CONFIG/push.log")"
+          [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]
+          echo "digest=$digest" >> "$GITHUB_OUTPUT"
+          printf 'Published `%s@%s`\n' "$BACKEND_REPOSITORY" "$digest" >> "$GITHUB_STEP_SUMMARY"
+      - name: Attest provenance of the tested image
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4
+        with:
+          subject-name: ${{ env.BACKEND_REPOSITORY }}
+          subject-digest: ${{ steps.push.outputs.digest }}
+
+  deploy:
+    needs: publish
+    if: vars.TRON_BACKEND_CD_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: backend-production
+    # Serialize with the existing manual production workflow, too.
+    concurrency:
+      group: deploy-production
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      deployments: read
+      actions: read
+      id-token: write
+    steps:
+      - name: Verify the production gate and current main
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          endpoint="repos/$GITHUB_REPOSITORY/environments/backend-production"
+          gh api "$endpoint" | jq -e '
+            .can_admins_bypass == false and
+            .deployment_branch_policy.custom_branch_policies == true and
+            any(.protection_rules[]; .type == "required_reviewers" and
+              .prevent_self_review == true and (.reviewers | length > 0))
+          ' >/dev/null
+          gh api "$endpoint/deployment-branch-policies" | jq -e '
+            .total_count == 1 and .branch_policies[0].type == "branch" and .branch_policies[0].name == "main"
+          ' >/dev/null
+          test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)" = "$GITHUB_SHA"
+      - name: Join the private deployment network
+        uses: tailscale/github-action@064b10558093f38325e838ddea35486bdc6b1d5c # v4
+        with:
+          oauth-client-id: ${{ secrets.TS_FEDERATED_CLIENT_ID }}
+          audience: ${{ secrets.TS_FEDERATED_AUDIENCE }}
+          tags: tag:tron-backend-ci
+      - name: Request digest deployment over pinned OpenSSH
+        env:
+          SSH_HOST: ${{ secrets.BACKEND_SSH_HOST }}
+          SSH_KEY: ${{ secrets.BACKEND_SSH_KEY }}
+          SSH_KNOWN_HOSTS: ${{ secrets.BACKEND_SSH_KNOWN_HOSTS }}
+          DIGEST: ${{ needs.publish.outputs.digest }}
+        run: |
+          set -euo pipefail
+          : "${SSH_KEY:?Missing deploy SSH key}" "${SSH_KNOWN_HOSTS:?Missing SSH host pin}"
+          [[ "$SSH_HOST" =~ ^[a-z0-9][a-z0-9.-]+\.ts\.net$ ]]
+          [[ "$DIGEST" =~ ^sha256:[0-9a-f]{64}$ && "$GITHUB_SHA" =~ ^[0-9a-f]{40}$ ]]
+          umask 077
+          scratch="$(mktemp -d)"
+          trap 'rm -rf -- "$scratch"' EXIT
+          printf '%s\n' "$SSH_KEY" > "$scratch/key"
+          printf '%s\n' "$SSH_KNOWN_HOSTS" > "$scratch/known_hosts"
+          ssh -4 -F /dev/null -i "$scratch/key" -T -o BatchMode=yes -o IdentitiesOnly=yes \
+            -o ConnectTimeout=15 -o ServerAliveInterval=15 -o ServerAliveCountMax=4 \
+            -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$scratch/known_hosts" \
+            -o GlobalKnownHostsFile=/dev/null "tron-backend-cd@$SSH_HOST" \
+            "deploy $GITHUB_SHA $DIGEST"

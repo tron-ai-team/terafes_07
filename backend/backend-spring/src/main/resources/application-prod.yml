@@ -93,6 +93,9 @@ cloud:
     model-quality: ${CLOUD_AI_MODEL_QUALITY:}
 
 management:
+  health:
+    rabbit:
+      enabled: ${TRON_RABBITMQ_ENABLED:false}
   endpoints:
     web:
       exposure:

@@ -148,7 +148,9 @@ def read_json(url, headers=None):
 
 def probe(base, path, expected):
     try:
-        value = read_json(f"{base}{path}?release_probe={uuid.uuid4().hex}", {"Cache-Control": "no-cache"})
+        value = read_json(f"{base}{path}?release_probe={uuid.uuid4().hex}",
+                          {"Cache-Control": "no-cache", "Accept": "application/json",
+                           "User-Agent": "tron-backend-release/1.0"})
         return isinstance(value, dict) and all(value.get(k) == v for k, v in expected.items())
     except (OSError, ValueError):
         return False

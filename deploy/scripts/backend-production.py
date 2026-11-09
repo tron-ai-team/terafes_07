@@ -119,8 +119,13 @@ def inspect_container(service):
     return value
 
 
-def compose_hash(settings):
-    result = compose("config", "--hash=backend", input_text=json.dumps(settings)).split()
+def compose_hash(image, environment):
+    # The create path discards env_file entries after resolving them. Make the
+    # hash input equivalent on both older and fixed Compose versions. JSON is
+    # valid YAML flow syntax and keeps all values safely quoted.
+    settings = ("services:\n  backend:\n    env_file: !reset []\n"
+                f"    image: {json.dumps(image)}\n    environment: {json.dumps(environment)}\n")
+    result = compose("config", "--hash=backend", input_text=settings).split()
     require(len(result) == 2 and result[0] == "backend" and re.fullmatch(r"[0-9a-f]{64}", result[1]),
             "Unexpected Compose service hash format")
     return result[1]
@@ -145,9 +150,8 @@ def drift_guard(backend, environment):
     # the shell. Older Compose versions skip env_file resolution for config --hash
     # (docker/compose#14001); pass its resolved values as explicit settings on stdin.
     # Compose config already escapes literal dollars for reuse as Compose input.
-    settings = image_override(backend["Config"]["Image"])
-    settings["services"]["backend"]["environment"] = environment
-    require(compose_hash(settings) == backend["Config"]["Labels"].get("com.docker.compose.config-hash"),
+    require(compose_hash(backend["Config"]["Image"], environment) ==
+            backend["Config"]["Labels"].get("com.docker.compose.config-hash"),
             "Installed Compose settings differ from the running backend; reconcile with an operator")
     # If the backend was already deployed by this controller, its durable override
     # must still point at the image actually running.

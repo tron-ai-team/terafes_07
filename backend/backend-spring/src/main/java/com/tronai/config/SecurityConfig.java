@@ -76,7 +76,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
 
                         // Health and System Info
-                        .requestMatchers("/health", "/actuator/health", "/actuator/info").permitAll()
+                        .requestMatchers("/health", "/health/ready", "/actuator/health", "/actuator/info").permitAll()
 
                         // Public Auth Endpoints & OAuth2
                         .requestMatchers(HttpMethod.GET, "/api/v1/auth/providers").permitAll()

@@ -8,14 +8,14 @@ import org.springframework.stereotype.Component;
 import java.util.Optional;
 
 /**
- * Routes TTS by language:
- * <ul>
- *   <li>Japanese → local VOICEVOX when available (future RTX); otherwise no server audio</li>
- *   <li>English → Groq Orpheus when GROQ_API_KEY is set; else optional MULTILINGUAL_TTS_BASE_URL</li>
- *   <li>Other languages → MULTILINGUAL_TTS_BASE_URL only</li>
- * </ul>
- * Groq TTS does <strong>not</strong> support Japanese (verified). When server TTS is unavailable,
- * the API returns text and {@code browserSpeechFallback=true} so the SPA can use Web Speech API.
+ * Routes TTS by language for cloud-first Voice (no RTX required):
+ * <ol>
+ *   <li>ElevenLabs multilingual (EN + JA) when {@code ELEVENLABS_API_KEY} is configured</li>
+ *   <li>Japanese local VOICEVOX when available (future RTX)</li>
+ *   <li>English Groq Orpheus when {@code GROQ_API_KEY} is set</li>
+ *   <li>Optional {@code MULTILINGUAL_TTS_BASE_URL}</li>
+ * </ol>
+ * When server TTS is unavailable, the API returns text and {@code browserSpeechFallback=true}.
  */
 @Component
 public class SpeechSynthesisRouter {
@@ -23,18 +23,29 @@ public class SpeechSynthesisRouter {
     private final TextToSpeechProvider japaneseProvider;
     private final MultilingualTtsProvider multilingualProvider;
     private final GroqTextToSpeechProvider groqProvider;
+    private final ElevenLabsTextToSpeechProvider elevenLabsProvider;
+    private final RoboticVoiceProcessor roboticVoiceProcessor;
 
     public SpeechSynthesisRouter(
             TextToSpeechProvider japaneseProvider,
             MultilingualTtsProperties multilingualProperties,
-            GroqTextToSpeechProvider groqProvider) {
+            GroqTextToSpeechProvider groqProvider,
+            ElevenLabsTextToSpeechProvider elevenLabsProvider,
+            RoboticVoiceProcessor roboticVoiceProcessor) {
         this.japaneseProvider = japaneseProvider;
         this.multilingualProvider = new MultilingualTtsProvider(multilingualProperties);
         this.groqProvider = groqProvider;
+        this.elevenLabsProvider = elevenLabsProvider;
+        this.roboticVoiceProcessor = roboticVoiceProcessor;
     }
 
     public SpeechLanguageCapability capability(String requestedLanguage) {
         ExperienceLanguage language = ExperienceLanguage.parseOrDefault(requestedLanguage, ExperienceLanguage.JA);
+
+        if (elevenLabsProvider.supports(language)) {
+            return new SpeechLanguageCapability(language.code(), true, true, "elevenlabs",
+                    "TRON premium robotic voice via ElevenLabs (" + language.code() + ")");
+        }
 
         if (language == ExperienceLanguage.JA && japaneseProvider.isAvailable()) {
             return new SpeechLanguageCapability(language.code(), true, true, "voicevox",
@@ -42,8 +53,8 @@ public class SpeechSynthesisRouter {
         }
         if (language == ExperienceLanguage.JA) {
             return new SpeechLanguageCapability(language.code(), true, false, null,
-                    "Server TTS unavailable for Japanese (Groq TTS has no Japanese voices; VOICEVOX offline). "
-                            + "Browser speech fallback can be used.");
+                    "Server TTS unavailable for Japanese (set ELEVENLABS_API_KEY for premium voice, "
+                            + "or VOICEVOX for local). Browser speech fallback can be used.");
         }
 
         if (language == ExperienceLanguage.EN && groqProvider.supports(language)) {
@@ -71,13 +82,21 @@ public class SpeechSynthesisRouter {
         if (!capability.speechSynthesis()) {
             return Optional.empty();
         }
-        if ("voicevox".equals(capability.synthesisProvider())) {
-            return Optional.of(japaneseProvider.synthesize(text));
+        String provider = capability.synthesisProvider();
+        byte[] audio;
+        if ("elevenlabs".equals(provider)) {
+            // ElevenLabs provider already applies robotic processing.
+            audio = elevenLabsProvider.synthesize(text, language);
+            return Optional.of(audio);
         }
-        if ("groq-orpheus".equals(capability.synthesisProvider())) {
-            return Optional.of(groqProvider.synthesize(text, language));
+        if ("voicevox".equals(provider)) {
+            audio = japaneseProvider.synthesize(text);
+        } else if ("groq-orpheus".equals(provider)) {
+            audio = groqProvider.synthesize(text, language);
+        } else {
+            audio = multilingualProvider.synthesize(text, language);
         }
-        return Optional.of(multilingualProvider.synthesize(text, language));
+        return Optional.of(roboticVoiceProcessor.process(audio));
     }
 
     public byte[] synthesizeRequired(String text, String requestedLanguage) {

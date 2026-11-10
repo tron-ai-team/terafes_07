@@ -5,6 +5,7 @@ import com.tronai.ai.AiProviderUnavailableException;
 import com.tronai.ai.ChatGenerationRequest;
 import com.tronai.ai.ChatGenerationResult;
 import com.tronai.ai.ChatMessage;
+import com.tronai.ai.ProviderType;
 import com.tronai.ai.gateway.AiFeature;
 import com.tronai.ai.gateway.AiGateway;
 import com.tronai.ai.gateway.AiMode;
@@ -51,7 +52,6 @@ public class VoiceService {
 
     private static final Pattern JAPANESE_PATTERN = Pattern.compile("[\\u3040-\\u30FF\\u4E00-\\u9FFF]");
     private static final int MAX_VOICE_SESSIONS = 100;
-    private static final int MAX_HISTORY_MESSAGES = 20;
 
     private final SpeechToTextProvider speechToTextProvider;
     private final SpeechSynthesisRouter speechSynthesisRouter;
@@ -64,6 +64,7 @@ public class VoiceService {
     private final LanguageService languageService;
     private final VoiceSessionRepository voiceSessionRepository;
     private final UserRepository userRepository;
+    private final VoiceProperties voiceProperties;
 
     // In-memory conversation dialogue history keyed by sessionId
     private final Map<String, List<ChatMessage>> sessions = new ConcurrentHashMap<>();
@@ -78,7 +79,8 @@ public class VoiceService {
                         HybridRoutingService hybrid,
                         LanguageService languageService,
                         VoiceSessionRepository voiceSessionRepository,
-                        UserRepository userRepository) {
+                        UserRepository userRepository,
+                        VoiceProperties voiceProperties) {
         this.speechToTextProvider = speechToTextProvider;
         this.speechSynthesisRouter = speechSynthesisRouter;
         this.audioStoreService = audioStoreService;
@@ -90,6 +92,7 @@ public class VoiceService {
         this.languageService = languageService;
         this.voiceSessionRepository = voiceSessionRepository;
         this.userRepository = userRepository;
+        this.voiceProperties = voiceProperties;
     }
 
     @Transactional
@@ -160,7 +163,7 @@ public class VoiceService {
             voiceSessionRepository.save(newSession);
         }
 
-        // 3. STT Transcription (profile-aware)
+        // 3. STT Transcription (profile-aware) — diagnose STT failures separately from LLM
         long sttStarted = System.currentTimeMillis();
         SttTranscriptionResult sttResult = speechToTextProvider.transcribe(
                 filename, contentType, audioBytes, normalizedLanguage, effectiveProfile
@@ -179,6 +182,7 @@ public class VoiceService {
         }
 
         // 4. In-memory dialogue history
+        int maxHistory = Math.max(4, voiceProperties.getMaxHistoryMessages());
         List<ChatMessage> history = sessions.computeIfAbsent(activeSessionId, k -> {
             if (sessions.size() >= MAX_VOICE_SESSIONS) {
                 Iterator<String> it = sessions.keySet().iterator();
@@ -191,41 +195,46 @@ public class VoiceService {
         });
 
         // 5. LLM Generation with consistent Profile Routing
-        String langName = LanguageService.SUPPORTED_LANGUAGES.getOrDefault(normalizedLanguage, "English");
-        String systemPrompt = "You are TRON AI in a live voice conversation. "
-                + "Reply only in " + langName + ", even if the user spoke another language. "
-                + "Do not translate code or quoted phrases. "
-                + "Use one or two short spoken sentences. "
-                + "Do not interview the user and do not use markdown or code fences.";
+        String systemPrompt = buildVoiceSystemPrompt(normalizedLanguage);
 
         List<ChatMessage> messages = new ArrayList<>();
         messages.add(ChatMessage.builder().role("system").content(systemPrompt).build());
         synchronized (history) {
-            int start = Math.max(0, history.size() - MAX_HISTORY_MESSAGES);
+            int start = Math.max(0, history.size() - maxHistory);
             for (int i = start; i < history.size(); i++) {
                 messages.add(history.get(i));
             }
         }
         messages.add(ChatMessage.builder().role("user").content(transcript).build());
 
-        int answerBudget = effectiveProfile == AiProfile.QUALITY || effectiveProfile == AiProfile.ULTRA ? 128 : 96;
+        int answerBudget = resolveAnswerBudget(effectiveProfile);
         long llmStarted = System.currentTimeMillis();
         ChatGenerationResult genResult = generateVoiceReply(effectiveProfile, messages, answerBudget);
         int llmMs = (int) (System.currentTimeMillis() - llmStarted);
 
-        String replyText = genResult.getText().trim();
+        String replyText = genResult.getText() == null ? "" : genResult.getText().trim();
+        if (replyText.isBlank()) {
+            replyText = "ja".equalsIgnoreCase(normalizedLanguage)
+                    ? "うまく答えを生成できませんでした。もう一度お願いします。"
+                    : "I could not generate an answer. Please try again.";
+        }
 
         // Update in-memory dialogue history
         synchronized (history) {
             history.add(ChatMessage.builder().role("user").content(transcript).build());
             history.add(ChatMessage.builder().role("assistant").content(replyText).build());
+            while (history.size() > maxHistory) {
+                history.remove(0);
+            }
         }
 
         String spoken = speakable(replyText);
         SpeechLanguageCapability speech = speechSynthesisRouter.capability(normalizedLanguage);
         String audioUrl = "";
         int ttsMs = 0;
+        String ttsProvider = null;
         if (speech.speechSynthesis() && ExperienceLanguage.JA.code().equals(speech.language())
+                && "voicevox".equals(speech.synthesisProvider())
                 && !JAPANESE_PATTERN.matcher(spoken).find()) {
             speech = new SpeechLanguageCapability(speech.language(), true, false, null,
                     "The reply has no Japanese text, so VOICEVOX was not called. Browser speech fallback can be used.");
@@ -237,6 +246,7 @@ public class VoiceService {
                 ttsMs = (int) (System.currentTimeMillis() - ttsStarted);
                 String clipId = audioStoreService.storeClip(wavBytes);
                 audioUrl = "/api/v1/voice/audio/" + clipId;
+                ttsProvider = speech.synthesisProvider();
             } catch (VoiceException ttsFailure) {
                 log.warn("Server TTS failed; enabling browser speech fallback: {}", ttsFailure.getMessage());
                 speech = new SpeechLanguageCapability(speech.language(), true, false, null,
@@ -245,6 +255,9 @@ public class VoiceService {
         }
 
         boolean browserFallback = !speech.speechSynthesis() || audioUrl.isBlank();
+        if (browserFallback) {
+            ttsProvider = "browser";
+        }
 
         int totalMs = (int) (System.currentTimeMillis() - totalStarted);
         VoiceLatencyDto latency = new VoiceLatencyDto(sttMs, llmMs, ttsMs, totalMs);
@@ -266,11 +279,36 @@ public class VoiceService {
         response.setBrowserSpeechFallback(browserFallback);
         response.setLatencyMs(latency);
         response.setAiProfile(effectiveProfile.name());
-        // Locked session reports the logical profile model id (tron-fast / tron-quality).
         response.setModel(effectiveProfile.getModelId());
+        response.setEngineModel(genResult.getActualModelId());
+        if (genResult.getProviderType() != null) {
+            response.setProvider(genResult.getProviderType().name());
+        }
+        response.setTtsProvider(ttsProvider);
         response.setLocked(true);
 
         return response;
+    }
+
+    static String buildVoiceSystemPrompt(String normalizedLanguage) {
+        String langName = LanguageService.SUPPORTED_LANGUAGES.getOrDefault(normalizedLanguage, "English");
+        return "You are TRON AI, a precise bilingual voice assistant in a live spoken conversation. "
+                + "Reply only in " + langName + ", even if the user mixed languages. "
+                + "Understand the user's latest question using prior conversation turns as context. "
+                + "Answer the actual question directly and accurately. "
+                + "Do not greet, do not introduce yourself, and do not ask interview-style questions. "
+                + "Do not give vague, generic, or unrelated answers. "
+                + "Keep answers concise for speech (typically 1–3 short sentences) without sacrificing correctness. "
+                + "For math, facts, or follow-ups, state the answer clearly first, then a brief reason if needed. "
+                + "Do not use markdown, bullet lists, or code fences.";
+    }
+
+    private int resolveAnswerBudget(AiProfile profile) {
+        if (profile == AiProfile.QUALITY || profile == AiProfile.SMART
+                || profile == AiProfile.ULTRA) {
+            return Math.max(128, voiceProperties.getMaxTokensQuality());
+        }
+        return Math.max(96, voiceProperties.getMaxTokensFast());
     }
 
     private ChatGenerationResult generateVoiceReply(
@@ -295,28 +333,53 @@ public class VoiceService {
                 ModelProfile modelProfile = aiProfileService.resolveModel(profile);
                 try {
                     AiProvider aiProvider = modelManager.getProvider(modelProfile.getProvider());
-                    return aiProvider.generate(ChatGenerationRequest.builder()
+                    ChatGenerationResult local = aiProvider.generate(ChatGenerationRequest.builder()
                             .model(modelProfile.getProviderModelName())
                             .messages(messages)
-                            .temperature(profile.getDefaultTemperature())
+                            .temperature(Math.min(0.55, profile.getDefaultTemperature()))
                             .numPredict(answerBudget)
                             .logicalProfile(profile.name())
                             .build());
+                    if (local.getActualModelId() == null || local.getActualModelId().isBlank()) {
+                        local.setActualModelId(modelProfile.getProviderModelName());
+                    }
+                    if (local.getProviderType() == null) {
+                        local.setProviderType(ProviderType.LOCAL);
+                    }
+                    return local;
                 } catch (AiProviderUnavailableException localDown) {
                     if (!hybrid.allowsCloudInference()) {
                         throw localDown;
                     }
                     log.info("Local voice FAST/QUALITY failed; falling back to cloud gateway");
-                    return generateVoiceViaGateway(mode, messages, profile, answerBudget, userId);
+                    return generateVoiceViaGateway(resolveCloudVoiceMode(mode), messages, profile, answerBudget, userId);
                 }
             }
             if (!preferLocal && !hybrid.allowsCloudInference()) {
                 throw new IllegalStateException("Cloud AI routing is disabled while local inference is unavailable");
             }
-            return generateVoiceViaGateway(mode, messages, profile, answerBudget, userId);
+            return generateVoiceViaGateway(resolveCloudVoiceMode(mode), messages, profile, answerBudget, userId);
         } finally {
             hybrid.releaseAiSlot();
         }
+    }
+
+    /**
+     * Evidence-based cloud Voice routing: FAST/AUTO previously selected gpt-oss-20b and produced
+     * vague/truncated spoken answers. Prefer SMART (gpt-oss-120b class) for Voice only.
+     */
+    AiMode resolveCloudVoiceMode(AiMode mode) {
+        if (mode == null) {
+            return voiceProperties.isCloudPreferSmart() ? AiMode.SMART : AiMode.FAST;
+        }
+        if (mode == AiMode.ULTRA) {
+            return AiMode.ULTRA;
+        }
+        if (voiceProperties.isCloudPreferSmart()
+                && (mode == AiMode.FAST || mode == AiMode.AUTO || mode == AiMode.QUALITY)) {
+            return AiMode.SMART;
+        }
+        return mode.routingMode() == AiMode.QUALITY ? AiMode.SMART : mode.routingMode();
     }
 
     private ChatGenerationResult generateVoiceViaGateway(
@@ -330,7 +393,7 @@ public class VoiceService {
                 .mode(mode)
                 .userId(userId)
                 .messages(messages)
-                .temperature(profile.getDefaultTemperature())
+                .temperature(Math.min(0.55, profile.getDefaultTemperature()))
                 .maxTokens(answerBudget)
                 .idempotencyKey(UUID.randomUUID().toString())
                 .build()).toChatGenerationResult();

@@ -24,6 +24,16 @@ export interface V1VoiceTurnResponse {
   speechDetail?: string;
   /** When true, play reply via browser Web Speech API (server TTS unavailable). */
   browserSpeechFallback?: boolean;
+  aiProfile?: string;
+  /** Logical profile model id (tron-fast / tron-quality). */
+  model?: string;
+  /** Actual engine model when known — never invent on the client. */
+  engineModel?: string;
+  /** Actual LLM provider when known (LOCAL / CLOUD / GROQ / …). */
+  provider?: string;
+  /** TTS engine that produced audio (elevenlabs / groq-orpheus / voicevox / browser). */
+  ttsProvider?: string;
+  locked?: boolean;
   latency_ms: {
     stt: number;
     llm: number;

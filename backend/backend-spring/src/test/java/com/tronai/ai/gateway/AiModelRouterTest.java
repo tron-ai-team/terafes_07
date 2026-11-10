@@ -151,13 +151,19 @@ class AiModelRouterTest {
     }
 
     @Test
-    @DisplayName("AUTO maps chat to FAST and CV to SMART")
+    @DisplayName("AUTO maps chat to FAST, voice to SMART, and CV to SMART")
     void autoModeByFeature() {
         AiRequestContext chat = AiRequestContext.builder()
                 .mode(AiMode.AUTO)
                 .feature(AiFeature.CHAT)
                 .build();
         assertThat(router.resolveEffectiveMode(chat)).isEqualTo(AiMode.FAST);
+
+        AiRequestContext voice = AiRequestContext.builder()
+                .mode(AiMode.AUTO)
+                .feature(AiFeature.VOICE_REASONING)
+                .build();
+        assertThat(router.resolveEffectiveMode(voice)).isEqualTo(AiMode.SMART);
 
         AiRequestContext cv = AiRequestContext.builder()
                 .mode(AiMode.AUTO)

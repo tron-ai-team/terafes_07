@@ -197,7 +197,10 @@ public class AiModelRouter {
                 : AiFeature.CHAT;
 
         return switch (feature) {
-            case CHAT, VOICE_REASONING -> AiMode.FAST;
+            // Chat keeps FAST for latency. Voice AUTO prefers SMART — FAST cloud models
+            // produced vague/truncated spoken answers in Phase 2 production.
+            case CHAT -> AiMode.FAST;
+            case VOICE_REASONING -> AiMode.SMART;
             case CV_REVIEW, CV_GENERATION, COMPANY_RESEARCH, CAREER_JOB_MATCHING, INTERVIEW_FEEDBACK -> AiMode.SMART;
             case CODING_AGENT, BROWSER_AGENT, INTERVIEW ->
                     complexityHint(context) ? AiMode.SMART : AiMode.FAST;

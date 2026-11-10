@@ -67,6 +67,8 @@ export const VoiceModePage: React.FC = () => {
     },
   ]);
   const [showCaptions, setShowCaptions] = useState(true);
+  const [processingStatus, setProcessingStatus] = useState<string | null>(null);
+  const [speakingStatus, setSpeakingStatus] = useState<string | null>(null);
 
   // Audio Context & Analyser Refs
   const audioRecorderRef = useRef<TronAudioRecorder | null>(null);
@@ -421,6 +423,8 @@ export const VoiceModePage: React.FC = () => {
 
     setVoiceState('thinking');
     voiceStateRef.current = 'thinking';
+    setProcessingStatus(null);
+    setSpeakingStatus(null);
     resetVad();
 
     try {
@@ -432,6 +436,9 @@ export const VoiceModePage: React.FC = () => {
       if (response.sessionId) {
         sessionIdRef.current = response.sessionId;
       }
+
+      setProcessingStatus(formatProcessingStatus(response, uiLanguage));
+      setSpeakingStatus(formatSpeakingStatus(response, uiLanguage));
 
       // Append user transcript
       if (response.transcript) {
@@ -450,6 +457,8 @@ export const VoiceModePage: React.FC = () => {
         (response.browserSpeechFallback !== false || response.speechSupported === false);
 
       const resumeAfterSpeech = async () => {
+        setProcessingStatus(null);
+        setSpeakingStatus(null);
         if (!isActiveRef.current) return;
         if (voiceModeRef.current === 'auto') {
           await startRecordingTurn();
@@ -459,7 +468,7 @@ export const VoiceModePage: React.FC = () => {
         }
       };
 
-      // ── Play server audio (VOICEVOX / Groq Orpheus) ─────────────────────────
+      // ── Play server audio (ElevenLabs / Groq Orpheus / VOICEVOX) ─────────────
       if (hasAudio) {
         setVoiceState('speaking');
         voiceStateRef.current = 'speaking';
@@ -483,7 +492,7 @@ export const VoiceModePage: React.FC = () => {
           await resumeAfterSpeech();
         });
       } else if (useBrowserFallback && isBrowserSpeechSupported()) {
-        // Labeled browser Web Speech fallback (Groq TTS has no Japanese; VOICEVOX offline)
+        // Labeled browser Web Speech fallback (no editable raw audio)
         setCaptions((prev) => [
           ...prev,
           { speaker: 'system', text: browserSpeechFallbackLabel(uiLanguage) },
@@ -517,6 +526,8 @@ export const VoiceModePage: React.FC = () => {
           setVoiceState('idle');
           voiceStateRef.current = 'idle';
         }
+        setProcessingStatus(null);
+        setSpeakingStatus(null);
       }
     } catch (err: any) {
       const msg = err?.message || '';
@@ -617,9 +628,19 @@ export const VoiceModePage: React.FC = () => {
         }
         return 'Listening... Speak and tap Finish Speaking';
       case 'thinking':
-        return 'TRON AI is thinking & processing with qwen3:8b...';
+        return (
+          processingStatus ||
+          (uiLanguage === 'ja'
+            ? 'TRON AI が考えています...'
+            : 'TRON AI is thinking...')
+        );
       case 'speaking':
-        return 'TRON AI is speaking with VOICEVOX...';
+        return (
+          speakingStatus ||
+          (uiLanguage === 'ja'
+            ? 'TRON AI が話しています...'
+            : 'TRON AI is speaking...')
+        );
       case 'idle':
       default:
         return 'Ready to connect. Tap below to start.';
@@ -907,3 +928,62 @@ export const VoiceModePage: React.FC = () => {
     </div>
   );
 };
+
+/** Accurate thinking status — never invent a model name. */
+function formatProcessingStatus(
+  response: {
+    engineModel?: string;
+    provider?: string;
+    aiProfile?: string;
+    model?: string;
+  },
+  uiLanguage: string
+): string {
+  const engine = (response.engineModel || '').trim();
+  if (engine) {
+    return uiLanguage === 'ja'
+      ? `TRON AI が処理中（${engine}）...`
+      : `TRON AI is thinking with ${engine}...`;
+  }
+  const provider = (response.provider || '').trim();
+  const profile = (response.aiProfile || '').trim();
+  if (provider && profile) {
+    return uiLanguage === 'ja'
+      ? `TRON AI が処理中（${provider} / ${profile}）...`
+      : `TRON AI is thinking (${provider} / ${profile})...`;
+  }
+  if (profile) {
+    return uiLanguage === 'ja'
+      ? `TRON AI が処理中（${profile}）...`
+      : `TRON AI is thinking (${profile})...`;
+  }
+  return uiLanguage === 'ja' ? 'TRON AI が考えています...' : 'TRON AI is thinking...';
+}
+
+function formatSpeakingStatus(
+  response: { ttsProvider?: string; browserSpeechFallback?: boolean },
+  uiLanguage: string
+): string {
+  const tts = (response.ttsProvider || '').trim().toLowerCase();
+  if (tts === 'elevenlabs') {
+    return uiLanguage === 'ja'
+      ? 'TRON AI がプレミアム音声で話しています...'
+      : 'TRON AI is speaking with premium robotic voice...';
+  }
+  if (tts === 'groq-orpheus') {
+    return uiLanguage === 'ja'
+      ? 'TRON AI が Groq Orpheus で話しています...'
+      : 'TRON AI is speaking with Groq Orpheus...';
+  }
+  if (tts === 'voicevox') {
+    return uiLanguage === 'ja'
+      ? 'TRON AI が VOICEVOX で話しています...'
+      : 'TRON AI is speaking with VOICEVOX...';
+  }
+  if (tts === 'browser' || response.browserSpeechFallback) {
+    return uiLanguage === 'ja'
+      ? 'ブラウザ音声で話しています（フォールバック）...'
+      : 'Speaking with browser speech (fallback)...';
+  }
+  return uiLanguage === 'ja' ? 'TRON AI が話しています...' : 'TRON AI is speaking...';
+}

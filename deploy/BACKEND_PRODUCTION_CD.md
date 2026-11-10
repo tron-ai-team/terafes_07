@@ -106,7 +106,15 @@ Leave `TRON_BACKEND_CD_ENABLED` unset or `false` during review, merge, and rehea
    | `BACKEND_SSH_KEY` | Dedicated Ed25519 private key, including delimiters |
    | `BACKEND_SSH_KNOWN_HOSTS` | A single line `<same MagicDNS name> ssh-ed25519 <host public key base64>` |
 
-6. **Activate once, after preflight and rehearsal.** Set **Settings → Secrets and variables → Actions → Variables → Repository variables**: `TRON_BACKEND_CD_ENABLED=true` only after the approved merge, private access and verification below. The next protected `main` push runs the whole release without human approval. If testing the already merged head, use the workflow's optional **Run workflow** on `main` once. No per-release command is needed. To stop future runs, set the variable to `false`, cancel queued runs, and revoke the deployment identity/key if necessary. Changing the variable does not cancel an in-flight run or transaction.
+6. **Run the connection test while deployment is disabled.** Verify the repository variable is exactly `TRON_BACKEND_CD_ENABLED=false`. Once the reviewed probe is on `main`, dispatch:
+
+   ```bash
+   gh workflow run backend-production.yml -R tron-ai-team/terafes_07 --ref main -f mode=connectivity
+   ```
+
+   In **Actions → Backend production release**, require both connectivity jobs to pass and all release jobs to be skipped. The probe uses GitHub OIDC, checks the peer routes through Tailscale, and uses strict pinned Ed25519 host verification for `tron-backend-cd`. It sends only a harmless `printf` marker and passes only when the forced command rejects it with the controller's exact message. It never asks the controller to run sudo, deploy, restart, or inspect containers. A failed authentication, host-key check, transport, or unexpected command response fails the test; do not disable host-key checking or expose SSH. This probe does not verify GHCR pulls, sudo privileges, a deployment, or rollback on Ubuntu.
+
+7. **Activate once, after preflight and rehearsal.** Set **Settings → Secrets and variables → Actions → Variables → Repository variables**: `TRON_BACKEND_CD_ENABLED=true` only after the reviewed merge, successful connection probe and verification below. The next protected `main` push runs the whole release without human approval. If testing the already merged head, the optional retry is `gh workflow run backend-production.yml -R tron-ai-team/terafes_07 --ref main -f mode=release`. No per-release command is needed. To stop future runs, set the variable to `false`, cancel queued runs, and revoke the deployment identity/key if necessary. Changing the variable does not cancel an in-flight run or transaction.
 
 ## Rehearsal, acceptance and recovery
 

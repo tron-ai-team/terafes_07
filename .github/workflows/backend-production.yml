@@ -20,11 +20,29 @@ jobs:
     if: >-
       github.repository == 'tron-ai-team/terafes_07' &&
       github.ref == 'refs/heads/main' &&
+      github.ref_protected &&
       vars.TRON_BACKEND_CD_ENABLED == 'true'
     uses: ./.github/workflows/ci.yml
 
-  publish:
+  verify-target:
     needs: required-checks
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      actions: read
+      contents: read
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      # Check before an environment job can implicitly create a missing environment.
+      - name: Verify the unattended production target
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bash deploy/scripts/verify-backend-release-target.sh
+
+  publish:
+    needs: verify-target
     runs-on: ubuntu-24.04
     timeout-minutes: 35
     permissions:
@@ -70,36 +88,25 @@ jobs:
 
   deploy:
     needs: publish
-    if: vars.TRON_BACKEND_CD_ENABLED == 'true'
+    if: github.ref_protected && vars.TRON_BACKEND_CD_ENABLED == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     environment: backend-production
-    # Serialize with the existing manual production workflow, too.
     concurrency:
       group: deploy-production
       cancel-in-progress: false
     permissions:
       contents: read
-      deployments: read
       actions: read
       id-token: write
     steps:
-      - name: Verify the production gate and current main
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Recheck the production target before connecting
         env:
           GH_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-          endpoint="repos/$GITHUB_REPOSITORY/environments/backend-production"
-          gh api "$endpoint" | jq -e '
-            .can_admins_bypass == false and
-            .deployment_branch_policy.custom_branch_policies == true and
-            any(.protection_rules[]; .type == "required_reviewers" and
-              .prevent_self_review == true and (.reviewers | length > 0))
-          ' >/dev/null
-          gh api "$endpoint/deployment-branch-policies" | jq -e '
-            .total_count == 1 and .branch_policies[0].type == "branch" and .branch_policies[0].name == "main"
-          ' >/dev/null
-          test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)" = "$GITHUB_SHA"
+        run: bash deploy/scripts/verify-backend-release-target.sh
       - name: Join the private deployment network
         uses: tailscale/github-action@064b10558093f38325e838ddea35486bdc6b1d5c # v4
         with:

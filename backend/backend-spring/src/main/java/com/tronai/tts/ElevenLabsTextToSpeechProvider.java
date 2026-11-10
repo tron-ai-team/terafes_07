@@ -102,6 +102,7 @@ public class ElevenLabsTextToSpeechProvider {
                 throw new VoiceException(HttpStatus.SERVICE_UNAVAILABLE, "ElevenLabs TTS returned no audio");
             }
             byte[] wav = toWav(audio, format);
+            // Optional robotic coloration for TRON identity (disabled when tts.robotic.enabled=false).
             return roboticVoiceProcessor.process(wav);
         } catch (VoiceException ex) {
             throw ex;
@@ -136,6 +137,10 @@ public class ElevenLabsTextToSpeechProvider {
                 "ElevenLabs returned non-WAV audio. Configure tts.elevenlabs.output-format=pcm_24000");
     }
 
+    /**
+     * Normalize whitespace. Never silently truncate spoken content — oversize text fails loudly
+     * so callers can split turns instead of dropping meaning.
+     */
     String truncate(String text) {
         if (text == null) {
             return "";
@@ -145,12 +150,10 @@ public class ElevenLabsTextToSpeechProvider {
         if (cleaned.length() <= max) {
             return cleaned;
         }
-        String truncated = cleaned.substring(0, max);
-        int lastSpace = truncated.lastIndexOf(' ');
-        if (lastSpace > max / 2) {
-            truncated = truncated.substring(0, lastSpace);
-        }
-        return truncated.trim();
+        throw new VoiceException(
+                HttpStatus.UNPROCESSABLE_ENTITY,
+                "Text to synthesize exceeds ElevenLabs max length (" + max + " chars). "
+                        + "Split the reply instead of truncating spoken content.");
     }
 
     private String extractDetail(String responseBody, String defaultMsg) {

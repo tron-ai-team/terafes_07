@@ -18,10 +18,11 @@ public class ElevenLabsTtsProperties {
     private String apiKey = "";
 
     /**
-     * Default public library voice with deep/monotone robotic character (Danny).
+     * Default premade voice: Adam (deep male). Works on free API plans.
+     * Community/library voices (e.g. Danny) require a paid ElevenLabs plan for API use.
      * Override with a custom/cloned TRON voice id after approval.
      */
-    private String voiceId = "Nagtyt9MktF8AWSgjotJ";
+    private String voiceId = "pNInz6obpgDQGcFmaJgB";
 
     /** Multilingual model with verified Japanese + English support. */
     private String modelId = "eleven_multilingual_v2";

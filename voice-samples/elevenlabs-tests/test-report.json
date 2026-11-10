@@ -1,0 +1,30 @@
+{
+  "model_id": "eleven_multilingual_v2",
+  "voice_id": "pNInz6obpgDQGcFmaJgB",
+  "voice_name": "Adam",
+  "output_format": "pcm_24000",
+  "subscription_tier": null,
+  "character_count": null,
+  "character_limit": null,
+  "approx_remaining": null,
+  "synthesis": [
+    {
+      "lang": "en",
+      "latency_ms": 496,
+      "bytes": 220726,
+      "chars": 74
+    },
+    {
+      "lang": "ja",
+      "latency_ms": 493,
+      "bytes": 198436,
+      "chars": 33
+    }
+  ],
+  "files": [
+    "tron-english-original.wav",
+    "tron-english-robotic.wav",
+    "tron-japanese-original.wav",
+    "tron-japanese-robotic.wav"
+  ]
+}

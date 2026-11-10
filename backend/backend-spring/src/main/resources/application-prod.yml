@@ -56,7 +56,7 @@ tts:
   elevenlabs:
     enabled: ${TTS_ELEVENLABS_ENABLED:false}
     api-key: ${ELEVENLABS_API_KEY:}
-    voice-id: ${TTS_ELEVENLABS_VOICE_ID:Nagtyt9MktF8AWSgjotJ}
+    voice-id: ${TTS_ELEVENLABS_VOICE_ID:pNInz6obpgDQGcFmaJgB}
     model-id: ${TTS_ELEVENLABS_MODEL_ID:eleven_multilingual_v2}
     output-format: ${TTS_ELEVENLABS_OUTPUT_FORMAT:pcm_24000}
     timeout-seconds: ${TTS_ELEVENLABS_TIMEOUT_SECONDS:45}

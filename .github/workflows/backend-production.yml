@@ -4,6 +4,12 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      mode:
+        description: Connectivity only (no deployment) or retry an enabled release
+        type: choice
+        options: [connectivity, release]
+        default: connectivity
 
 permissions:
   contents: read
@@ -16,11 +22,74 @@ env:
   BACKEND_REPOSITORY: ghcr.io/tron-ai-team/terafes_07/tron-ai-backend
 
 jobs:
+  connectivity-policy:
+    if: github.event_name == 'workflow_dispatch' && inputs.mode == 'connectivity'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      actions: read
+      contents: read
+    steps:
+      - name: Require the current protected main and deployment disabled
+        env:
+          REF_PROTECTED: ${{ github.ref_protected }}
+          RELEASE_ENABLED: ${{ vars.TRON_BACKEND_CD_ENABLED }}
+        run: |
+          if [[ "$GITHUB_REPOSITORY" != 'tron-ai-team/terafes_07' ||
+                "$GITHUB_REF" != 'refs/heads/main' || "$REF_PROTECTED" != 'true' ||
+                "$RELEASE_ENABLED" != 'false' ]]; then
+            echo 'Connectivity requires protected main and TRON_BACKEND_CD_ENABLED=false.' >&2
+            exit 1
+          fi
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Check the existing main-only environment before requesting credentials
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bash deploy/scripts/verify-backend-release-target.sh
+
+  connectivity:
+    needs: connectivity-policy
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    environment: backend-production
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Require OIDC configuration
+        env:
+          CLIENT_ID: ${{ secrets.TS_FEDERATED_CLIENT_ID }}
+          AUDIENCE: ${{ secrets.TS_FEDERATED_AUDIENCE }}
+        run: |
+          if [[ -z "$CLIENT_ID" || -z "$AUDIENCE" ]]; then
+            echo 'Tailscale OIDC client ID and audience must both be configured.' >&2
+            exit 1
+          fi
+      - name: Authenticate to Tailscale with GitHub OIDC
+        uses: tailscale/github-action@064b10558093f38325e838ddea35486bdc6b1d5c # v4
+        with:
+          oauth-client-id: ${{ secrets.TS_FEDERATED_CLIENT_ID }}
+          audience: ${{ secrets.TS_FEDERATED_AUDIENCE }}
+          tags: tag:tron-backend-ci
+          log-mode: quiet
+      - name: Verify pinned SSH and forced-command rejection
+        env:
+          SSH_HOST: ${{ secrets.BACKEND_SSH_HOST }}
+          SSH_KEY: ${{ secrets.BACKEND_SSH_KEY }}
+          SSH_KNOWN_HOSTS: ${{ secrets.BACKEND_SSH_KNOWN_HOSTS }}
+        run: bash deploy/scripts/probe-backend-ssh.sh
+
   required-checks:
     if: >-
       github.repository == 'tron-ai-team/terafes_07' &&
       github.ref == 'refs/heads/main' &&
       github.ref_protected &&
+      (github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.mode == 'release')) &&
       vars.TRON_BACKEND_CD_ENABLED == 'true'
     uses: ./.github/workflows/ci.yml
 

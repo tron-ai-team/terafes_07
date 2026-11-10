@@ -17,8 +17,9 @@
 | Feature branch | `feature/interview-v2-intelligent-engine` |
 | Phase 1 commit | `abbfc40` — Interview TurnEngine + SMART routing |
 | Interview completion commit | `946f9b6` — durable memory, analysis categories, PDF |
-| Auth + voice follow-up | (see latest SHAs after push) |
-| PR | Opened against `main` (link filled after `gh pr create`) |
+| Auth stability commit | `27668cb` — login offline + idle JWT recovery |
+| Voice + docs commit | `ab55831` — Algenib opening TTS + delivery docs |
+| PR | https://github.com/tron-ai-team/terafes_07/pull/17 |
 | Production deploy on feature push | **No** — `backend-production.yml` triggers only on `main`; legacy prod deploy retired |
 
 ---

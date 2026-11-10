@@ -3,6 +3,7 @@ package com.tronai.voice;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.tronai.ai.AiProvider;
 import com.tronai.ai.ChatGenerationResult;
+import com.tronai.hybrid.HybridRoutingService;
 import com.tronai.stt.SpeechToTextProvider;
 import com.tronai.stt.SttTranscriptionResult;
 import com.tronai.tts.AudioStoreService;
@@ -58,6 +59,9 @@ class VoiceEndpointTest {
     @MockitoBean
     private AiProvider aiProvider;
 
+    @MockitoBean
+    private HybridRoutingService hybridRoutingService;
+
     private static final byte[] FAKE_WAV = new byte[]{
             'R', 'I', 'F', 'F', 36, 0, 0, 0, 'W', 'A', 'V', 'E', 'f', 'm', 't', ' '
     };
@@ -67,6 +71,9 @@ class VoiceEndpointTest {
         org.mockito.Mockito.lenient().when(aiProvider.getProviderName()).thenReturn("ollama");
         org.mockito.Mockito.lenient().when(aiProvider.isAvailable()).thenReturn(true);
         org.mockito.Mockito.lenient().when(textToSpeechProvider.isAvailable()).thenReturn(true);
+        org.mockito.Mockito.lenient().when(hybridRoutingService.selectInferenceRoute()).thenReturn("LOCAL_OLLAMA");
+        org.mockito.Mockito.lenient().when(hybridRoutingService.allowsCloudInference()).thenReturn(true);
+        org.mockito.Mockito.lenient().when(hybridRoutingService.tryAcquireAiSlot()).thenReturn(true);
         com.tronai.user.User user = userRepository.findByEmailIgnoreCase("voice-tester@tron.ai")
                 .orElseGet(() -> userRepository.save(com.tronai.user.User.builder()
                         .email("voice-tester@tron.ai")
@@ -143,6 +150,7 @@ class VoiceEndpointTest {
                 .andExpect(jsonPath("$.reply").value("初めまして、よろしくお願いします。"))
                 .andExpect(jsonPath("$.language").value("ja"))
                 .andExpect(jsonPath("$.speechSupported").value(true))
+                .andExpect(jsonPath("$.browserSpeechFallback").value(false))
                 .andExpect(jsonPath("$.audio_url").exists())
                 .andExpect(jsonPath("$.latency_ms").exists())
                 .andExpect(jsonPath("$.aiProfile").value("FAST"))

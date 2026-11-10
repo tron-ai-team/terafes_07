@@ -42,14 +42,22 @@ ollama:
 
 tron:
   default-model: qwen3-8b
-  # CI/GitHub Actions has no live Ollama. Keep local route deterministic so tests that
-  # mock AiProvider exercise the real Chat/Voice path without cloud provider keys.
-  hybrid:
-    assume-local-healthy: true
 
 stt:
   base-url: http://127.0.0.1:8091
   timeout-seconds: 5
+  prefer-local: true
+  groq-enabled: true
+  groq-model: whisper-large-v3-turbo
+  groq-timeout-seconds: 5
+
+tts:
+  groq:
+    enabled: true
+    model-english: canopylabs/orpheus-v1-english
+    voice-english: autumn
+    timeout-seconds: 5
+    max-input-chars: 200
 
 voicevox:
   base-url: http://127.0.0.1:50021

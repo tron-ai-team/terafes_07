@@ -24,7 +24,9 @@ Development **does not** require Infisical Cloud.
 
 | Variable | Provider | Purpose |
 |---|---|---|
-| `GROQ_API_KEY` | GroqCloud | CV rewrite, interview, company synthesis |
+| `GROQ_API_KEY` | GroqCloud | Chat LLM, Whisper STT (`whisper-large-v3-turbo`), English Orpheus TTS |
+| `STT_GROQ_MODEL` | Groq Whisper | Default `whisper-large-v3-turbo` (JA/EN multilingual) |
+| `TTS_GROQ_MODEL_ENGLISH` | Groq Orpheus | English TTS only — **not Japanese** (use VOICEVOX or browser fallback for JA) |
 | `TAVILY_API_KEY` | Tavily | Public company / recruitment search |
 | `FIRECRAWL_API_KEY` | Firecrawl | Public page extraction |
 

@@ -1,7 +1,8 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { useApp, AppMode } from '../../context/AppContext';
 import { SUPPORTED_LANGUAGES, SupportedLanguage } from '../../utils/languageResolver';
+import { TronLogo } from '../common/TronLogo';
 import {
   MessageCircle,
   Mic,
@@ -13,10 +14,15 @@ import {
   WifiOff,
   ChevronDown,
   Check,
+  Menu,
 } from 'lucide-react';
 import { GlobalAiModeSelector } from '../common/GlobalAiModeSelector';
 
-export const TopBar: React.FC = () => {
+interface TopBarProps {
+  onToggleMobileSidebar?: () => void;
+}
+
+export const TopBar: React.FC<TopBarProps> = ({ onToggleMobileSidebar }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const {
@@ -155,15 +161,37 @@ export const TopBar: React.FC = () => {
   };
 
   return (
-    <header className="sticky top-0 z-30 flex items-center justify-between px-4 md:px-6 py-3 bg-white/45 backdrop-blur-xl border-b border-blue-50/80">
-      {/* Left: Backend Status pill badge */}
-      <div className="flex-1 flex items-center">
+    <header className="sticky top-0 z-30 flex items-center justify-between px-3 md:px-6 py-2.5 md:py-3 bg-white/70 backdrop-blur-xl border-b border-blue-50/80">
+      {/* Left: Mobile hamburger & Logo (on mobile), Backend Status pill badge (on desktop) */}
+      <div className="flex-1 flex items-center min-w-0">
+        {/* Mobile controls */}
+        <div className="flex items-center gap-1.5 md:hidden">
+          <button
+            type="button"
+            onClick={onToggleMobileSidebar}
+            className="p-1.5 -ml-1 text-slate-600 hover:text-slate-900 hover:bg-blue-50/80 rounded-xl transition-colors cursor-pointer"
+            aria-label="Toggle navigation menu"
+          >
+            <Menu className="w-5 h-5" />
+          </button>
+          <Link
+            to="/"
+            className="flex items-center gap-1.5 group focus:outline-hidden"
+            title="Return to TRON AI Homepage"
+          >
+            <TronLogo size="xs" showGlow={false} />
+            <span className="font-display font-black text-sm tracking-tight text-[#071638] group-hover:text-blue-600 transition-colors">
+              TRON<span className="text-[#008CFF]">AI</span>
+            </span>
+          </Link>
+        </div>
+
+        {/* Desktop status pill */}
         <div
-          className={`hidden lg:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-semibold border transition-all ${
-            backendStatus === 'connected'
+          className={`hidden lg:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-semibold border transition-all ${backendStatus === 'connected'
               ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
               : 'bg-amber-50/80 text-amber-700 border-amber-200/80'
-          }`}
+            }`}
           title={backendMessage}
         >
           {backendStatus === 'connected' ? (
@@ -176,56 +204,62 @@ export const TopBar: React.FC = () => {
       </div>
 
       {/* Center: TWO SEPARATE VISUAL GROUPS: [Chat | Voice | Workspace] + [💼 Career Center] */}
-      <div className="flex flex-wrap items-center justify-center gap-2.5 md:gap-3.5">
+      <div className="flex items-center justify-center gap-1.5 sm:gap-2.5 md:gap-3.5 shrink-0">
         {/* Group 1: Primary Core Modes Segmented Control */}
-        <div className="flex items-center p-1 rounded-2xl bg-white/95 backdrop-blur-2xl border border-[#D6E6F7] shadow-md shadow-blue-500/5">
+        <div className="flex items-center p-0.5 sm:p-1 rounded-xl sm:rounded-2xl bg-white/95 backdrop-blur-2xl border border-[#D6E6F7] shadow-md shadow-blue-500/5">
           {/* Tab 1: Chat */}
           <button
+            type="button"
             onClick={() => handleModeSwitch('chat')}
             className={`
-              flex items-center gap-1.5 md:gap-2 px-3 md:px-4 py-2 rounded-xl text-xs font-bold transition-all duration-200
+              flex items-center gap-1 sm:gap-1.5 md:gap-2 px-2 sm:px-3 md:px-4 py-1.5 sm:py-2 rounded-lg sm:rounded-xl text-xs font-bold transition-all duration-200 cursor-pointer
               ${currentMode === 'chat'
                 ? 'bg-gradient-to-r from-[#008CFF] to-[#0066FF] text-white shadow-md shadow-blue-500/25 scale-[1.02]'
                 : 'text-slate-600 hover:text-slate-900 hover:bg-blue-50/60'
               }
             `}
+            title={t.topbar.chat}
           >
-            <MessageCircle className="w-4 h-4 shrink-0" />
-            <span className="whitespace-nowrap">
+            <MessageCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
+            <span className="hidden sm:inline whitespace-nowrap">
               {t.topbar.chat}
             </span>
           </button>
 
           {/* Tab 2: Voice */}
           <button
+            type="button"
             onClick={() => handleModeSwitch('voice')}
             className={`
-              flex items-center gap-1.5 md:gap-2 px-3 md:px-4 py-2 rounded-xl text-xs font-bold transition-all duration-200
+              flex items-center gap-1 sm:gap-1.5 md:gap-2 px-2 sm:px-3 md:px-4 py-1.5 sm:py-2 rounded-lg sm:rounded-xl text-xs font-bold transition-all duration-200 cursor-pointer
               ${currentMode === 'voice'
                 ? 'bg-gradient-to-r from-[#008CFF] to-[#0066FF] text-white shadow-md shadow-blue-500/25 scale-[1.02]'
                 : 'text-slate-600 hover:text-slate-900 hover:bg-blue-50/60'
               }
             `}
+            title={t.topbar.voice}
           >
-            <Mic className="w-4 h-4 shrink-0" />
-            <span className="whitespace-nowrap">
+            <Mic className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
+            <span className="hidden sm:inline whitespace-nowrap">
               {t.topbar.voice}
             </span>
           </button>
 
           {/* Tab 3: Workspace */}
           <button
+            type="button"
             onClick={() => handleModeSwitch('workspace')}
             className={`
-              flex items-center gap-1.5 md:gap-2 px-3 md:px-4 py-2 rounded-xl text-xs font-bold transition-all duration-200
+              flex items-center gap-1 sm:gap-1.5 md:gap-2 px-2 sm:px-3 md:px-4 py-1.5 sm:py-2 rounded-lg sm:rounded-xl text-xs font-bold transition-all duration-200 cursor-pointer
               ${currentMode === 'workspace'
                 ? 'bg-gradient-to-r from-[#008CFF] to-[#0066FF] text-white shadow-md shadow-blue-500/25 scale-[1.02]'
                 : 'text-slate-600 hover:text-slate-900 hover:bg-blue-50/60'
               }
             `}
+            title={t.topbar.workspace}
           >
-            <LayoutGrid className="w-4 h-4 shrink-0" />
-            <span className="whitespace-nowrap">
+            <LayoutGrid className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
+            <span className="hidden sm:inline whitespace-nowrap">
               {t.topbar.workspace}
             </span>
           </button>
@@ -233,9 +267,10 @@ export const TopBar: React.FC = () => {
 
         {/* Group 2: Visually Separate Career Center Button */}
         <button
+          type="button"
           onClick={() => handleModeSwitch('career')}
           className={`
-            flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-bold transition-all duration-200 shadow-md
+            flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-4 py-1.5 sm:py-2.5 rounded-xl sm:rounded-2xl text-xs font-bold transition-all duration-200 shadow-md cursor-pointer
             ${currentMode === 'career'
               ? 'bg-gradient-to-r from-[#008CFF] to-[#0066FF] text-white shadow-blue-500/25 ring-2 ring-blue-400/40 scale-[1.02]'
               : 'bg-white/95 backdrop-blur-2xl border border-[#D6E6F7] text-slate-700 hover:text-blue-600 hover:border-blue-300 shadow-blue-500/5 hover:bg-blue-50/40'
@@ -243,17 +278,20 @@ export const TopBar: React.FC = () => {
           `}
           title="Open Career Center"
         >
-          <Briefcase className={`w-4 h-4 shrink-0 ${currentMode === 'career' ? 'text-white' : 'text-blue-600'}`} />
-          <span className="whitespace-nowrap font-display tracking-tight">
+          <Briefcase className={`w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0 ${currentMode === 'career' ? 'text-white' : 'text-blue-600'}`} />
+          <span className="hidden md:inline whitespace-nowrap font-display tracking-tight">
             {t.topbar.careerCenter}
+          </span>
+          <span className="md:hidden hidden sm:inline whitespace-nowrap font-display tracking-tight">
+            Career
           </span>
         </button>
       </div>
 
       {/* Right Controls: Centralized Global AI Mode Selector, Single Experience Language Selector & User Profile */}
-      <div className="flex-1 flex items-center justify-end gap-2.5">
+      <div className="flex-1 flex items-center justify-end gap-1.5 sm:gap-2.5 min-w-0">
         {/* Global AI Mode Selector (AUTO | FAST | SMART | ULTRA PRO MAX) */}
-        <GlobalAiModeSelector />
+        <GlobalAiModeSelector compact />
 
         {/* Single Global Experience Language Selector */}
         <div className="relative" ref={langMenuRef}>
@@ -266,15 +304,15 @@ export const TopBar: React.FC = () => {
             aria-label="Select Experience Language"
             aria-haspopup="listbox"
             aria-expanded={langMenuOpen}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/80 border border-[#E2EEF8] text-xs font-semibold text-slate-700 hover:text-blue-600 hover:border-blue-200 shadow-2xs transition-all focus:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-500"
+            className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1.5 rounded-xl bg-white/80 border border-[#E2EEF8] text-xs font-semibold text-slate-700 hover:text-blue-600 hover:border-blue-200 shadow-2xs transition-all focus:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-500"
             title={`TRON AI Experience Language: ${currentLangObj.nativeName}`}
           >
-            <Globe className="w-3.5 h-3.5 text-blue-500" />
-            <span className="font-medium">{currentLangObj.nativeName}</span>
+            <Globe className="w-3.5 h-3.5 text-blue-500 shrink-0" />
+            <span className="font-medium hidden sm:inline">{currentLangObj.nativeName}</span>
+            <span className="font-bold sm:hidden uppercase text-[10px]">{currentLangObj.code}</span>
             <ChevronDown
-              className={`w-3 h-3 text-slate-400 transition-transform duration-200 ${
-                langMenuOpen ? 'rotate-180' : ''
-              }`}
+              className={`w-3 h-3 text-slate-400 transition-transform duration-200 ${langMenuOpen ? 'rotate-180' : ''
+                }`}
             />
           </button>
 
@@ -305,11 +343,10 @@ export const TopBar: React.FC = () => {
                     buttonRef.current?.focus();
                   }}
                   onKeyDown={(e) => handleOptionKeyDown(e, l.code, index)}
-                  className={`w-full flex items-center justify-between px-3.5 py-2 text-left hover:bg-blue-50/80 transition-colors focus:outline-hidden focus-visible:bg-blue-50 focus-visible:ring-1 focus-visible:ring-blue-400 ${
-                    selectedLanguage === l.code
+                  className={`w-full flex items-center justify-between px-3.5 py-2 text-left hover:bg-blue-50/80 transition-colors focus:outline-hidden focus-visible:bg-blue-50 focus-visible:ring-1 focus-visible:ring-blue-400 ${selectedLanguage === l.code
                       ? 'font-bold text-blue-600 bg-blue-50/50'
                       : 'text-slate-700 font-medium'
-                  }`}
+                    }`}
                 >
                   <span className="text-xs">{l.nativeName}</span>
                   {selectedLanguage === l.code && <Check className="w-3.5 h-3.5 text-blue-600 shrink-0" />}

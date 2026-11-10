@@ -1,6 +1,7 @@
 package com.tronai.user;
 
 import com.tronai.auth.SecurityUtils;
+import com.tronai.career.profile.CandidateProfileService;
 import com.tronai.user.dto.UpdateProfileRequest;
 import com.tronai.user.dto.UserProfileResponse;
 import com.tronai.user.dto.UserSettingsDto;
@@ -19,26 +20,24 @@ public class UserController {
 
     private final UserRepository userRepository;
     private final UserSettingsRepository userSettingsRepository;
+    private final CandidateProfileService candidateProfileService;
 
-    public UserController(UserRepository userRepository, UserSettingsRepository userSettingsRepository) {
+    public UserController(UserRepository userRepository,
+                          UserSettingsRepository userSettingsRepository,
+                          CandidateProfileService candidateProfileService) {
         this.userRepository = userRepository;
         this.userSettingsRepository = userSettingsRepository;
+        this.candidateProfileService = candidateProfileService;
     }
 
     @GetMapping("/me")
-    @Operation(summary = "Get current authenticated user profile")
+    @Operation(summary = "Get current authenticated user profile with live Candidate Profile summary")
     public ResponseEntity<UserProfileResponse> getMe() {
         Long userId = SecurityUtils.getRequiredUserId();
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
 
-        return ResponseEntity.ok(UserProfileResponse.builder()
-                .id(user.getId())
-                .email(user.getEmail())
-                .displayName(user.getDisplayName())
-                .role(user.getRole())
-                .createdAt(user.getCreatedAt())
-                .build());
+        return ResponseEntity.ok(toResponse(user));
     }
 
     @PatchMapping("/me")
@@ -54,13 +53,7 @@ public class UserController {
             userRepository.save(user);
         }
 
-        return ResponseEntity.ok(UserProfileResponse.builder()
-                .id(user.getId())
-                .email(user.getEmail())
-                .displayName(user.getDisplayName())
-                .role(user.getRole())
-                .createdAt(user.getCreatedAt())
-                .build());
+        return ResponseEntity.ok(toResponse(user));
     }
 
     @GetMapping("/me/settings")
@@ -121,5 +114,16 @@ public class UserController {
                 .preferredModel(settings.getPreferredModel())
                 .preferredAiProfile(settings.getPreferredAiProfile())
                 .build());
+    }
+
+    private UserProfileResponse toResponse(User user) {
+        return UserProfileResponse.builder()
+                .id(user.getId())
+                .email(user.getEmail())
+                .displayName(user.getDisplayName())
+                .role(user.getRole())
+                .createdAt(user.getCreatedAt())
+                .candidateProfile(candidateProfileService.summaryForUser(user.getId()))
+                .build();
     }
 }

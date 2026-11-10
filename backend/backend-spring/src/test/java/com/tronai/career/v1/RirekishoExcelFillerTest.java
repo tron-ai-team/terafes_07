@@ -21,7 +21,13 @@ class RirekishoExcelFillerTest {
                 "dateOfBirth", LocalDate.of(2000, 4, 1),
                 "nationality", "日本",
                 "email", "taro@example.com",
-                "education", List.of(Map.of("school", "TRON大学", "period", "2020-2024", "detail", "情報工学")),
+                "education", List.of(Map.of(
+                        "schoolName", "TRON大学",
+                        "startYear", 2020,
+                        "startMonth", 4,
+                        "endYear", 2024,
+                        "endMonth", 3,
+                        "status", "卒業")),
                 "workExperience", List.of(),
                 "selfPr", "自己PRテスト"));
         try (Workbook wb = WorkbookFactory.create(new java.io.ByteArrayInputStream(bytes))) {
@@ -29,6 +35,10 @@ class RirekishoExcelFillerTest {
             assertThat(wb.getSheet(RirekishoExcelFiller.SHEET2)).isNotNull();
             Sheet s1 = wb.getSheet(RirekishoExcelFiller.SHEET1);
             assertThat(s1.getRow(2).getCell(2).getStringCellValue()).contains("山田");
+            assertThat(s1.getRow(14).getCell(1).getStringCellValue()).isEqualTo("2020");
+            assertThat(s1.getRow(14).getCell(3).getStringCellValue()).contains("入学");
+            assertThat(s1.getRow(15).getCell(3).getStringCellValue()).contains("卒業");
+            assertThat(s1.getRow(24).getCell(3).getStringCellValue()).contains("な");
         }
     }
 }

@@ -13,8 +13,11 @@ import java.time.Instant;
 @AllArgsConstructor
 public class UserProfileResponse {
     private Long id;
+    /** Authentication account email — not Candidate Profile contact email. */
     private String email;
     private String displayName;
     private String role;
     private Instant createdAt;
+    /** Latest persisted Candidate Profile summary (live read; may be empty). */
+    private CandidateProfileSummaryDto candidateProfile;
 }

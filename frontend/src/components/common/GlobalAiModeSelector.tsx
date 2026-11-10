@@ -112,14 +112,14 @@ export const GlobalAiModeSelector: React.FC<GlobalAiModeSelectorProps> = ({
         aria-controls={dropdownId}
         aria-label={`Current AI Mode: ${activeDef.displayName}. Click to change.`}
         className={`
-          group inline-flex items-center gap-1.5 px-3 py-1.5 rounded-2xl text-xs font-bold
+          group inline-flex items-center gap-1.5 ${compact ? 'px-2 sm:px-3' : 'px-3'} py-1.5 rounded-2xl text-xs font-bold
           border backdrop-blur-xl transition-all duration-200 cursor-pointer
           hover:shadow-sm focus:outline-none focus-visible:ring-2
           ${currentTheme.pill} ${currentTheme.ring}
         `}
       >
         <span className="shrink-0">{getModeIcon(selectedAiMode, 'w-3.5 h-3.5')}</span>
-        <span className="truncate tracking-tight font-display">{activeDef.displayName}</span>
+        <span className={`truncate tracking-tight font-display ${compact ? 'hidden md:inline' : ''}`}>{activeDef.displayName}</span>
 
         {/* Display credits badge if in ULTRA mode */}
         {selectedAiMode === 'ULTRA' && (
@@ -129,9 +129,8 @@ export const GlobalAiModeSelector: React.FC<GlobalAiModeSelectorProps> = ({
         )}
 
         <ChevronDown
-          className={`w-3 h-3 text-slate-400 transition-transform duration-200 ${
-            isOpen ? 'rotate-180 text-blue-600' : 'group-hover:text-slate-600'
-          }`}
+          className={`w-3 h-3 text-slate-400 transition-transform duration-200 ${isOpen ? 'rotate-180 text-blue-600' : 'group-hover:text-slate-600'
+            }`}
           aria-hidden="true"
         />
       </button>
@@ -183,12 +182,11 @@ export const GlobalAiModeSelector: React.FC<GlobalAiModeSelectorProps> = ({
                   }}
                   className={`
                     w-full flex items-start justify-between p-3 rounded-2xl text-left transition-all duration-150 cursor-pointer
-                    ${
-                      isSelected
-                        ? isUltra
-                          ? 'bg-purple-50/90 border border-purple-300 shadow-xs'
-                          : 'bg-blue-50/90 border border-blue-300 shadow-xs'
-                        : 'hover:bg-slate-50 border border-transparent hover:border-slate-100'
+                    ${isSelected
+                      ? isUltra
+                        ? 'bg-purple-50/90 border border-purple-300 shadow-xs'
+                        : 'bg-blue-50/90 border border-blue-300 shadow-xs'
+                      : 'hover:bg-slate-50 border border-transparent hover:border-slate-100'
                     }
                   `}
                 >
@@ -205,11 +203,10 @@ export const GlobalAiModeSelector: React.FC<GlobalAiModeSelectorProps> = ({
 
                         {mode.badgeText && (
                           <span
-                            className={`text-[9px] px-1.5 py-0.2 rounded-full font-bold uppercase tracking-wider ${
-                              isUltra
+                            className={`text-[9px] px-1.5 py-0.2 rounded-full font-bold uppercase tracking-wider ${isUltra
                                 ? 'bg-purple-100 text-purple-800 border border-purple-200'
                                 : 'bg-slate-100 text-slate-600 border border-slate-200'
-                            }`}
+                              }`}
                           >
                             {mode.badgeText}
                           </span>

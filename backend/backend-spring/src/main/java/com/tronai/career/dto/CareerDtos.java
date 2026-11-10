@@ -71,8 +71,11 @@ public final class CareerDtos {
         private String company;
         private String location;
         private String sourceUrl;
+        private String sourceProvider;
         private int matchScore;
         private String matchTier;
+        /** Explicit disclosure: relevance estimate, not hiring probability. */
+        private String matchScoreDisclosure;
         private String employmentType;
         private Boolean newGraduateEligible;
         private List<String> requiredSkills;
@@ -86,6 +89,10 @@ public final class CareerDtos {
         private List<String> reasons;
         private List<String> risks;
         private String discoveredAt;
+        private String lastVerifiedAt;
+        private String applicationStatus;
+        private String internationalStudentPolicy;
+        private String verificationNotes;
         private String fullDescription;
         private Boolean saved;
     }
@@ -118,6 +125,12 @@ public final class CareerDtos {
         private Boolean newGraduateOnly;
         private Integer maxResults;
         private String language;
+        /** When true, merge Candidate Profile career preferences into the search filters. */
+        private Boolean useProfilePreferences;
+        /** Force providers to refresh external sources / bypass warm cache. */
+        private Boolean forceRefresh;
+        /** When true, attempt local Ollama explanation bullets (never invents jobs). */
+        private Boolean aiExplain;
     }
 
     @Data
@@ -250,6 +263,8 @@ public final class CareerDtos {
         private String provider;
         private String status;
         private String message;
+        private String externalSearchUrl;
+        private Integer cachedFreshCount;
     }
 
     @Data
@@ -258,5 +273,15 @@ public final class CareerDtos {
     @AllArgsConstructor
     public static class OpsStatusResponse {
         private List<OpsProviderStatus> providers;
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class JobSourcesResponse {
+        private List<OpsProviderStatus> providers;
+        private List<String> externalSearchUrls;
+        private String emptyStateMessage;
     }
 }

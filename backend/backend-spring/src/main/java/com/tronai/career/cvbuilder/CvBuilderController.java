@@ -3,9 +3,12 @@ package com.tronai.career.cvbuilder;
 import com.tronai.auth.SecurityUtils;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
 import java.util.Map;
@@ -49,6 +52,103 @@ public class CvBuilderController {
     @PutMapping("/drafts/{id}")
     public ResponseEntity<Map<String, Object>> update(@PathVariable String id, @RequestBody Map<String, Object> body) {
         return ResponseEntity.ok(service.updateDraft(SecurityUtils.getRequiredUserId(), id, body));
+    }
+
+    @DeleteMapping("/drafts/{id}")
+    public ResponseEntity<Map<String, Object>> delete(@PathVariable String id) {
+        return ResponseEntity.ok(service.deleteDraft(SecurityUtils.getRequiredUserId(), id));
+    }
+
+    @PostMapping(value = "/drafts/{id}/photo", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<Map<String, Object>> uploadPhoto(
+            @PathVariable String id,
+            @RequestPart("file") MultipartFile file,
+            @RequestParam(defaultValue = "false") boolean alsoUpdateProfile) {
+        return ResponseEntity.ok(service.uploadDraftPhoto(
+                SecurityUtils.getRequiredUserId(), id, file, alsoUpdateProfile));
+    }
+
+    @PostMapping("/drafts/{id}/photo/from-profile")
+    public ResponseEntity<Map<String, Object>> useProfilePhoto(@PathVariable String id) {
+        return ResponseEntity.ok(service.useProfilePhoto(SecurityUtils.getRequiredUserId(), id));
+    }
+
+    @DeleteMapping("/drafts/{id}/photo")
+    public ResponseEntity<Map<String, Object>> removePhoto(@PathVariable String id) {
+        return ResponseEntity.ok(service.removeDraftPhoto(SecurityUtils.getRequiredUserId(), id));
+    }
+
+    @GetMapping("/drafts/{id}/photo")
+    public ResponseEntity<byte[]> getPhoto(@PathVariable String id) {
+        CvBuilderService.OptionalPhotoBytes photo = service.getDraftPhoto(SecurityUtils.getRequiredUserId(), id);
+        if (photo == null || photo.data() == null || photo.data().length == 0) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "CV photo not found");
+        }
+        return ResponseEntity.ok()
+                .contentType(MediaType.parseMediaType(photo.contentType()))
+                .body(photo.data());
+    }
+
+    @PostMapping("/drafts/{id}/magic-fill")
+    public ResponseEntity<Map<String, Object>> magicFill(@PathVariable String id,
+                                                         @RequestBody(required = false) Map<String, Object> body) {
+        return ResponseEntity.ok(service.magicFill(
+                SecurityUtils.getRequiredUserId(), id, body == null ? Map.of() : body));
+    }
+
+    @PostMapping("/drafts/{id}/magic-fill/decide")
+    public ResponseEntity<Map<String, Object>> magicFillDecide(@PathVariable String id,
+                                                               @RequestBody Map<String, Object> body) {
+        return ResponseEntity.ok(service.decideMagicFillBatch(SecurityUtils.getRequiredUserId(), id, body));
+    }
+
+    /**
+     * Preview uses the same POI→Gotenberg pipeline as export; returns document metadata
+     * so the client can render the actual PDF (not a separate approximation).
+     */
+    @PostMapping("/drafts/{id}/preview")
+    public ResponseEntity<Map<String, Object>> preview(@PathVariable String id,
+                                                       @RequestParam(defaultValue = "pdf") String format) {
+        try {
+            // export() may return an immutable map — copy before tagging as preview.
+            Map<String, Object> meta = new java.util.LinkedHashMap<>(
+                    service.export(SecurityUtils.getRequiredUserId(), id, format));
+            meta.put("preview", true);
+            return ResponseEntity.ok(meta);
+        } catch (org.springframework.web.server.ResponseStatusException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new org.springframework.web.server.ResponseStatusException(
+                    org.springframework.http.HttpStatus.BAD_REQUEST,
+                    "Preview failed: " + (e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage()), e);
+        }
+    }
+
+    @PostMapping("/drafts/{id}/refresh-from-profile")
+    public ResponseEntity<Map<String, Object>> refreshFromProfile(@PathVariable String id,
+                                                                  @RequestBody(required = false) Map<String, Object> body) {
+        return ResponseEntity.ok(service.refreshFromProfile(
+                SecurityUtils.getRequiredUserId(), id, body == null ? Map.of() : body));
+    }
+
+    @GetMapping("/drafts/{id}/education-preview")
+    public ResponseEntity<Map<String, Object>> educationPreview(@PathVariable String id) {
+        return ResponseEntity.ok(service.educationPreview(SecurityUtils.getRequiredUserId(), id));
+    }
+
+    @PostMapping("/drafts/{id}/sanitize-education")
+    public ResponseEntity<Map<String, Object>> sanitizeEducation(@PathVariable String id) {
+        return ResponseEntity.ok(service.sanitizeEducation(SecurityUtils.getRequiredUserId(), id));
+    }
+
+    @GetMapping("/drafts/{id}/versions")
+    public ResponseEntity<List<Map<String, Object>>> listVersions(@PathVariable String id) {
+        return ResponseEntity.ok(service.listVersions(SecurityUtils.getRequiredUserId(), id));
+    }
+
+    @PostMapping("/drafts/{id}/versions/{versionId}/restore")
+    public ResponseEntity<Map<String, Object>> restoreVersion(@PathVariable String id, @PathVariable String versionId) {
+        return ResponseEntity.ok(service.restoreVersion(SecurityUtils.getRequiredUserId(), id, versionId));
     }
 
     @PostMapping("/drafts/{id}/ai-assist")

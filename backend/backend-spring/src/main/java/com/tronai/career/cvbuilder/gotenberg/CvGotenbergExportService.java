@@ -53,6 +53,12 @@ public class CvGotenbergExportService {
         }
     }
 
+    /** Primary CP-03C path: HTML print template → Chromium → PDF. */
+    public PdfExportResult convertHtmlDocument(byte[] htmlBytes) {
+        byte[] pdf = gotenbergPdfClient.convertHtml(htmlBytes);
+        return new PdfExportResult(pdf, "gotenberg_chromium_html");
+    }
+
     private static String stripExt(String name) {
         if (name == null) return "cv";
         int dot = name.lastIndexOf('.');

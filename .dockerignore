@@ -1,0 +1,16 @@
+# When building images from the repository root context
+DELETE_LATER/
+.runtime/
+**/node_modules/
+**/target/
+frontend/dist/
+.git/
+.env
+**/.env
+!**/.env.example
+*.log
+_*/ 
+desktop-agent/target/
+*.md
+!README.md
+TRON_AI_FINAL_PRESENTATION.*

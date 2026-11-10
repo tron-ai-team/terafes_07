@@ -1,4 +1,5 @@
 import { TranslationSchema } from '../types';
+import { aboutJa } from '../aboutTranslations';
 
 export const ja: TranslationSchema = {
   nav: {
@@ -14,19 +15,19 @@ export const ja: TranslationSchema = {
     logOut: 'ログアウト',
   },
   hero: {
-    badge: '次世代型 AI プラットフォーム',
-    titlePart1: 'あなたの未来を切り拓く',
-    titleHighlight1: '学習・開発・キャリア',
-    titlePart2: 'の',
-    titleHighlight2: '総合AIパートナー',
-    description: 'AIとの対話、日本語模擬面接の特訓、スキル向上、コーディング支援、キャリア設計まで — すべてをひとつに統合した最先端プラットフォーム。',
-    startForFree: '無料で始める',
+    badge: '★ オールインワン AI アシスタント',
+    titlePart1: '学習・面接・キャリア準備を',
+    titleHighlight1: 'AIでトータルサポート',
+    titlePart2: '',
+    titleHighlight2: '',
+    description: 'AIチャット、AI音声、日本語の面接練習、そしてプロフェッショナルな履歴書作成まで、すべてをひとつのプラットフォームで。',
+    startForFree: '今すぐ始める',
     watchDemo: 'デモを見る',
     demoOverview: '2分の紹介動画',
     exploreTron: 'TRON AI を探る',
-    badgeLocalCloud: 'qwen3:8b 搭載',
-    badgeJapaneseInterview: '日本語面接特化AI',
-    badgeMultilingual: '多言語対応',
+    badgeLocalCloud: '100% 無料',
+    badgeJapaneseInterview: '日英バイリンガルAI',
+    badgeMultilingual: '4つの主要AI機能',
   },
   features: {
     sectionBadge: '主要機能',
@@ -194,19 +195,7 @@ export const ja: TranslationSchema = {
     joinWaitlist: 'ウェイティングリストに登録',
     contactUs: 'お問い合わせ',
   },
-  about: {
-    badge: 'TRON AI について',
-    title: 'グローバルバイリンガルエンジニアのために設計',
-    desc: '高い技術力を持つエンジニアが、日本のハイテク企業や国際的プロジェクトで真価を発揮できるよう支援する統合AIです。',
-    pillar1Title: 'マルチモーダル日本語判定',
-    pillar1Desc: '日本語の発話流暢さ、敬語表現、技術的な論理性、STAR構成を同時にリアルタイム評価します。',
-    pillar2Title: '日本の採用現場への最適化',
-    pillar2Desc: '東京のトップIT企業、メガベンチャー、先端研究所の実際の面接評価項目に準拠した模擬面接を提供します。',
-    pillar3Title: '安心のプライバシー第一設計',
-    pillar3Desc: '提出された経歴書や音声データは暗号化され、AIの学習に無断利用されることはありません。',
-    platformOverviewTitle: '統合されたエンジニアリング環境',
-    platformOverviewDesc: '高速な対話推論、実機デスクトップ自動化、キャリアアップ支援がひとつのプラットフォームでシームレスに機能します。',
-  },
+  about: aboutJa,
   help: {
     badge: 'ヘルプ＆FAQ',
     title: 'よくあるご質問とサポート',

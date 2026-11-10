@@ -91,9 +91,54 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(org.springframework.http.converter.HttpMessageNotReadableException.class)
     public ResponseEntity<ErrorResponse> handleHttpMessageNotReadable(org.springframework.http.converter.HttpMessageNotReadableException ex) {
-        log.warn("Malformed HTTP message: {}", ex.getMessage());
+        String detail = extractReadableDetail(ex);
+        log.warn("Malformed HTTP message: {}", detail);
         return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY)
-                .body(new ErrorResponse("Invalid request payload"));
+                .body(new ErrorResponse(detail));
+    }
+
+    @ExceptionHandler(org.springframework.http.converter.HttpMessageConversionException.class)
+    public ResponseEntity<ErrorResponse> handleHttpMessageConversion(org.springframework.http.converter.HttpMessageConversionException ex) {
+        String detail = extractReadableDetailFromThrowable(ex);
+        log.warn("HTTP message conversion failed: {}", detail);
+        return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY)
+                .body(new ErrorResponse(detail));
+    }
+
+    private static String extractReadableDetail(org.springframework.http.converter.HttpMessageNotReadableException ex) {
+        return extractReadableDetailFromThrowable(ex);
+    }
+
+    private static String extractReadableDetailFromThrowable(Throwable ex) {
+        StringBuilder chain = new StringBuilder();
+        Throwable cursor = ex;
+        while (cursor != null) {
+            if (cursor.getMessage() != null) {
+                chain.append(' ').append(cursor.getMessage());
+            }
+            cursor = cursor.getCause();
+        }
+        String message = chain.toString();
+        if (message.isBlank()) {
+            return "Invalid request payload";
+        }
+        String lower = message.toLowerCase();
+        // Prefer explicit field guidance from custom deserializers / date failures.
+        if (message.contains("Please enter a valid date of birth")) {
+            int idx = message.indexOf("Please enter a valid date of birth");
+            String sliced = message.substring(idx);
+            int end = sliced.indexOf('\n');
+            return end > 0 ? sliced.substring(0, end).trim() : sliced.trim();
+        }
+        if (lower.contains("dateofbirth") || lower.contains("localdate") || lower.contains("date of birth")
+                || lower.contains("yyyy-mm-dd")) {
+            return "Please enter a valid date of birth. Expected format: YYYY-MM-DD";
+        }
+        if (lower.contains("skills must be") || lower.contains("languages must be")) {
+            return "Skills/languages must be a JSON array of strings or objects.";
+        }
+        // Truly malformed JSON stays generic for existing API contract compatibility.
+        return "Invalid request payload";
     }
 
     @ExceptionHandler(AiProviderTimeoutException.class)

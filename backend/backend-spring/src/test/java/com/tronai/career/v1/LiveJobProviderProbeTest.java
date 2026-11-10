@@ -38,7 +38,7 @@ class LiveJobProviderProbeTest {
 
     @Test
     void careermapLiveProbe() throws Exception {
-        CareerMapJobProvider provider = new CareerMapJobProvider();
+        CareerMapJobProvider provider = new CareerMapJobProvider(null);
         List<ExternalJobListing> jobs = provider.fetchJobs();
         Path evidence = Path.of("../../_career_center_v1_evidence").toAbsolutePath().normalize();
         Files.createDirectories(evidence);

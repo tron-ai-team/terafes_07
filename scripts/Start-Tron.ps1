@@ -68,6 +68,191 @@ function Import-TronGoogleUserEnvironment {
 
 Import-TronGoogleUserEnvironment
 
+function Get-TronEnvPresence([string]$Name) {
+    foreach ($scope in @("Process", "User", "Machine")) {
+        $val = [Environment]::GetEnvironmentVariable($Name, $scope)
+        if (-not [string]::IsNullOrWhiteSpace($val)) { return $true }
+    }
+    return $false
+}
+
+function Import-TronAiUserEnvironment {
+    # Promote User/Machine AI keys into this process so Spring inherits them.
+    # Never print secret values — only CONFIGURED / NOT CONFIGURED.
+    $keys = @(
+        "GROQ_API_KEY",
+        "OPENROUTER_API_KEY_1",
+        "OPENROUTER_API_KEY_2",
+        "MISTRAL_API_KEY",
+        "GEMINI_API_KEY_1",
+        "GEMINI_API_KEY_2",
+        "GEMINI_API_KEY_3",
+        "GEMINI_API_KEY_4",
+        "TAVILY_API_KEY",
+        "FIRECRAWL_API_KEY",
+        "CLOUDFLARE_API_TOKEN",
+        "CLOUDFLARE_ACCOUNT_ID",
+        "OLLAMA_BASE_URL",
+        "OLLAMA_MODEL",
+        "GOTENBERG_URL"
+    )
+    $script:AiKeyStatus = @{}
+    foreach ($key in $keys) {
+        $configured = $false
+        foreach ($scope in @("User", "Machine")) {
+            $val = [Environment]::GetEnvironmentVariable($key, $scope)
+            if (-not [string]::IsNullOrWhiteSpace($val)) {
+                [Environment]::SetEnvironmentVariable($key, $val, "Process")
+                $configured = $true
+                break
+            }
+        }
+        if (-not $configured) {
+            $configured = -not [string]::IsNullOrWhiteSpace([Environment]::GetEnvironmentVariable($key, "Process"))
+        }
+        $script:AiKeyStatus[$key] = $configured
+    }
+}
+
+function Write-StatusLine([string]$Label, [string]$Status, [string]$Color = "Gray") {
+    $pad = $Label.PadRight(22, ".")
+    Write-Host ("{0} {1}" -f $pad, $Status) -ForegroundColor $Color
+}
+
+function Test-TronDependencies {
+    $script:DepResults = @{}
+    $fatal = $false
+
+    # Java 21
+    $javaOk = $false
+    $javaDetail = "NOT FOUND"
+    try {
+        $javaBin = if ($env:JAVA_HOME) { Join-Path $env:JAVA_HOME "bin\java.exe" } else { "java" }
+        $verOut = & $javaBin -version 2>&1 | Out-String
+        if ($verOut -match 'version\s+"?21[\."]') {
+            $javaOk = $true
+            $javaDetail = "OK (21)"
+        } elseif ($verOut -match 'version\s+"?(\d+)') {
+            $javaDetail = "FAILED (found Java $($Matches[1]); need 21)"
+            $fatal = $true
+        } else {
+            $fatal = $true
+        }
+    } catch {
+        $fatal = $true
+    }
+    $script:DepResults["Java"] = @{ Ok = $javaOk; Detail = $javaDetail; Fatal = (-not $javaOk) }
+
+    # Maven Wrapper
+    $mvnw = Join-Path $WorkspaceRoot "backend\backend-spring\mvnw.cmd"
+    $mvnwOk = Test-Path $mvnw
+    $script:DepResults["MavenWrapper"] = @{
+        Ok = $mvnwOk
+        Detail = if ($mvnwOk) { "OK" } else { "FAILED (backend\backend-spring\mvnw.cmd missing)" }
+        Fatal = (-not $mvnwOk)
+    }
+    if (-not $mvnwOk) { $fatal = $true }
+
+    # Node.js
+    $nodeOk = $false
+    $nodeDetail = "NOT FOUND"
+    try {
+        $nv = (& node -v 2>$null)
+        if ($nv) {
+            $nodeOk = $true
+            $nodeDetail = "OK ($nv)"
+        } else { $fatal = $true }
+    } catch { $fatal = $true }
+    $script:DepResults["Node"] = @{ Ok = $nodeOk; Detail = $nodeDetail; Fatal = (-not $nodeOk) }
+
+    # npm
+    $npmOk = $false
+    $npmDetail = "NOT FOUND"
+    try {
+        $npv = (& npm -v 2>$null)
+        if ($npv) {
+            $npmOk = $true
+            $npmDetail = "OK ($npv)"
+        } else { $fatal = $true }
+    } catch { $fatal = $true }
+    $script:DepResults["npm"] = @{ Ok = $npmOk; Detail = $npmDetail; Fatal = (-not $npmOk) }
+
+    # Frontend deps
+    $nm = Join-Path $WorkspaceRoot "frontend\node_modules"
+    $nmOk = Test-Path $nm
+    $script:DepResults["FrontendDeps"] = @{
+        Ok = $nmOk
+        Detail = if ($nmOk) { "OK" } else { "WARN (run npm install in frontend)" }
+        Fatal = $false
+    }
+
+    # Docker CLI presence (daemon checked later)
+    $dockerCmd = Get-Command docker -ErrorAction SilentlyContinue
+    $dockerDesktop = Test-Path "$env:ProgramFiles\Docker\Docker\Docker Desktop.exe"
+    $dockerInstalled = [bool]$dockerCmd -or $dockerDesktop
+    $script:DepResults["Docker"] = @{
+        Ok = $dockerInstalled
+        Detail = if ($dockerInstalled) { "INSTALLED" } else { "NOT INSTALLED (CV PDF optional)" }
+        Fatal = $false
+    }
+
+    # Ports ownership preflight for essential ports when already occupied by non-TRON
+    foreach ($portName in @(@{ Name = "Spring"; Port = $script:SpringPort }, @{ Name = "Vite"; Port = $script:VitePort })) {
+        $owners = @(Get-ListeningPids $portName.Port)
+        if ($owners.Count -eq 0) {
+            $script:DepResults["Port$($portName.Port)"] = @{ Ok = $true; Detail = "FREE"; Fatal = $false }
+            continue
+        }
+        # defer strict Spring ownership to Assert-TronSpringPortFree; Vite checked at start
+        $script:DepResults["Port$($portName.Port)"] = @{
+            Ok = $true
+            Detail = "IN USE (PID $($owners -join ','))"
+            Fatal = $false
+        }
+    }
+
+    Write-Host ""
+    Write-Host "========================================" -ForegroundColor Cyan
+    Write-Host "          TRON AI STARTUP               " -ForegroundColor Cyan
+    Write-Host "========================================" -ForegroundColor Cyan
+    Write-Host ""
+    Write-Host "[CHECK] Dependencies" -ForegroundColor Cyan
+    Write-StatusLine "[CHECK] Java 21" $script:DepResults["Java"].Detail $(if ($script:DepResults["Java"].Ok) { "Green" } else { "Red" })
+    Write-StatusLine "[CHECK] Maven Wrapper" $script:DepResults["MavenWrapper"].Detail $(if ($script:DepResults["MavenWrapper"].Ok) { "Green" } else { "Red" })
+    Write-StatusLine "[CHECK] Node.js" $script:DepResults["Node"].Detail $(if ($script:DepResults["Node"].Ok) { "Green" } else { "Red" })
+    Write-StatusLine "[CHECK] npm" $script:DepResults["npm"].Detail $(if ($script:DepResults["npm"].Ok) { "Green" } else { "Red" })
+    Write-StatusLine "[CHECK] Frontend deps" $script:DepResults["FrontendDeps"].Detail $(if ($script:DepResults["FrontendDeps"].Ok) { "Green" } else { "Yellow" })
+    Write-StatusLine "[CHECK] Docker" $script:DepResults["Docker"].Detail $(if ($script:DepResults["Docker"].Ok) { "Green" } else { "Yellow" })
+
+    if ($fatal) {
+        Write-Host ""
+        Write-Host "FATAL: Required dependencies missing. Fix the FAILED items above, then re-run START_TRON.cmd." -ForegroundColor Red
+        Log "FATAL dependency check failed."
+        Wait-Interactive "Press Enter to exit"
+        exit 1
+    }
+
+    if (-not $nmOk) {
+        Write-Host "Installing frontend npm dependencies..." -ForegroundColor Yellow
+        Push-Location (Join-Path $WorkspaceRoot "frontend")
+        try {
+            & npm install --no-fund --no-audit 2>&1 | Out-File (Join-Path $LogDir "npm-install.log") -Encoding utf8
+            if (-not (Test-Path $nm)) {
+                Write-Host "FATAL: npm install did not create frontend\node_modules." -ForegroundColor Red
+                Wait-Interactive "Press Enter to exit"
+                exit 1
+            }
+            Write-Host "Frontend dependencies installed." -ForegroundColor Green
+        } finally {
+            Pop-Location
+        }
+    }
+}
+
+Import-TronAiUserEnvironment
+$script:GotenbergStatus = "UNAVAILABLE"
+$script:OllamaModelStatus = "UNAVAILABLE"
+
 function Get-ListeningPids([int]$Port) {
     $owners = New-Object System.Collections.Generic.List[int]
     $netstat = & netstat.exe -ano -p tcp 2>$null
@@ -320,6 +505,8 @@ $PID | Out-File -FilePath $LockPath -Encoding ascii -Force
 
 try {
 
+Test-TronDependencies
+
 # If stack is already healthy and -Restart was not requested, skip full teardown.
 if (-not $Restart -and (Test-SpringHealth) -and (Test-TcpPort "127.0.0.1" $script:VitePort)) {
     Write-Host ""
@@ -327,19 +514,20 @@ if (-not $Restart -and (Test-SpringHealth) -and (Test-TcpPort "127.0.0.1" $scrip
     Write-Host "        TRON AI ALREADY RUNNING         " -ForegroundColor Cyan
     Write-Host "========================================" -ForegroundColor Cyan
     Write-Host ""
-    Write-Host "[7/9] Spring Core ........ OK (reuse)" -ForegroundColor Green
-    Write-Host "[8/9] React Frontend ..... OK (reuse)" -ForegroundColor Green
+    Write-StatusLine "[START] Spring Boot" "RUNNING (reuse)" "Green"
+    Write-StatusLine "[START] React" "RUNNING (reuse)" "Green"
     Write-Host ""
-    Write-Host "TRON Core:  http://localhost:8080"
-    Write-Host "TRON Web:   http://localhost:5174/"
+    Write-Host "Frontend: http://localhost:$($script:VitePort)"
+    Write-Host "Backend:  http://localhost:$($script:SpringPort)"
     Write-Host ""
     Write-Host "Use: START_TRON.cmd -Restart   to force a clean restart." -ForegroundColor Gray
     Log "Startup skipped — Spring + Vite already healthy."
     if (-not $NoBrowser) {
         $browserFlag = Join-Path $RuntimeDir "browser_opened.flag"
         if (-not (Test-Path $browserFlag)) {
-            Start-Process "http://localhost:5174/"
+            Start-Process "http://localhost:$($script:VitePort)/"
             "1" | Out-File -FilePath $browserFlag -Encoding ascii -Force
+            Write-Host "Opening browser..."
         } else {
             Write-Host "Browser already opened for this stack (skipping duplicate tab)." -ForegroundColor Gray
         }
@@ -348,10 +536,6 @@ if (-not $Restart -and (Test-SpringHealth) -and (Test-TcpPort "127.0.0.1" $scrip
 }
 
 # Clean restart of TRON processes
-Write-Host ""
-Write-Host "========================================" -ForegroundColor Cyan
-Write-Host "        TRON AI LOCAL STARTUP           " -ForegroundColor Cyan
-Write-Host "========================================" -ForegroundColor Cyan
 Write-Host ""
 
 $StopScript = Join-Path $PSScriptRoot "Stop-Tron.ps1"
@@ -459,26 +643,35 @@ if (-not $ollamaReady) {
     }
 }
 
+$script:OllamaModelStatus = "UNAVAILABLE"
 if ($ollamaReady) {
-    $defaultModel = if ($env:OLLAMA_MODEL) { $env:OLLAMA_MODEL } else { "qwen3:8b" }
-    $modelOk = $false
+    $wantModels = @("qwen3:8b", "gemma3:12b")
+    $found = @()
     try {
         $tags = Invoke-RestMethod -Uri "http://127.0.0.1:11434/api/tags" -TimeoutSec 3 -ErrorAction SilentlyContinue
         if ($tags.models) {
-            foreach ($m in $tags.models) {
-                if ($m.name -eq $defaultModel -or $m.name -like "$defaultModel*") {
-                    $modelOk = $true
-                    break
+            foreach ($want in $wantModels) {
+                foreach ($m in $tags.models) {
+                    if ($m.name -eq $want -or $m.name -like "$want*") {
+                        $found += $want
+                        break
+                    }
                 }
             }
         }
     } catch {}
-    if ($modelOk) {
-        Write-Host "[4/9] Ollama ............. OK (model $defaultModel)" -ForegroundColor Green
-        Log "Ollama is UP; model $defaultModel present"
+    if ($found.Count -eq $wantModels.Count) {
+        $script:OllamaModelStatus = "AVAILABLE ($($found -join ', '))"
+        Write-Host "[4/9] Ollama ............. OK ($($found -join ', '))" -ForegroundColor Green
+        Log "Ollama is UP; models $($found -join ', ') present"
+    } elseif ($found.Count -gt 0) {
+        $script:OllamaModelStatus = "PARTIAL ($($found -join ', '); missing expected models not downloaded)"
+        Write-Host "[4/9] Ollama ............. PARTIAL (found: $($found -join ', ')) — not auto-downloading" -ForegroundColor Yellow
+        Log "Ollama up; partial models: $($found -join ', ')"
     } else {
-        Write-Host "[4/9] Ollama ............. WARN (API up; model '$defaultModel' not listed)" -ForegroundColor Yellow
-        Log "Ollama up but model $defaultModel not found in /api/tags"
+        $script:OllamaModelStatus = "AVAILABLE (API up; expected models not listed)"
+        Write-Host "[4/9] Ollama ............. WARN (API up; qwen3:8b/gemma3:12b not listed — not auto-downloading)" -ForegroundColor Yellow
+        Log "Ollama up but expected models not found in /api/tags"
     }
 } else {
     Write-Host "[4/9] Ollama ............. WARN (Optional)" -ForegroundColor Yellow
@@ -554,26 +747,28 @@ if ($sttReady) {
 # -----------------------------------------------------------------
 # PHASE 2.5 — Gotenberg (optional CV PDF converter; localhost:3000)
 # -----------------------------------------------------------------
+$script:GotenbergStatus = "UNAVAILABLE"
 $ensureGotenberg = Join-Path $PSScriptRoot "Ensure-Gotenberg.ps1"
 if (Test-Path $ensureGotenberg) {
-    Write-Host "Ensuring Gotenberg (CV PDF)..." -NoNewline
+    Write-Host "Ensuring Gotenberg (CV PDF)..." -ForegroundColor Cyan
     try {
-        & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $ensureGotenberg 2>&1 | Out-Null
+        & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $ensureGotenberg
         try {
             $gh = Invoke-WebRequest -Uri "http://127.0.0.1:3000/health" -UseBasicParsing -TimeoutSec 2
             if ($gh.StatusCode -ge 200 -and $gh.StatusCode -lt 300) {
-                Write-Host " OK" -ForegroundColor Green
+                $script:GotenbergStatus = "HEALTHY"
+                Write-Host "[+] Gotenberg .......... HEALTHY" -ForegroundColor Green
                 Log "Gotenberg healthy on 127.0.0.1:3000"
             } else {
-                Write-Host " WARN (optional — XLSX export still works)" -ForegroundColor Yellow
+                Write-Host "[+] Gotenberg .......... WARN (optional — XLSX export still works)" -ForegroundColor Yellow
                 Log "Gotenberg health unexpected status"
             }
         } catch {
-            Write-Host " WARN (optional — install Docker Desktop + docker compose up -d gotenberg)" -ForegroundColor Yellow
+            Write-Host "[+] Gotenberg .......... UNAVAILABLE (optional — XLSX still works)" -ForegroundColor Yellow
             Log "Gotenberg not reachable (CV PDF unavailable until started)"
         }
     } catch {
-        Write-Host " WARN (optional)" -ForegroundColor Yellow
+        Write-Host "[+] Gotenberg .......... WARN (optional)" -ForegroundColor Yellow
         Log "Ensure-Gotenberg.ps1 failed: $($_.Exception.Message)"
     }
 }
@@ -649,8 +844,30 @@ $frontendLog = Join-Path $LogDir "frontend.log"
 $frontendDir = Join-Path $WorkspaceRoot "frontend"
 $frontendReady = $false
 
-if (Test-TcpPort "127.0.0.1" 5174) {
-    $frontendReady = $true
+function Test-TronViteOwner {
+    $owners = @(Get-ListeningPids $script:VitePort)
+    if ($owners.Count -eq 0) { return $false }
+    foreach ($procId in $owners) {
+        $cim = Get-CimInstance Win32_Process -Filter "ProcessId = $procId" -ErrorAction SilentlyContinue
+        $cmd = if ($cim.CommandLine) { $cim.CommandLine.ToLowerInvariant() } else { "" }
+        $path = if ($cim.ExecutablePath) { $cim.ExecutablePath.ToLowerInvariant() } else { "" }
+        if ($cmd -like "*vite*" -or $cmd -like "*group7*frontend*" -or $path -like "*group7*frontend*") {
+            return $true
+        }
+    }
+    return $false
+}
+
+if (Test-TcpPort "127.0.0.1" $script:VitePort) {
+    if (Test-TronViteOwner) {
+        $frontendReady = $true
+    } else {
+        $owners = @(Get-ListeningPids $script:VitePort)
+        Write-Host "[8/9] React Frontend ..... FAILED (port $($script:VitePort) occupied by non-TRON PID $($owners -join ','))" -ForegroundColor Red
+        Log "Port $($script:VitePort) occupied by non-TRON process"
+        Wait-Interactive "Press Enter to exit"
+        exit 1
+    }
 } else {
     $frontProc = Start-TronProcess -FilePath "cmd.exe" -ArgumentList @("/c", "npm run dev") `
         -WorkingDirectory $frontendDir -BaseName "frontend"
@@ -658,22 +875,59 @@ if (Test-TcpPort "127.0.0.1" 5174) {
         $frontProc.Id | Out-File -FilePath (Join-Path $RuntimeDir "frontend.pid") -Force
     }
 
-    for ($i = 0; $i -lt 30; $i++) {
+    for ($i = 0; $i -lt 45; $i++) {
         Start-Sleep -Seconds 1
-        if (Test-TcpPort "127.0.0.1" 5174) {
+        if (Test-TcpPort "127.0.0.1" $script:VitePort) {
             $frontendReady = $true
+            break
+        }
+        if ($frontProc -and $frontProc.HasExited) {
+            Log "Frontend launcher exited with code $($frontProc.ExitCode)"
             break
         }
     }
 }
 
+# Prefer HTTP readiness over TCP-only (avoids false OK on unrelated listeners).
+if ($frontendReady) {
+    $httpReady = $false
+    for ($i = 0; $i -lt 15; $i++) {
+        try {
+            $fr = Invoke-WebRequest -Uri "http://127.0.0.1:$($script:VitePort)/" -UseBasicParsing -TimeoutSec 2
+            if ($fr.StatusCode -ge 200 -and $fr.StatusCode -lt 500) {
+                $httpReady = $true
+                break
+            }
+        } catch {}
+        Start-Sleep -Seconds 1
+    }
+    if (-not $httpReady) {
+        # Port open but not serving — identify owner
+        $owners = @(Get-ListeningPids $script:VitePort)
+        foreach ($procId in $owners) {
+            $cim = Get-CimInstance Win32_Process -Filter "ProcessId = $procId" -ErrorAction SilentlyContinue
+            $cmd = $cim.CommandLine
+            if ($cmd -and ($cmd -notlike "*Group7*" -and $cmd -notlike "*vite*")) {
+                Write-Host "[8/9] React Frontend ..... FAILED (port $($script:VitePort) owned by non-TRON PID $procId)" -ForegroundColor Red
+                Log "Port $($script:VitePort) owned by non-TRON PID $procId"
+                Wait-Interactive "Press Enter to exit"
+                exit 1
+            }
+        }
+        Write-Host "[8/9] React Frontend ..... WARN (port open; HTTP not confirmed yet)" -ForegroundColor Yellow
+        Log "Frontend port open but HTTP not confirmed"
+    } else {
+        $frontendReady = $true
+    }
+}
+
 if ($frontendReady) {
     Write-Host "[8/9] React Frontend ..... OK" -ForegroundColor Green
-    Log "React Frontend is UP on port 5174"
+    Log "React Frontend is UP on port $($script:VitePort)"
 } else {
     Write-Host "[8/9] React Frontend ..... FAILED" -ForegroundColor Red
     Log "FAILED: Frontend did not start."
-    Write-Host "`nFAILED: Frontend did not start on port 5174.`nLog: $frontendLog`n" -ForegroundColor Red
+    Write-Host "`nFAILED: Frontend did not start on port $($script:VitePort).`nLog: $frontendLog`n" -ForegroundColor Red
     Wait-Interactive "Press Enter to exit"
     exit 1
 }
@@ -744,32 +998,116 @@ if ($opencodeExe) {
     Log "OpenCode CLI not found on PATH"
 }
 
+# -----------------------------------------------------------------
+# STATUS BOARD + STARTUP REPORT (real results only)
+# -----------------------------------------------------------------
+function Status-Color([string]$s) {
+    if ($s -match '^(OK|RUNNING|HEALTHY|AVAILABLE|CONFIGURED)') { return "Green" }
+    if ($s -match '^(WARN|PARTIAL|SKIP|LIMITED|NOT CONFIGURED)') { return "Yellow" }
+    if ($s -match '^(FAIL|FAILED|UNAVAILABLE)') { return "Red" }
+    return "Gray"
+}
+
+$aiGroq = if ($script:AiKeyStatus["GROQ_API_KEY"]) { "CONFIGURED" } else { "NOT CONFIGURED" }
+$aiOr = if ($script:AiKeyStatus["OPENROUTER_API_KEY_1"] -or $script:AiKeyStatus["OPENROUTER_API_KEY_2"]) { "CONFIGURED" } else { "NOT CONFIGURED" }
+$aiMis = if ($script:AiKeyStatus["MISTRAL_API_KEY"]) { "CONFIGURED" } else { "NOT CONFIGURED" }
+$aiGem = if ($script:AiKeyStatus["GEMINI_API_KEY_1"] -or $script:AiKeyStatus["GEMINI_API_KEY_2"]) { "CONFIGURED" } else { "NOT CONFIGURED" }
+$aiTavily = if ($script:AiKeyStatus["TAVILY_API_KEY"]) { "CONFIGURED" } else { "NOT CONFIGURED" }
+$aiFire = if ($script:AiKeyStatus["FIRECRAWL_API_KEY"]) { "CONFIGURED" } else { "NOT CONFIGURED" }
+$voiceStt = if ($sttReady) { "AVAILABLE" } else { "UNAVAILABLE" }
+$voiceVv = if ($voicevoxReady) { "AVAILABLE" } else { "UNAVAILABLE" }
+$desktopStatus = if ($desktopMode -eq "none") { "SKIPPED" } elseif (Test-TronDesktopAgentRunning) { "RUNNING ($desktopMode)" } else { "LAUNCHED ($desktopMode)" }
+
 Write-Host ""
-Write-Host "TRON Core:" -ForegroundColor Cyan
-Write-Host "http://localhost:8080"
+Write-Host "========================================" -ForegroundColor Cyan
+Write-Host "          TRON AI STARTUP               " -ForegroundColor Cyan
+Write-Host "========================================" -ForegroundColor Cyan
 Write-Host ""
-Write-Host "TRON Web:" -ForegroundColor Cyan
-Write-Host "http://localhost:5174/"
+Write-StatusLine "[START] MySQL" $(if ($mysqlReady) { "RUNNING" } else { "FAILED" }) $(if ($mysqlReady) { "Green" } else { "Red" })
+Write-StatusLine "[START] Gotenberg" $script:GotenbergStatus (Status-Color $script:GotenbergStatus)
+Write-StatusLine "[START] Spring Boot" $(if ($springReady) { "RUNNING" } else { "FAILED" }) $(if ($springReady) { "Green" } else { "Red" })
+Write-StatusLine "[START] React" $(if ($frontendReady) { "RUNNING" } else { "FAILED" }) $(if ($frontendReady) { "Green" } else { "Red" })
 Write-Host ""
-Write-Host "Desktop Agent:" -ForegroundColor Cyan
-Write-Host "RUNNING ($desktopMode)"
+Write-StatusLine "[AI] Groq" $aiGroq (Status-Color $aiGroq)
+Write-StatusLine "[AI] OpenRouter" $aiOr (Status-Color $aiOr)
+Write-StatusLine "[AI] Mistral" $aiMis (Status-Color $aiMis)
+Write-StatusLine "[AI] Gemini" $aiGem (Status-Color $aiGem)
+Write-StatusLine "[AI] Tavily" $aiTavily (Status-Color $aiTavily)
+Write-StatusLine "[AI] Firecrawl" $aiFire (Status-Color $aiFire)
+Write-StatusLine "[AI] Ollama" $script:OllamaModelStatus (Status-Color $script:OllamaModelStatus)
 Write-Host ""
+Write-StatusLine "[VOICE] Whisper/STT" $voiceStt (Status-Color $voiceStt)
+Write-StatusLine "[VOICE] VOICEVOX" $voiceVv (Status-Color $voiceVv)
+Write-StatusLine "[AGENT] Desktop" $desktopStatus (Status-Color $desktopStatus)
+Write-Host ""
+Write-Host "NOTE: CONFIGURED means an API key is present - not a live provider proof." -ForegroundColor DarkGray
+Write-Host "      Run VERIFY_TRON.cmd after startup for API-level feature checks." -ForegroundColor DarkGray
+Write-Host ""
+
+$lanIp = $null
+try {
+    $lanIp = (Get-NetIPAddress -AddressFamily IPv4 |
+        Where-Object { $_.IPAddress -like '192.168.*' -and $_.PrefixOrigin -ne 'WellKnown' } |
+        Select-Object -First 1 -ExpandProperty IPAddress)
+} catch {}
+
 Write-Host "========================================" -ForegroundColor Cyan
 Write-Host "TRON AI READY" -ForegroundColor Cyan
 Write-Host "========================================" -ForegroundColor Cyan
 Write-Host ""
+Write-Host "Frontend: http://localhost:$($script:VitePort)/"
+Write-Host "Backend:  http://127.0.0.1:$($script:SpringPort)  (localhost only - use Vite /api proxy)"
+if ($lanIp) {
+    Write-Host "LAN Web:  http://${lanIp}:$($script:VitePort)/"
+}
+Write-Host ""
+Write-Host "Stop:     STOP_TRON.cmd"
+Write-Host "Verify:   VERIFY_TRON.cmd"
+Write-Host ""
 
-Log "TRON stack startup complete. Opening UIs..."
+# Persist startup report (no secrets)
+$reportPath = Join-Path $RuntimeDir "startup-report.json"
+$report = [ordered]@{
+    timestamp = (Get-Date).ToString("o")
+    frontend  = "http://localhost:$($script:VitePort)/"
+    backend   = "http://127.0.0.1:$($script:SpringPort)"
+    mysql     = $(if ($mysqlReady) { "RUNNING" } else { "FAILED" })
+    gotenberg = $script:GotenbergStatus
+    spring    = $(if ($springReady) { "RUNNING" } else { "FAILED" })
+    react     = $(if ($frontendReady) { "RUNNING" } else { "FAILED" })
+    ai        = [ordered]@{
+        Groq       = $aiGroq
+        OpenRouter = $aiOr
+        Mistral    = $aiMis
+        Gemini     = $aiGem
+        Tavily     = $aiTavily
+        Firecrawl  = $aiFire
+        Ollama     = $script:OllamaModelStatus
+    }
+    voice = [ordered]@{
+        Whisper  = $voiceStt
+        VOICEVOX = $voiceVv
+    }
+    desktopAgent = $desktopStatus
+}
+($report | ConvertTo-Json -Depth 5) | Out-File -FilePath $reportPath -Encoding utf8
+Log "Startup report written: $reportPath"
+Log "TRON stack startup complete."
 
-# 1. Open TRON Web in browser (landing page) — avoid duplicate tabs on repeated starts
+# Open browser only after readiness; avoid duplicate tabs
 if (-not $NoBrowser) {
     $browserFlag = Join-Path $RuntimeDir "browser_opened.flag"
-    Start-Process "http://localhost:5174/"
-    "1" | Out-File -FilePath $browserFlag -Encoding ascii -Force
+    if (-not (Test-Path $browserFlag)) {
+        Write-Host "Opening browser..."
+        Start-Process "http://localhost:$($script:VitePort)/"
+        "1" | Out-File -FilePath $browserFlag -Encoding ascii -Force
+    } else {
+        Write-Host "Browser already opened for this stack (skipping duplicate tab)." -ForegroundColor Gray
+    }
 }
 
-# 2. Popup Desktop Agent window (skip in -NoBrowser automation runs)
-if (-not $NoBrowser) {
+# Popup Desktop Agent window (skip in -NoBrowser automation runs)
+if (-not $NoBrowser -and $desktopMode -ne "none") {
     $popupScript = Join-Path $WorkspaceRoot "popup-desktop.ps1"
     if (Test-Path $popupScript) {
         for ($i = 0; $i -lt 8; $i++) {

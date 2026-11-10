@@ -1,4 +1,5 @@
 import { TranslationSchema } from '../types';
+import { aboutEn } from '../aboutTranslations';
 
 export const en: TranslationSchema = {
   nav: {
@@ -14,19 +15,19 @@ export const en: TranslationSchema = {
     logOut: 'Log Out',
   },
   hero: {
-    badge: 'NEXT GENERATION AI PLATFORM',
-    titlePart1: 'Your AI Partner for',
-    titleHighlight1: 'Learning, Coding',
-    titlePart2: 'and',
-    titleHighlight2: 'Career Success',
-    description: 'Chat with AI, practice Japanese interviews, improve your skills, write code, get career guidance and learn anytime — all in one powerful platform.',
-    startForFree: 'Start for Free',
+    badge: '★ ALL-IN-ONE AI ASSISTANT',
+    titlePart1: 'Master Learning, Interviews & Career',
+    titleHighlight1: 'With Unified AI Support',
+    titlePart2: '',
+    titleHighlight2: '',
+    description: 'From AI Chat and Natural Voice to Japanese Interview Practice and Professional Resume Builder — all in one unified platform.',
+    startForFree: 'Get Started Now',
     watchDemo: 'Watch Demo',
-    demoOverview: '2 min overview',
+    demoOverview: '2 min interactive overview',
     exploreTron: 'Explore TRON AI',
-    badgeLocalCloud: 'Powered by qwen3:8b',
-    badgeJapaneseInterview: 'Japanese Interview AI',
-    badgeMultilingual: 'Multilingual Support',
+    badgeLocalCloud: '100% Free',
+    badgeJapaneseInterview: 'Bilingual AI (JP/EN)',
+    badgeMultilingual: '4 Core AI Modules',
   },
   features: {
     sectionBadge: 'CORE CAPABILITIES',
@@ -194,19 +195,7 @@ export const en: TranslationSchema = {
     joinWaitlist: 'Join Pro Waitlist',
     contactUs: 'Contact Team',
   },
-  about: {
-    badge: 'ABOUT TRON AI',
-    title: 'Engineered for Global Bilingual Engineers',
-    desc: 'The integrated AI platform built to bridge the gap between technical mastery and Japanese corporate interview success.',
-    pillar1Title: 'Multimodal Japanese Evaluation',
-    pillar1Desc: 'Evaluates spoken Japanese fluency, business honorifics (Keigo), and engineering precision in real time.',
-    pillar2Title: 'Japanese Tech Market Alignment',
-    pillar2Desc: 'Simulates rigorous interview rubrics from leading Tokyo tech firms, startups, and research institutes.',
-    pillar3Title: 'Privacy-First Architecture',
-    pillar3Desc: 'Your CV and recordings are strictly confidential with support for air-gapped local model processing.',
-    platformOverviewTitle: 'A Single Unified Engineering Environment',
-    platformOverviewDesc: 'TRON AI combines high-speed conversational intelligence with native desktop execution and comprehensive career tools.',
-  },
+  about: aboutEn,
   help: {
     badge: 'HELP & FAQ',
     title: 'Frequently Asked Questions & Support',

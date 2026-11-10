@@ -71,20 +71,36 @@ public class GotenbergPdfClient {
 
     /**
      * Convert HTML via Chromium. Part name must be {@code index.html}.
+     * Forces A4 portrait so page geometry matches {@code @page} / .paper CSS (not US Letter).
      */
     public byte[] convertHtml(byte[] htmlBytes) {
         if (htmlBytes == null || htmlBytes.length == 0) {
             throw new GotenbergException(GotenbergException.Kind.CONVERSION_FAILED, "HTML document is empty");
         }
-        return convertWithRetries("/forms/chromium/convert/html", htmlBytes, "index.html");
+        MultiValueMap<String, Object> extras = new LinkedMultiValueMap<>();
+        // A4 in inches (Gotenberg Chromium paper* fields)
+        extras.add("paperWidth", "8.27");
+        extras.add("paperHeight", "11.7");
+        extras.add("marginTop", "0");
+        extras.add("marginBottom", "0");
+        extras.add("marginLeft", "0");
+        extras.add("marginRight", "0");
+        extras.add("preferCssPageSize", "true");
+        extras.add("printBackground", "true");
+        return convertWithRetries("/forms/chromium/convert/html", htmlBytes, "index.html", extras);
     }
 
     private byte[] convertWithRetries(String path, byte[] bytes, String filename) {
+        return convertWithRetries(path, bytes, filename, null);
+    }
+
+    private byte[] convertWithRetries(String path, byte[] bytes, String filename,
+                                      MultiValueMap<String, Object> extraFields) {
         int attempts = Math.max(1, properties.getGotenberg().getMaxRetries() + 1);
         GotenbergException last = null;
         for (int i = 0; i < attempts; i++) {
             try {
-                return convertOnce(path, bytes, filename);
+                return convertOnce(path, bytes, filename, extraFields);
             } catch (GotenbergException e) {
                 last = e;
                 if (!e.isUnavailable() || i + 1 >= attempts) {
@@ -96,7 +112,8 @@ public class GotenbergPdfClient {
         throw last != null ? last : new GotenbergException(GotenbergException.Kind.UNAVAILABLE, "Gotenberg unavailable");
     }
 
-    private byte[] convertOnce(String path, byte[] bytes, String filename) {
+    private byte[] convertOnce(String path, byte[] bytes, String filename,
+                               MultiValueMap<String, Object> extraFields) {
         MultiValueMap<String, Object> body = new LinkedMultiValueMap<>();
         body.add("files", new ByteArrayResource(bytes) {
             @Override
@@ -104,6 +121,9 @@ public class GotenbergPdfClient {
                 return filename;
             }
         });
+        if (extraFields != null) {
+            body.addAll(extraFields);
+        }
 
         try {
             byte[] pdf = restClient.post()

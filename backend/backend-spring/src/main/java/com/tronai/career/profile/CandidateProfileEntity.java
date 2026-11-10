@@ -39,8 +39,26 @@ public class CandidateProfileEntity {
     @Column(length = 100)
     private String nationality;
 
+    @Column(length = 32)
+    private String gender;
+
     @Column(name = "address_text", length = 1024)
     private String addressText;
+
+    @Column(name = "postal_code", length = 20)
+    private String postalCode;
+
+    @Column(length = 100)
+    private String prefecture;
+
+    @Column(length = 100)
+    private String city;
+
+    @Column(name = "street_address", length = 255)
+    private String streetAddress;
+
+    @Column(length = 255)
+    private String building;
 
     @Column(length = 255)
     private String email;
@@ -54,14 +72,30 @@ public class CandidateProfileEntity {
     @Column(name = "education_json", columnDefinition = "LONGTEXT")
     private String educationJson;
 
+    @Column(name = "education_legacy_text", columnDefinition = "LONGTEXT")
+    private String educationLegacyText;
+
+    @Column(name = "education_migration_status", length = 32)
+    private String educationMigrationStatus;
+
     @Column(name = "career_json", columnDefinition = "LONGTEXT")
     private String careerJson;
+
+    @Column(name = "no_work_experience", nullable = false)
+    @Builder.Default
+    private boolean noWorkExperience = false;
 
     @Column(name = "skills_json", columnDefinition = "LONGTEXT")
     private String skillsJson;
 
     @Column(name = "languages_json", columnDefinition = "LONGTEXT")
     private String languagesJson;
+
+    @Column(name = "projects_json", columnDefinition = "LONGTEXT")
+    private String projectsJson;
+
+    @Column(name = "certifications_json", columnDefinition = "LONGTEXT")
+    private String certificationsJson;
 
     @Column(name = "self_pr", columnDefinition = "LONGTEXT")
     private String selfPr;
@@ -71,6 +105,12 @@ public class CandidateProfileEntity {
 
     @Column(columnDefinition = "LONGTEXT")
     private String motivation;
+
+    @Column(name = "career_stories_json", columnDefinition = "LONGTEXT")
+    private String careerStoriesJson;
+
+    @Column(name = "international_json", columnDefinition = "LONGTEXT")
+    private String internationalJson;
 
     @Column(name = "preferences_json", columnDefinition = "LONGTEXT")
     private String preferencesJson;

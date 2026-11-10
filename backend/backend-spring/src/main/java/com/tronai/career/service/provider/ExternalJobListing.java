@@ -20,4 +20,12 @@ public class ExternalJobListing {
     private String description;
     private List<String> tags;
     private Instant publishedAt;
+    /** When this listing was last verified against the source. */
+    private Instant lastVerifiedAt;
+    /** OPEN / CLOSED / UNKNOWN — never invent OPEN. */
+    private String applicationStatus;
+    /** YES / NO / UNKNOWN */
+    private String internationalStudentPolicy;
+    private String graduationYear;
+    private String verificationNotes;
 }

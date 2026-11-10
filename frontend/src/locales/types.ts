@@ -1,4 +1,7 @@
-export type SupportedLanguage = 'en' | 'ja' | 'si' | 'bn' | 'ne' | 'my';
+import type { AboutSectionTranslation } from './aboutTranslations';
+export type { AboutSectionTranslation };
+
+export type SupportedLanguage = 'en' | 'ja' | 'bn' | 'ne' | 'my';
 
 export interface LanguageInfo {
   code: SupportedLanguage;
@@ -149,19 +152,7 @@ export interface TranslationSchema {
     joinWaitlist: string;
     contactUs: string;
   };
-  about: {
-    badge: string;
-    title: string;
-    desc: string;
-    pillar1Title: string;
-    pillar1Desc: string;
-    pillar2Title: string;
-    pillar2Desc: string;
-    pillar3Title: string;
-    pillar3Desc: string;
-    platformOverviewTitle: string;
-    platformOverviewDesc: string;
-  };
+  about: AboutSectionTranslation;
   help: {
     badge: string;
     title: string;

@@ -10,6 +10,8 @@ import com.tronai.auth.SecurityUtils;
 import com.tronai.auth.UserPrincipal;
 import com.tronai.career.company.CompanyAnalysisEntity;
 import com.tronai.career.company.CompanyAnalysisRepository;
+import com.tronai.career.profile.CandidateProfileEntity;
+import com.tronai.career.profile.CandidateProfileService;
 import com.tronai.interview.*;
 import com.tronai.interview.dto.*;
 import com.tronai.interview.generator.InterviewQuestionGenerator;
@@ -51,6 +53,7 @@ public class InterviewService {
     private final AiProfileService aiProfileService;
     private final com.tronai.ai.profile.AiProfileResolver aiProfileResolver;
     private final CompanyAnalysisRepository companyAnalysisRepository;
+    private final CandidateProfileService candidateProfileService;
     private final ObjectMapper objectMapper;
 
     private static final String FOLLOW_UP_CARD_JA = "次の質問は、回答後に下の文字起こしへ追加されます。";
@@ -69,6 +72,7 @@ public class InterviewService {
                             AiProfileService aiProfileService,
                             com.tronai.ai.profile.AiProfileResolver aiProfileResolver,
                             CompanyAnalysisRepository companyAnalysisRepository,
+                            CandidateProfileService candidateProfileService,
                             ObjectMapper objectMapper) {
         this.sessionManager = sessionManager;
         this.questionGenerator = questionGenerator;
@@ -81,6 +85,7 @@ public class InterviewService {
         this.aiProfileService = aiProfileService;
         this.aiProfileResolver = aiProfileResolver;
         this.companyAnalysisRepository = companyAnalysisRepository;
+        this.candidateProfileService = candidateProfileService;
         this.objectMapper = objectMapper;
     }
 
@@ -128,6 +133,8 @@ public class InterviewService {
 
         // Hydrate company-specific interview context from Career Center analysis (owned by user)
         applyCompanyAnalysisContext(user.getId(), config);
+        // Append Candidate Profile facts for question generation (education/skills/projects/self PR)
+        applyCandidateProfileContext(user.getId(), config);
 
         // Create in-memory session container with locked profile
         InterviewSession session = sessionManager.createSession(config, questionCount, profile.name(), modelProfile.getId());
@@ -626,6 +633,47 @@ public class InterviewService {
         if (config.getType() == null || config.getType().isBlank() || "general".equalsIgnoreCase(config.getType())) {
             config.setType("company-specific");
         }
+    }
+
+    /**
+     * Enrich interview jobDescription with authenticated user's Candidate Profile.
+     * Does not invent experience; only appends stored profile facts.
+     */
+    private void applyCandidateProfileContext(Long userId, InterviewConfigDto config) {
+        Optional<CandidateProfileEntity> opt = candidateProfileService.findEntity(userId);
+        if (opt.isEmpty()) {
+            return;
+        }
+        CandidateProfileEntity p = opt.get();
+        StringBuilder ctx = new StringBuilder();
+        if (config.getJobDescription() != null && !config.getJobDescription().isBlank()) {
+            ctx.append(config.getJobDescription()).append("\n");
+        }
+        ctx.append("Candidate profile facts (verified stored data only): ");
+        if (p.getFullName() != null && !p.getFullName().isBlank()) ctx.append("name=").append(p.getFullName()).append("; ");
+        if (p.getNameJa() != null && !p.getNameJa().isBlank()) ctx.append("nameJa=").append(p.getNameJa()).append("; ");
+        if (p.getEducationJson() != null && !p.getEducationJson().isBlank() && !"[]".equals(p.getEducationJson())) {
+            ctx.append("education=").append(trimForContext(p.getEducationJson(), 800)).append("; ");
+        }
+        if (p.getSkillsJson() != null && !p.getSkillsJson().isBlank() && !"[]".equals(p.getSkillsJson())) {
+            ctx.append("skills=").append(trimForContext(p.getSkillsJson(), 500)).append("; ");
+        }
+        if (p.getProjectsJson() != null && !p.getProjectsJson().isBlank() && !"[]".equals(p.getProjectsJson())) {
+            ctx.append("projects=").append(trimForContext(p.getProjectsJson(), 800)).append("; ");
+        }
+        if (p.getSelfPr() != null && !p.getSelfPr().isBlank()) {
+            ctx.append("selfPr=").append(trimForContext(p.getSelfPr(), 600)).append("; ");
+        }
+        if (p.getCareerGoals() != null && !p.getCareerGoals().isBlank()) {
+            ctx.append("careerGoals=").append(trimForContext(p.getCareerGoals(), 400)).append("; ");
+        }
+        config.setJobDescription(ctx.toString());
+    }
+
+    private static String trimForContext(String value, int max) {
+        if (value == null) return "";
+        String t = value.trim();
+        return t.length() <= max ? t : t.substring(0, max) + "…";
     }
 
     private User resolveCurrentUser() {

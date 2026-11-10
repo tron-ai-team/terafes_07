@@ -120,7 +120,7 @@ export const ChatModePage: React.FC = () => {
   };
 
   return (
-    <div className="relative flex-1 flex flex-col justify-between max-w-4xl mx-auto w-full h-[calc(100vh-6rem)] select-none">
+    <div className="relative flex-1 flex flex-col justify-between max-w-4xl mx-auto w-full h-[calc(100dvh-5.5rem)] md:h-[calc(100vh-6rem)] select-none">
       {/* Backend connection banner if offline */}
       {backendStatus === 'offline' && (
         <div className="mb-2 p-2.5 rounded-2xl bg-amber-50/90 border border-amber-200/80 text-amber-800 text-xs flex items-center justify-between shadow-xs shrink-0">
@@ -288,7 +288,7 @@ export const ChatModePage: React.FC = () => {
       <div className="shrink-0 pt-2">
         <form
           onSubmit={handleSubmit}
-          className="relative flex items-center rounded-3xl bg-white/95 backdrop-blur-2xl border border-[#D6E6F7] shadow-lg shadow-blue-500/8 px-4 py-2 transition-all focus-within:border-[#008CFF] focus-within:ring-2 focus-within:ring-blue-500/20 gap-2"
+          className="relative flex items-center rounded-3xl bg-white/95 backdrop-blur-2xl border border-[#D6E6F7] shadow-lg shadow-blue-500/8 px-2 sm:px-4 py-1.5 sm:py-2 transition-all focus-within:border-[#008CFF] focus-within:ring-2 focus-within:ring-blue-500/20 gap-1 sm:gap-2"
         >
           {/* File Attachment */}
           <input
@@ -300,7 +300,7 @@ export const ChatModePage: React.FC = () => {
           <button
             type="button"
             onClick={() => fileInputRef.current?.click()}
-            className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50/70 rounded-full transition-colors shrink-0"
+            className="p-1 sm:p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50/70 rounded-full transition-colors shrink-0"
             title="Attach file"
           >
             <Plus className="w-4 h-4" />
@@ -317,6 +317,7 @@ export const ChatModePage: React.FC = () => {
             locked={isLocked}
             availableProfiles={aiProfiles}
             placement="top"
+            compact
             className="shrink-0"
           />
 
@@ -324,7 +325,7 @@ export const ChatModePage: React.FC = () => {
           <button
             type="button"
             onClick={cycleSearchMode}
-            className={`px-2.5 py-1 rounded-full text-[10px] font-bold flex items-center gap-1 transition-all border shrink-0 ${
+            className={`px-1.5 sm:px-2.5 py-1 rounded-full text-[10px] font-bold flex items-center gap-1 transition-all border shrink-0 ${
               searchMode === 'on'
                 ? 'bg-blue-500 text-white border-blue-600 shadow-xs'
                 : searchMode === 'auto'
@@ -346,14 +347,14 @@ export const ChatModePage: React.FC = () => {
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder={getPlaceholderText()}
-            className="flex-1 bg-transparent border-none outline-none px-2 text-xs md:text-sm text-slate-800 placeholder:text-slate-400 resize-none max-h-32"
+            className="flex-1 min-w-0 bg-transparent border-none outline-none px-1 sm:px-2 text-xs md:text-sm text-slate-800 placeholder:text-slate-400 resize-none max-h-32"
           />
 
           {/* Submit Button */}
           <button
             type="submit"
             disabled={!input.trim() || isChatSending}
-            className="w-9 h-9 rounded-full bg-gradient-to-tr from-[#008CFF] to-[#0066FF] text-white flex items-center justify-center shadow-md shadow-blue-500/25 hover:brightness-105 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed transition-all shrink-0 ml-1"
+            className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-gradient-to-tr from-[#008CFF] to-[#0066FF] text-white flex items-center justify-center shadow-md shadow-blue-500/25 hover:brightness-105 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed transition-all shrink-0 ml-0.5 sm:ml-1"
             title="Send"
           >
             {isChatSending ? (

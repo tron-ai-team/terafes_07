@@ -41,6 +41,10 @@ public class CvBuilderDraftEntity {
     @Column(name = "source_cv_document_id")
     private Long sourceCvDocumentId;
 
+    /** Soft-delete timestamp; null = active. Never deletes Candidate Profile. */
+    @Column(name = "deleted_at")
+    private Instant deletedAt;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 

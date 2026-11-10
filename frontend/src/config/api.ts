@@ -35,7 +35,8 @@ function resolveCoreApiUrl(): string {
     // Empty string is intentional same-origin mode.
     return configured;
   }
-  if (import.meta.env.PROD) {
+  const env = typeof import.meta !== 'undefined' ? (import.meta as ImportMeta).env : undefined;
+  if (env?.PROD) {
     return PRODUCTION_API_URL;
   }
   return LOCAL_DEV_API_URL;

@@ -1,6 +1,6 @@
 import { AgentRealtimeEvent, RealtimeEventType } from '../types/desktopAgent';
 import { CORE_API_URL } from '../config/api';
-import { getAccessToken } from './httpClient';
+import { ensureFreshAccessToken, getAccessToken, refreshSessionSingleFlight } from './httpClient';
 
 type EventCallback = (event: AgentRealtimeEvent) => void;
 
@@ -145,7 +145,9 @@ class AgentRealtimeClient {
   ): Promise<void> {
     while (streamObj.isStreaming && !streamObj.abortController.signal.aborted) {
       try {
-        const token = getAccessToken();
+        // Proactively renew near-expiry access tokens before opening long-lived SSE.
+        await ensureFreshAccessToken();
+        let token = getAccessToken();
         const headers: Record<string, string> = {
           Accept: 'text/event-stream',
         };
@@ -153,12 +155,28 @@ class AgentRealtimeClient {
           headers['Authorization'] = `Bearer ${token}`;
         }
 
-        const response = await fetch(streamObj.url, {
+        let response = await fetch(streamObj.url, {
           method: 'GET',
           headers,
           credentials: 'include',
           signal: streamObj.abortController.signal,
         });
+
+        if (response.status === 401) {
+          try {
+            const refreshed = await refreshSessionSingleFlight();
+            token = refreshed.accessToken;
+            headers['Authorization'] = `Bearer ${token}`;
+            response = await fetch(streamObj.url, {
+              method: 'GET',
+              headers,
+              credentials: 'include',
+              signal: streamObj.abortController.signal,
+            });
+          } catch {
+            throw new Error('SSE stream HTTP 401: session expired');
+          }
+        }
 
         if (!response.ok) {
           throw new Error(`SSE stream HTTP ${response.status}: ${response.statusText}`);

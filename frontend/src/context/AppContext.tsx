@@ -12,7 +12,16 @@ import {
   mapAiModeToBackendProfile,
 } from '../config/aiModes';
 import { requestAssistantReply } from '../services/chatClient';
-import { authApi, apiClient, setAccessToken as setHttpAccessToken, refreshSessionSingleFlight } from '../services/httpClient';
+import {
+  authApi,
+  apiClient,
+  setAccessToken as setHttpAccessToken,
+  refreshSessionSingleFlight,
+  setAuthSessionInvalidHandler,
+  scheduleProactiveAccessTokenRefresh,
+  ensureFreshAccessToken,
+  type AuthResponse,
+} from '../services/httpClient';
 import { CORE_API_URL } from '../config/api';
 
 import {
@@ -395,29 +404,61 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setToasts((prev) => prev.filter((t) => t.id !== id));
   }, []);
 
-  const checkBackendHealth = useCallback(async () => {
-    setBackendStatus('checking');
-    try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 3500);
-      const res = await fetch(`${CORE_API_URL}/health`, {
-        method: 'GET',
-        signal: controller.signal,
-      });
-      clearTimeout(timeoutId);
-      if (res.ok) {
-        const data = await res.json().catch(() => ({}));
-        setBackendStatus('connected');
-        setBackendMessage(`Connected to TRON Core (${data.ollama === 'reachable' ? 'Ollama ready' : 'ready'})`);
-      } else {
-        setBackendStatus('offline');
-        setBackendMessage('TRON Core backend responded with error status: ' + res.status);
-      }
-    } catch {
-      setBackendStatus('offline');
-      setBackendMessage('TRON Core backend offline at localhost:8080.');
-    }
+  const markBackendConnected = useCallback((message?: string) => {
+    setBackendStatus('connected');
+    setBackendMessage(message || 'Connected to TRON Core');
   }, []);
+
+  /**
+   * Connectivity probe uses /health/ready (DB + storage only) instead of the heavy
+   * /health endpoint that also probes Ollama/STT/TTS and often exceeds client timeouts.
+   * Distinguishes initializing (checking) from true offline so the UI never flashes
+   * OFFLINE merely because auth/health hydration has not finished.
+   */
+  const checkBackendHealth = useCallback(async () => {
+    setBackendStatus((prev) => (prev === 'connected' ? 'connected' : 'checking'));
+    const attempt = async (): Promise<boolean> => {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 6000);
+      try {
+        const res = await fetch(`${CORE_API_URL}/health/ready`, {
+          method: 'GET',
+          signal: controller.signal,
+          credentials: 'include',
+        });
+        clearTimeout(timeoutId);
+        if (res.ok) {
+          const data = await res.json().catch(() => ({} as Record<string, unknown>));
+          const db = data?.database === 'reachable' ? 'database ready' : 'ready';
+          markBackendConnected(`Connected to TRON Core (${db})`);
+          return true;
+        }
+        // Fallback: full /health may still prove the API process is up
+        const full = await fetch(`${CORE_API_URL}/health`, {
+          method: 'GET',
+          credentials: 'include',
+        });
+        if (full.ok) {
+          markBackendConnected('Connected to TRON Core (ready)');
+          return true;
+        }
+        return false;
+      } catch {
+        clearTimeout(timeoutId);
+        return false;
+      }
+    };
+
+    const first = await attempt();
+    if (first) return;
+    // One quick retry for transient wake/network blips after browser sleep
+    await new Promise((r) => setTimeout(r, 400));
+    const second = await attempt();
+    if (!second) {
+      setBackendStatus('offline');
+      setBackendMessage('TRON Core backend unreachable. Check API connectivity.');
+    }
+  }, [markBackendConnected]);
 
   // Helper to load persistent sessions and settings
   const loadUserData = useCallback(async () => {
@@ -472,6 +513,117 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   }, []);
 
+  const clearClientAuthState = useCallback((options?: { toast?: string; redirectToLogin?: boolean }) => {
+    setUser(null);
+    setAccessTokenState(null);
+    setHttpAccessToken(null);
+    setIsLoadingAuth(false);
+    setChatSessions([initialSampleChatSession]);
+    setActiveChatId('session-default-1');
+    if (options?.toast) {
+      addToast(options.toast, 'warning');
+    }
+    if (options?.redirectToLogin && typeof window !== 'undefined') {
+      const path = window.location.pathname || '/';
+      const isPublic =
+        path === '/' ||
+        path.startsWith('/auth') ||
+        path.startsWith('/login') ||
+        path.startsWith('/register');
+      if (!isPublic) {
+        const returnTo = encodeURIComponent(path + (window.location.search || ''));
+        window.location.href = `/auth?session=expired&returnTo=${returnTo}`;
+      }
+    }
+  }, [addToast]);
+
+  const scheduleTokenLifecycle = useCallback(() => {
+    scheduleProactiveAccessTokenRefresh(async () => {
+      try {
+        const refreshed = await refreshSessionSingleFlight();
+        setAccessTokenState(refreshed.accessToken);
+        setHttpAccessToken(refreshed.accessToken, refreshed.expiresIn);
+        scheduleTokenLifecycle();
+        return refreshed;
+      } catch {
+        return null;
+      }
+    });
+  }, []);
+
+  const applyAuthResponse = useCallback(
+    async (
+      authData: AuthResponse,
+      options?: { toast?: string; loadData?: boolean; refreshHealth?: boolean; gateway?: boolean }
+    ) => {
+      const profile: UserProfile = {
+        id: authData.user.id,
+        name: authData.user.displayName || authData.user.email.split('@')[0],
+        email: authData.user.email,
+        targetRole: 'Backend Engineer',
+        jlptLevel: 'N2',
+        isAuthenticated: true,
+        authProviders: authData.user.authProviders || ['PASSWORD'],
+        role: authData.user.role,
+      };
+      setUser(profile);
+      setAccessTokenState(authData.accessToken);
+      setHttpAccessToken(authData.accessToken, authData.expiresIn);
+      setIsLoadingAuth(false);
+      // Successful auth proves the API is reachable — avoid OFFLINE flash before health settles.
+      markBackendConnected('Connected to TRON Core (authenticated)');
+      scheduleTokenLifecycle();
+      if (options?.toast) {
+        addToast(options.toast, 'success');
+      }
+      if (options?.loadData !== false) {
+        await loadUserData();
+      }
+      if (options?.gateway) {
+        await refreshAiGatewayState();
+      }
+      if (options?.refreshHealth !== false) {
+        void checkBackendHealth();
+      }
+    },
+    [addToast, checkBackendHealth, loadUserData, markBackendConnected, refreshAiGatewayState, scheduleTokenLifecycle]
+  );
+
+  // Sync HTTP-layer session invalidation into React auth state (idle / expired refresh).
+  useEffect(() => {
+    setAuthSessionInvalidHandler((reason) => {
+      clearClientAuthState({
+        toast: reason?.includes('Session') || reason?.includes('expired') || reason?.includes('refresh')
+          ? 'Your session expired. Please sign in again.'
+          : 'Your session is no longer valid. Please sign in again.',
+        redirectToLogin: true,
+      });
+    });
+    return () => setAuthSessionInvalidHandler(null);
+  }, [clearClientAuthState]);
+
+  // After browser sleep / tab focus: refresh token if near expiry and re-check connectivity.
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState !== 'visible') return;
+      void (async () => {
+        const token = await ensureFreshAccessToken();
+        if (token) {
+          setAccessTokenState(token);
+          scheduleTokenLifecycle();
+          markBackendConnected('Connected to TRON Core (resumed)');
+        }
+        void checkBackendHealth();
+      })();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    window.addEventListener('focus', onVisible);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisible);
+      window.removeEventListener('focus', onVisible);
+    };
+  }, [checkBackendHealth, markBackendConnected, scheduleTokenLifecycle]);
+
   // On mount: attempt silent refresh using HttpOnly cookie (except on /auth/callback where AuthCallbackPage owns bootstrap)
   useEffect(() => {
     let isMounted = true;
@@ -485,19 +637,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       try {
         const authData = await refreshSessionSingleFlight();
         if (isMounted && authData?.user) {
-          const profile: UserProfile = {
-            id: authData.user.id,
-            name: authData.user.displayName || authData.user.email.split('@')[0],
-            email: authData.user.email,
-            targetRole: 'Backend Engineer',
-            jlptLevel: 'N2',
-            isAuthenticated: true,
-            authProviders: authData.user.authProviders || ['PASSWORD'],
-          };
-          setUser(profile);
-          setAccessTokenState(authData.accessToken);
-          setHttpAccessToken(authData.accessToken);
-          await loadUserData();
+          await applyAuthResponse(authData, { loadData: true, refreshHealth: true });
         }
       } catch {
         // Unauthenticated visitor (guest mode)
@@ -519,49 +659,36 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return () => {
       isMounted = false;
     };
-  }, [checkBackendHealth, loadAiProfiles, loadUserData, refreshAiGatewayState]);
+    // Mount-once bootstrap; subsequent auth uses login/register/refreshAuth paths.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const setAuthSession = async (token: string, userData: any) => {
-    setAccessTokenState(token);
-    setHttpAccessToken(token);
-    const profile: UserProfile = {
-      id: userData.id,
-      name: userData.displayName || userData.email.split('@')[0],
-      email: userData.email,
-      targetRole: 'Backend Engineer',
-      jlptLevel: 'N2',
-      isAuthenticated: true,
-      authProviders: userData.authProviders || ['PASSWORD'],
-    };
-    setUser(profile);
-    setIsLoadingAuth(false);
-    await loadUserData();
-    await refreshAiGatewayState();
+    await applyAuthResponse(
+      {
+        accessToken: token,
+        tokenType: 'Bearer',
+        expiresIn: 900,
+        user: userData,
+      },
+      { loadData: true, gateway: true, refreshHealth: true }
+    );
   };
 
   const refreshAuth = async (): Promise<boolean> => {
     try {
       const authData = await refreshSessionSingleFlight();
       if (authData?.accessToken) {
-        setAccessTokenState(authData.accessToken);
-        setHttpAccessToken(authData.accessToken);
         let meUser = authData.user;
         try {
           meUser = await authApi.getMe();
         } catch {
           // fallback to authData.user if /me fails
         }
-        const profile: UserProfile = {
-          id: meUser.id,
-          name: meUser.displayName || meUser.email.split('@')[0],
-          email: meUser.email,
-          targetRole: 'Backend Engineer',
-          jlptLevel: 'N2',
-          isAuthenticated: true,
-          authProviders: meUser.authProviders || authData.user?.authProviders || ['PASSWORD'],
-        };
-        setUser(profile);
-        await loadUserData();
+        await applyAuthResponse(
+          { ...authData, user: { ...authData.user, ...meUser } },
+          { loadData: true, refreshHealth: false }
+        );
         return true;
       }
       return false;
@@ -572,37 +699,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const login = async (email: string, password: string) => {
     const authData = await authApi.login(email, password);
-    const profile: UserProfile = {
-      id: authData.user.id,
-      name: authData.user.displayName || authData.user.email.split('@')[0],
-      email: authData.user.email,
-      targetRole: 'Backend Engineer',
-      jlptLevel: 'N2',
-      isAuthenticated: true,
-      authProviders: authData.user.authProviders || ['PASSWORD'],
-    };
-    setUser(profile);
-    setAccessTokenState(authData.accessToken);
-    setHttpAccessToken(authData.accessToken);
-    addToast(`Welcome back to TRON AI, ${profile.name}!`, 'success');
-    await loadUserData();
+    const name = authData.user.displayName || authData.user.email.split('@')[0];
+    await applyAuthResponse(authData, {
+      toast: `Welcome back to TRON AI, ${name}!`,
+      loadData: true,
+      refreshHealth: true,
+    });
   };
 
   const register = async (email: string, password: string, displayName?: string) => {
     const authData = await authApi.register(email, password, displayName);
-    const profile: UserProfile = {
-      id: authData.user.id,
-      name: authData.user.displayName || displayName || authData.user.email.split('@')[0],
-      email: authData.user.email,
-      targetRole: 'Backend Engineer',
-      jlptLevel: 'N2',
-      isAuthenticated: true,
-      authProviders: authData.user.authProviders || ['PASSWORD'],
-    };
-    setUser(profile);
-    setAccessTokenState(authData.accessToken);
-    setHttpAccessToken(authData.accessToken);
-    addToast(`Account created successfully! Welcome, ${profile.name}!`, 'success');
+    const name = authData.user.displayName || displayName || authData.user.email.split('@')[0];
+    await applyAuthResponse(authData, {
+      toast: `Account created successfully! Welcome, ${name}!`,
+      loadData: true,
+      refreshHealth: true,
+    });
   };
 
   const logout = async () => {

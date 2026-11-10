@@ -13,13 +13,104 @@ import { CORE_API_URL } from '../config/api';
 
 let inMemoryAccessToken: string | null = null;
 let refreshPromise: Promise<AuthResponse> | null = null;
+/** Epoch ms when the current access token should be considered expired. */
+let accessTokenExpiresAtMs: number | null = null;
+/** Optional AppContext hook: clear React session when refresh can no longer recover. */
+let onAuthSessionInvalid: ((reason: string) => void) | null = null;
+/** Proactive refresh timer (cleared on logout / invalid session). */
+let proactiveRefreshTimer: ReturnType<typeof setTimeout> | null = null;
 
-export function setAccessToken(token: string | null): void {
+const PROACTIVE_REFRESH_SKEW_MS = 60_000;
+
+export function setAccessToken(token: string | null, expiresInSeconds?: number | null): void {
   inMemoryAccessToken = token;
+  if (!token) {
+    accessTokenExpiresAtMs = null;
+    clearProactiveRefreshTimer();
+    return;
+  }
+  if (typeof expiresInSeconds === 'number' && Number.isFinite(expiresInSeconds) && expiresInSeconds > 0) {
+    accessTokenExpiresAtMs = Date.now() + expiresInSeconds * 1000;
+  } else if (accessTokenExpiresAtMs == null) {
+    // Unknown TTL: assume default 15 minutes so proactive refresh still runs.
+    accessTokenExpiresAtMs = Date.now() + 15 * 60 * 1000;
+  }
 }
 
 export function getAccessToken(): string | null {
   return inMemoryAccessToken;
+}
+
+export function getAccessTokenExpiresAtMs(): number | null {
+  return accessTokenExpiresAtMs;
+}
+
+/**
+ * Register a single listener invoked when the refresh cookie is invalid/expired
+ * and the in-memory access token has been cleared. Used by AppContext to sync UI.
+ */
+export function setAuthSessionInvalidHandler(handler: ((reason: string) => void) | null): void {
+  onAuthSessionInvalid = handler;
+}
+
+function notifyAuthSessionInvalid(reason: string): void {
+  clearProactiveRefreshTimer();
+  if (onAuthSessionInvalid) {
+    try {
+      onAuthSessionInvalid(reason);
+    } catch {
+      // Never let UI hooks break the HTTP layer
+    }
+  }
+}
+
+function clearProactiveRefreshTimer(): void {
+  if (proactiveRefreshTimer != null) {
+    clearTimeout(proactiveRefreshTimer);
+    proactiveRefreshTimer = null;
+  }
+}
+
+/**
+ * Schedule a silent refresh shortly before access-token expiry.
+ * Safe to call repeatedly; replaces any prior schedule.
+ */
+export function scheduleProactiveAccessTokenRefresh(
+  refreshFn: () => Promise<AuthResponse | null>
+): void {
+  clearProactiveRefreshTimer();
+  if (!inMemoryAccessToken || accessTokenExpiresAtMs == null) {
+    return;
+  }
+  const delay = Math.max(5_000, accessTokenExpiresAtMs - Date.now() - PROACTIVE_REFRESH_SKEW_MS);
+  proactiveRefreshTimer = setTimeout(() => {
+    void (async () => {
+      try {
+        await refreshFn();
+      } catch {
+        // Failure path handled by refresh / session-invalid handler
+      }
+    })();
+  }, delay);
+}
+
+/**
+ * Ensure the in-memory access token is still valid for upcoming requests.
+ * Refreshes when missing, already expired, or within the proactive skew window.
+ */
+export async function ensureFreshAccessToken(): Promise<string | null> {
+  if (inMemoryAccessToken && accessTokenExpiresAtMs != null) {
+    const remaining = accessTokenExpiresAtMs - Date.now();
+    if (remaining > PROACTIVE_REFRESH_SKEW_MS) {
+      return inMemoryAccessToken;
+    }
+  }
+  try {
+    const refreshed = await refreshSessionSingleFlight();
+    return refreshed.accessToken;
+  } catch {
+    return null;
+  }
 }
 
 export interface ApiErrorDetail {
@@ -88,6 +179,9 @@ function shouldBypassAuthRefresh(path: string): boolean {
  * Direct fetch is used here to bypass apiFetch interceptors completely.
  */
 async function performActualRefresh(): Promise<AuthResponse> {
+  // Only treat refresh failure as "session expired" when the client previously
+  // held an access token. Guest mount bootstrap failures must stay silent.
+  const hadAccessToken = !!inMemoryAccessToken;
   const url = `${CORE_API_URL}/api/v1/auth/refresh`;
   const res = await fetch(url, {
     method: 'POST',
@@ -100,11 +194,14 @@ async function performActualRefresh(): Promise<AuthResponse> {
   if (!res.ok) {
     setAccessToken(null);
     const detail = await parseErrorDetail(res);
+    if (hadAccessToken) {
+      notifyAuthSessionInvalid(detail || 'Session expired');
+    }
     throw new ApiError(res.status, detail);
   }
 
   const data: AuthResponse = await res.json();
-  setAccessToken(data.accessToken);
+  setAccessToken(data.accessToken, data.expiresIn);
   return data;
 }
 
@@ -187,12 +284,21 @@ export async function apiFetch(path: string, options: ApiFetchOptions = {}): Pro
         _retry: true,
       });
     } catch {
-      // Shared refresh failed (e.g. unauthenticated or expired cookie) -> return original 401
+      // Shared refresh failed (e.g. unauthenticated or expired cookie).
+      // Session-invalid handler already notified from performActualRefresh.
       return response;
     }
   }
 
   return response;
+}
+
+/**
+ * Authenticated binary/blob fetch that participates in the same 401 refresh flow as apiFetch.
+ * Prefer this over raw fetch + getAccessToken() for downloads and media.
+ */
+export async function apiFetchBlob(path: string, options: ApiFetchOptions = {}): Promise<Response> {
+  return apiFetch(path, options);
 }
 
 export interface AuthUser {
@@ -232,7 +338,7 @@ export const authApi = {
     }
 
     const data: AuthResponse = await res.json();
-    setAccessToken(data.accessToken);
+    setAccessToken(data.accessToken, data.expiresIn);
     return data;
   },
 
@@ -251,7 +357,7 @@ export const authApi = {
     }
 
     const data: AuthResponse = await res.json();
-    setAccessToken(data.accessToken);
+    setAccessToken(data.accessToken, data.expiresIn);
     return data;
   },
 
@@ -276,6 +382,7 @@ export const authApi = {
     } finally {
       setAccessToken(null);
       refreshPromise = null;
+      clearProactiveRefreshTimer();
     }
   },
 

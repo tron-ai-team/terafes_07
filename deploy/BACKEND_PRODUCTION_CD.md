@@ -56,6 +56,8 @@ Leave `TRON_BACKEND_CD_ENABLED` unset or `false` during review, merge, and rehea
    git merge-base --is-ancestor "$live_sha" origin/main
    ```
 
+   Migration verification keeps historical Flyway files byte-identical and rejects removals, modifications, duplicate versions, and non-forward insertions. Reviewed additive migrations (for example V19–V21 after a live V18 baseline) are accepted; Flyway still applies them on normal Spring startup. Do not disable Flyway validation.
+
    The managed Compose and existing runtime env files and their parent directories must be root controlled; preflight refuses symlinks and group/world writable paths. Leave both the desktop checkout and the runtime env file in place. Check only non-secret inspection fields; never print rendered Compose, env, or raw container inspection in shared logs. Fetch `origin/main` before the ancestry check. Stop if preflight fails or the live image is not an ancestor. Record the image and dependency IDs privately, verify matching migrations, and confirm no other automation replaces this backend. Test the current Vercel client against the rehearsed release.
 
    Create an expiring fine-grained token for a deployment service identity, resource owner `tron-ai-team`, selected repository `terafes_07`, permissions **Contents: Read** and **Attestations: Read** (Metadata read is automatic). Complete any organization approval. Enter it without echo from the admin shell, never via a command argument or a GitHub secret:

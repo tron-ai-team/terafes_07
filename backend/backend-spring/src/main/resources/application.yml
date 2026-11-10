@@ -141,6 +141,12 @@ tron:
   hybrid:
     ollama-health-url: ${TRON_OLLAMA_HEALTH_URL:http://127.0.0.1:11434/api/tags}
     rtx-probe-timeout-ms: ${TRON_RTX_PROBE_TIMEOUT_MS:1500}
+  # Voice intelligence (does not affect AI Chat routing).
+  voice:
+    cloud-prefer-smart: ${TRON_VOICE_CLOUD_PREFER_SMART:true}
+    max-tokens-fast: ${TRON_VOICE_MAX_TOKENS_FAST:256}
+    max-tokens-quality: ${TRON_VOICE_MAX_TOKENS_QUALITY:512}
+    max-history-messages: ${TRON_VOICE_MAX_HISTORY:24}
   supervisor:
     local-model: ${TRON_SUPERVISOR_LOCAL_MODEL:qwen3:8b}
   agent:
@@ -174,18 +180,49 @@ stt:
   groq-model: ${STT_GROQ_MODEL:whisper-large-v3-turbo}
   groq-timeout-seconds: ${STT_GROQ_TIMEOUT_SECONDS:60}
 
-# ── Text-to-Speech (VOICEVOX local + Groq Orpheus English cloud) ─────────────
+# ── Text-to-Speech (Gemini Algenib primary + ElevenLabs/Groq/VOICEVOX fallbacks) ────
 tts:
   multilingual:
     base-url: ${MULTILINGUAL_TTS_BASE_URL:}
     timeout-seconds: ${MULTILINGUAL_TTS_TIMEOUT_SECONDS:30}
+  # Approved primary voice: Gemini Algenib robotic (EN + JA). Requires GEMINI_API_KEY.
+  gemini:
+    enabled: ${TTS_GEMINI_ENABLED:false}
+    api-key: ${GEMINI_API_KEY:${GEMINI_API_KEY_1:}}
+    model: ${TTS_GEMINI_MODEL:gemini-3.8-flash-lite-tts}
+    voice: ${TTS_GEMINI_VOICE:Algenib}
+    style: "${TTS_GEMINI_STYLE:Low, resonant pitch; calm cinematic AI with subtle synthetic resonance, crisp diction and natural conversational pacing.}"
+    sample-rate: ${TTS_GEMINI_SAMPLE_RATE:24000}
+    stream: ${TTS_GEMINI_STREAM:true}
+    timeout-seconds: ${TTS_GEMINI_TIMEOUT_SECONDS:45}
+    max-input-chars: ${TTS_GEMINI_MAX_INPUT_CHARS:1200}
+    failure-cooldown-seconds: ${TTS_GEMINI_FAILURE_COOLDOWN_SECONDS:30}
+  # Fallback bilingual robotic voice (EN + JA). Requires ELEVENLABS_API_KEY.
+  elevenlabs:
+    enabled: ${TTS_ELEVENLABS_ENABLED:false}
+    api-key: ${ELEVENLABS_API_KEY:}
+    # Adam premade — free API plans cannot use community/library voices.
+    voice-id: ${TTS_ELEVENLABS_VOICE_ID:pNInz6obpgDQGcFmaJgB}
+    model-id: ${TTS_ELEVENLABS_MODEL_ID:eleven_multilingual_v2}
+    output-format: ${TTS_ELEVENLABS_OUTPUT_FORMAT:pcm_24000}
+    timeout-seconds: ${TTS_ELEVENLABS_TIMEOUT_SECONDS:45}
+    max-input-chars: ${TTS_ELEVENLABS_MAX_INPUT_CHARS:1200}
+    stability: ${TTS_ELEVENLABS_STABILITY:0.55}
+    similarity-boost: ${TTS_ELEVENLABS_SIMILARITY:0.75}
+    style: ${TTS_ELEVENLABS_STYLE:0.15}
+    use-speaker-boost: ${TTS_ELEVENLABS_SPEAKER_BOOST:true}
   # Groq Orpheus: English (and Arabic) only — NOT Japanese.
   groq:
     enabled: ${TTS_GROQ_ENABLED:true}
     model-english: ${TTS_GROQ_MODEL_ENGLISH:canopylabs/orpheus-v1-english}
-    voice-english: ${TTS_GROQ_VOICE_ENGLISH:autumn}
+    voice-english: ${TTS_GROQ_VOICE_ENGLISH:troy}
     timeout-seconds: ${TTS_GROQ_TIMEOUT_SECONDS:30}
     max-input-chars: ${TTS_GROQ_MAX_INPUT_CHARS:200}
+  # Subtle TRON robotic coloration applied to server WAV (not browser speech).
+  robotic:
+    enabled: ${TTS_ROBOTIC_ENABLED:true}
+    resonance: ${TTS_ROBOTIC_RESONANCE:0.18}
+    metallic: ${TTS_ROBOTIC_METALLIC:0.08}
 
 voicevox:
   base-url: ${VOICEVOX_BASE_URL:http://127.0.0.1:50021}

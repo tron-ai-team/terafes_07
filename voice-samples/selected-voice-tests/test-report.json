@@ -1,0 +1,9 @@
+{
+  "voice_id": "wiBTiCATMiTaXSfv8hdN",
+  "model_id": "eleven_multilingual_v2",
+  "voice_lookup_http": 401,
+  "tts_probe_http": 400,
+  "tts_probe_error": "{\"detail\":{\"type\":\"invalid_request\",\"code\":\"bad_request\",\"message\":\"You need to be on the creator tier or above to use this voice.\",\"status\":\"free_users_not_allowed\",\"request_id\":\"92c3b44263b7046c35641476d55b39ee\"}}",
+  "samples_generated": false,
+  "production_config_changed": false
+}

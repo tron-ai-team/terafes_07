@@ -25,6 +25,19 @@ spring:
       simple:
         auto-startup: false
 
+tts:
+  # Opt-in Gemini Algenib robotic (primary). Key via GEMINI_API_KEY — never commit secrets.
+  gemini:
+    enabled: ${TTS_GEMINI_ENABLED:false}
+    api-key: ${GEMINI_API_KEY:${GEMINI_API_KEY_1:}}
+    model: ${TTS_GEMINI_MODEL:gemini-3.8-flash-lite-tts}
+    voice: ${TTS_GEMINI_VOICE:Algenib}
+    style: "${TTS_GEMINI_STYLE:Low, resonant pitch; calm cinematic AI with subtle synthetic resonance, crisp diction and natural conversational pacing.}"
+  supertonic:
+    enabled: ${TTS_SUPERTONIC_ENABLED:false}
+    port: ${TTS_SUPERTONIC_PORT:7788}
+    timeout-seconds: ${TTS_SUPERTONIC_TIMEOUT_SECONDS:15}
+
 # RabbitMQ / MinIO are optional for local chat/auth/agent. Do not fail
 # /actuator/health (503) when they are not running — Start-Tron gates on health.
 management:

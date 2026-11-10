@@ -47,6 +47,21 @@ public class V1VoiceTurnResponse {
     @JsonProperty("model")
     private String model = "tron-fast";
 
+    /**
+     * Actual engine/model identifier when known (e.g. openai/gpt-oss-120b).
+     * Never invent — leave null/blank when unknown.
+     */
+    @JsonProperty("engineModel")
+    private String engineModel;
+
+    /** Actual provider when known (e.g. GROQ, OLLAMA, ELEVENLABS). */
+    @JsonProperty("provider")
+    private String provider;
+
+    /** TTS engine that produced audio, when known (elevenlabs, groq-orpheus, voicevox, browser). */
+    @JsonProperty("ttsProvider")
+    private String ttsProvider;
+
     @JsonProperty("locked")
     private boolean locked = true;
 
@@ -155,6 +170,30 @@ public class V1VoiceTurnResponse {
 
     public void setModel(String model) {
         this.model = model;
+    }
+
+    public String getEngineModel() {
+        return engineModel;
+    }
+
+    public void setEngineModel(String engineModel) {
+        this.engineModel = engineModel;
+    }
+
+    public String getProvider() {
+        return provider;
+    }
+
+    public void setProvider(String provider) {
+        this.provider = provider;
+    }
+
+    public String getTtsProvider() {
+        return ttsProvider;
+    }
+
+    public void setTtsProvider(String ttsProvider) {
+        this.ttsProvider = ttsProvider;
     }
 
     public boolean isLocked() {

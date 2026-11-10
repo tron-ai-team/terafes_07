@@ -7,7 +7,6 @@ import com.tronai.stt.SpeechToTextProvider;
 import com.tronai.stt.SttTranscriptionResult;
 import com.tronai.language.ExperienceLanguage;
 import com.tronai.tts.AudioStoreService;
-import com.tronai.tts.SpeechLanguageCapability;
 import com.tronai.tts.SpeechSynthesisRouter;
 import com.tronai.voice.VoiceException;
 import com.tronai.voice.VoiceService;
@@ -136,14 +135,21 @@ public class InterviewController {
 
         if (!answerResponse.isFinished() && !nextQuestionText.isBlank()) {
             String spoken = VoiceService.speakable(nextQuestionText);
-            SpeechLanguageCapability speech = speechSynthesisRouter.capability(sessionLanguage);
             boolean japaneseText = JAPANESE_PATTERN.matcher(spoken).find();
-            if (speech.speechSynthesis() && (!ExperienceLanguage.JA.code().equals(sessionLanguage) || japaneseText)) {
-                long ttsStarted = System.currentTimeMillis();
-                byte[] wavBytes = speechSynthesisRouter.synthesizeRequired(spoken, sessionLanguage);
-                ttsMs = (int) (System.currentTimeMillis() - ttsStarted);
-                String clipId = audioStoreService.storeClip(wavBytes);
-                audioUrl = "/api/v1/voice/audio/" + clipId;
+            boolean allowJa = !ExperienceLanguage.JA.code().equals(sessionLanguage) || japaneseText;
+            if (allowJa) {
+                try {
+                    long ttsStarted = System.currentTimeMillis();
+                    var outcome = speechSynthesisRouter.synthesizeBest(spoken, sessionLanguage);
+                    ttsMs = (int) (System.currentTimeMillis() - ttsStarted);
+                    if (outcome.isPresent()) {
+                        String clipId = audioStoreService.storeClip(outcome.get().audio());
+                        audioUrl = "/api/v1/voice/audio/" + clipId;
+                    }
+                } catch (Exception ttsFailure) {
+                    // Never let TTS failure destroy a successful interview answer turn.
+                    ttsMs = 0;
+                }
             }
         }
 

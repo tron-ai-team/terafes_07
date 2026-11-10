@@ -1,0 +1,45 @@
+{
+  "approved": true,
+  "provider": "google-gemini-tts",
+  "endpoint": "https://generativelanguage.googleapis.com/v1beta/interactions",
+  "model": "gemini-3.8-flash-lite-tts",
+  "voice": "Algenib",
+  "style": "Low, resonant pitch; calm cinematic AI with subtle synthetic resonance, crisp diction and natural conversational pacing.",
+  "response_format": {
+    "type": "audio",
+    "mime_type": "audio/l16",
+    "sample_rate": 24000
+  },
+  "stream": true,
+  "store": false,
+  "post_processing": "none",
+  "languages": ["en", "ja"],
+  "reference_files": {
+    "en": "algenib-en-robotic.wav",
+    "ja": "algenib-ja-robotic.wav"
+  },
+  "audition_benchmarks": {
+    "en_robotic": {
+      "first_audio_ms": 771.7,
+      "total_ms": 1298.9,
+      "duration_s": 3.44,
+      "rtf": 0.378,
+      "rms_dbfs": -20.4,
+      "median_f0_hz": 93.0
+    },
+    "ja_robotic": {
+      "first_audio_ms": 638.1,
+      "total_ms": 1829.7,
+      "duration_s": 8.2,
+      "rtf": 0.223,
+      "rms_dbfs": -19.3,
+      "median_f0_hz": 103.2
+    }
+  },
+  "transcripts": {
+    "en": "Hello, I am TRON AI.",
+    "ja": "こんにちは。私はトロンAIです。あなたのサポートを開始します。今日は何をお手伝いしましょうか。"
+  },
+  "project_tier": "unverified",
+  "source": "voice-samples/gemini-tests/results.json"
+}

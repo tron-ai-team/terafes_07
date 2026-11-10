@@ -183,7 +183,12 @@ class InterviewEndpointTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.nextQuestionIndex").value(5))
                 .andExpect(jsonPath("$.isFinished").value(true))
-                .andExpect(jsonPath("$.aiFollowUpMessage.text").value(org.hamcrest.Matchers.containsString("面接は以上となります")));
+                .andExpect(jsonPath("$.aiFollowUpMessage.text").value(org.hamcrest.Matchers.anyOf(
+                        org.hamcrest.Matchers.containsString("面接は以上"),
+                        org.hamcrest.Matchers.containsString("ありがとうございました"),
+                        org.hamcrest.Matchers.containsString("終了")
+                )))
+                .andExpect(jsonPath("$.nextAction").value("CLOSE"));
 
         // 8. Submitting after finished triggers 409
         mockMvc.perform(post("/api/v1/interviews/{id}/answers", interviewId)
@@ -229,7 +234,7 @@ class InterviewEndpointTest {
     }
 
     @Test
-    @DisplayName("Starting interview with QUALITY profile locks profile and returns locked=true")
+    @DisplayName("Interview V2 upgrades QUALITY/FAST to SMART cloud routing and locks profile")
     void startQualityInterviewLocksProfile() throws Exception {
         InterviewConfigDto config = new InterviewConfigDto();
         config.setCompanyName("Sony Interactive Entertainment");
@@ -246,7 +251,7 @@ class InterviewEndpointTest {
                         .content(objectMapper.writeValueAsString(config)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.interviewId").isNotEmpty())
-                .andExpect(jsonPath("$.aiProfile").value("QUALITY"))
+                .andExpect(jsonPath("$.aiProfile").value("SMART"))
                 .andExpect(jsonPath("$.locked").value(true))
                 .andReturn();
 
@@ -256,7 +261,7 @@ class InterviewEndpointTest {
         mockMvc.perform(get("/api/v1/interviews")
                         .header("Authorization", authHeader))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$[?(@.id == '" + id + "')].aiProfile").value("QUALITY"))
+                .andExpect(jsonPath("$[?(@.id == '" + id + "')].aiProfile").value("SMART"))
                 .andExpect(jsonPath("$[?(@.id == '" + id + "')].locked").value(true));
     }
 }

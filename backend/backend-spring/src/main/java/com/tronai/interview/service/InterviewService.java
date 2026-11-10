@@ -14,6 +14,9 @@ import com.tronai.career.profile.CandidateProfileEntity;
 import com.tronai.career.profile.CandidateProfileService;
 import com.tronai.interview.*;
 import com.tronai.interview.dto.*;
+import com.tronai.interview.engine.InterviewTurnAction;
+import com.tronai.interview.engine.InterviewTurnDecision;
+import com.tronai.interview.engine.InterviewTurnEngine;
 import com.tronai.interview.generator.InterviewQuestionGenerator;
 import com.tronai.interview.session.InterviewSession;
 import com.tronai.interview.session.InterviewSessionManager;
@@ -29,21 +32,21 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.time.Instant;
 import java.util.*;
-import java.util.stream.Collectors;
 
 /**
- * Core interview progression engine.
- * Controls interview lifecycle, session progression, answer validation, and analysis coordination.
- * Enforces session-level AI profile locking (FAST vs QUALITY).
+ * Core interview progression engine (Interview Mode V2).
+ * Uses {@link InterviewTurnEngine} for answer-aware follow-ups and cloud SMART routing.
  * All states are durable in MySQL and survive application restarts.
  */
 @Service
 public class InterviewService {
 
     private static final Logger log = LoggerFactory.getLogger(InterviewService.class);
+    private static final int MAX_QUESTION_COUNT = 15;
 
     private final InterviewSessionManager sessionManager;
     private final InterviewQuestionGenerator questionGenerator;
+    private final InterviewTurnEngine turnEngine;
     private final InterviewAnalysisService analysisService;
     private final InterviewSessionRepository interviewSessionRepository;
     private final InterviewMessageRepository interviewMessageRepository;
@@ -63,6 +66,7 @@ public class InterviewService {
 
     public InterviewService(InterviewSessionManager sessionManager,
                             InterviewQuestionGenerator questionGenerator,
+                            InterviewTurnEngine turnEngine,
                             InterviewAnalysisService analysisService,
                             InterviewSessionRepository interviewSessionRepository,
                             InterviewMessageRepository interviewMessageRepository,
@@ -76,6 +80,7 @@ public class InterviewService {
                             ObjectMapper objectMapper) {
         this.sessionManager = sessionManager;
         this.questionGenerator = questionGenerator;
+        this.turnEngine = turnEngine;
         this.analysisService = analysisService;
         this.interviewSessionRepository = interviewSessionRepository;
         this.interviewMessageRepository = interviewMessageRepository;
@@ -100,7 +105,7 @@ public class InterviewService {
         }
 
         int questionCount = config.getQuestionCount() != null ? config.getQuestionCount() : 5;
-        questionCount = Math.max(1, Math.min(10, questionCount));
+        questionCount = Math.max(1, Math.min(MAX_QUESTION_COUNT, questionCount));
         config.setQuestionCount(questionCount);
 
         com.tronai.language.ExperienceLanguage selectedLanguage =
@@ -118,15 +123,11 @@ public class InterviewService {
 
         boolean japaneseCards = selectedLanguage == com.tronai.language.ExperienceLanguage.JA;
 
-        // Resolve AI profile: explicit → saved preference → FAST (locks immediately)
-        AiProfile profile = aiProfileResolver.resolve(config.getAiProfile());
-        ModelProfile modelProfile;
-        try {
-            modelProfile = aiProfileService.resolveModel(profile);
-        } catch (org.springframework.web.server.ResponseStatusException ex) {
-            // Gateway modes may not need a local QUALITY model online.
-            modelProfile = aiProfileService.resolveModel(AiProfile.FAST);
-        }
+        // Interview V2: prefer cloud SMART via AiGateway (do not lock to dead local FAST/Ollama).
+        AiProfile requested = aiProfileResolver.resolve(config.getAiProfile());
+        AiProfile profile = InterviewTurnEngine.resolveInterviewRoutingProfile(requested.name());
+        config.setAiProfile(profile.name());
+        ModelProfile modelProfile = resolveInterviewModelProfile(profile);
 
         // Resolve or create user for interview ownership
         User user = resolveCurrentUser();
@@ -142,7 +143,8 @@ public class InterviewService {
 
         // Generate opening question
         String firstQuestion = questionGenerator.generateFirstQuestion(config);
-        session.recordAskedQuestion(firstQuestion, "自己紹介");
+        session.setActiveTopic("self_intro");
+        session.recordAskedQuestion(firstQuestion, "self_intro");
         session.addTurn("interviewer", firstQuestion);
 
         // Create initial transcript
@@ -299,49 +301,86 @@ public class InterviewService {
             interviewMessageRepository.save(userMsgEntity);
 
             int nextIndex = session.getCurrentQuestionIndex() + 1;
-            boolean isFinished = nextIndex >= session.getQuestionCount();
+            InterviewTurnDecision decision = turnEngine.decide(session, cleanAnswer);
+            boolean isFinished = decision.getNextAction() == InterviewTurnAction.CLOSE
+                    || nextIndex >= session.getQuestionCount();
 
-            TranscriptMessageDto aiFollowUpMessage;
+            String interviewerText;
+            if (isFinished) {
+                interviewerText = decision.getNextAction() == InterviewTurnAction.CLOSE
+                        && decision.interviewerUtterance() != null
+                        && !decision.interviewerUtterance().isBlank()
+                        ? decision.interviewerUtterance()
+                        : (isEnglish ? CONCLUDING_MESSAGE_EN : CONCLUDING_MESSAGE_JA);
+            } else {
+                interviewerText = decision.interviewerUtterance();
+                if (interviewerText == null || interviewerText.isBlank()) {
+                    interviewerText = decision.getNextQuestion();
+                }
+            }
+
+            session.addTurn("interviewer", interviewerText);
+
+            List<InterviewQuestionDto> currentQuestions = session.getQuestions();
+            if (nextIndex < currentQuestions.size()) {
+                InterviewQuestionDto targetCard = currentQuestions.get(nextIndex);
+                targetCard.setTextJa(interviewerText);
+                if (isEnglish) {
+                    targetCard.setTextEn(interviewerText);
+                }
+                if (decision.getCurrentTopic() != null && !decision.getCurrentTopic().isBlank()) {
+                    targetCard.setCategory(decision.getCurrentTopic());
+                    targetCard.setCategoryJa(decision.getCurrentTopic());
+                }
+                session.setQuestions(currentQuestions);
+            }
+
+            TranscriptMessageDto aiFollowUpMessage = new TranscriptMessageDto(
+                    "ai-" + System.nanoTime(),
+                    "ai",
+                    interviewerText,
+                    InterviewSession.currentClock(),
+                    true
+            );
+            session.addTranscriptMessage(aiFollowUpMessage);
+
+            InterviewMessageEntity followUpMsgEntity = InterviewMessageEntity.builder()
+                    .session(sessionEntity)
+                    .role("interviewer")
+                    .questionIndex(nextIndex)
+                    .messageType(isFinished ? "終了" : "質問")
+                    .text(interviewerText)
+                    .createdAt(Instant.now())
+                    .build();
+            interviewMessageRepository.save(followUpMsgEntity);
+
+            session.setCurrentQuestionIndex(nextIndex);
+            sessionEntity.setCurrentQuestionIndex(nextIndex);
+            if (decision.getModelId() != null && !decision.getModelId().isBlank()) {
+                sessionEntity.setActualModelId(decision.getModelId());
+            }
+            if (decision.getProvider() != null && !decision.getProvider().isBlank()) {
+                sessionEntity.setProviderType(decision.getProvider());
+            }
+            applyProviderTrace(sessionEntity);
+
+            InterviewAnswerResponse response = new InterviewAnswerResponse(
+                    userMessage, aiFollowUpMessage, nextIndex, isFinished);
+            response.setNextAction(decision.getNextAction().name());
+            response.setAnswerQuality(decision.getAnswerQuality().name());
+            response.setAiUnavailable(decision.isAiUnavailable());
+            response.setProvider(decision.getProvider());
+            response.setModelId(decision.getModelId());
 
             if (isFinished) {
-                // Interview completed
                 session.setFinished(true);
-                String closingText = isEnglish ? CONCLUDING_MESSAGE_EN : CONCLUDING_MESSAGE_JA;
-                session.addTurn("interviewer", closingText);
-
-                aiFollowUpMessage = new TranscriptMessageDto(
-                        "ai-" + System.nanoTime(),
-                        "ai",
-                        closingText,
-                        InterviewSession.currentClock(),
-                        true
-                );
-                session.addTranscriptMessage(aiFollowUpMessage);
-
-                // Persist closing message to MySQL
-                InterviewMessageEntity closingMsgEntity = InterviewMessageEntity.builder()
-                        .session(sessionEntity)
-                        .role("interviewer")
-                        .questionIndex(nextIndex)
-                        .messageType("終了")
-                        .text(closingText)
-                        .createdAt(Instant.now())
-                        .build();
-                interviewMessageRepository.save(closingMsgEntity);
-
-                // Update session entity in MySQL
-                sessionEntity.setCurrentQuestionIndex(nextIndex);
                 sessionEntity.setFinished(true);
                 sessionEntity.setCompletedAt(Instant.now());
-                applyProviderTrace(sessionEntity);
                 interviewSessionRepository.save(sessionEntity);
 
-                // Generate and persist final analysis (inheriting session profile)
                 try {
                     InterviewAnalysisResultDto analysisResult = analysisService.analyze(session);
                     persistAnalysis(sessionEntity, analysisResult);
-
-                    // Publish async non-critical queue event
                     backgroundJobPublisher.publishInterviewCompleted(
                             sessionEntity.getUser().getId(),
                             interviewId,
@@ -351,55 +390,41 @@ public class InterviewService {
                     log.error("Failed to generate/persist analysis on interview completion: {}", e.getMessage(), e);
                 }
 
-                log.info("Interview session [{}] completed after {} turns and persisted to MySQL", interviewId, nextIndex);
-                return new InterviewAnswerResponse(userMessage, aiFollowUpMessage, nextIndex, true);
-
-            } else {
-                // Advance to next question (using session's locked AI profile)
-                String nextQuestion = questionGenerator.generateNextQuestion(session, cleanAnswer);
-                session.addTurn("interviewer", nextQuestion);
-
-                List<InterviewQuestionDto> currentQuestions = session.getQuestions();
-                if (nextIndex < currentQuestions.size()) {
-                    InterviewQuestionDto targetCard = currentQuestions.get(nextIndex);
-                    targetCard.setTextJa(nextQuestion);
-                    if (isEnglish) {
-                        targetCard.setTextEn(nextQuestion);
-                    }
-                    session.setQuestions(currentQuestions);
-                }
-
-                aiFollowUpMessage = new TranscriptMessageDto(
-                        "ai-" + System.nanoTime(),
-                        "ai",
-                        nextQuestion,
-                        InterviewSession.currentClock(),
-                        true
-                );
-                session.addTranscriptMessage(aiFollowUpMessage);
-
-                // Persist AI follow-up question to MySQL
-                InterviewMessageEntity followUpMsgEntity = InterviewMessageEntity.builder()
-                        .session(sessionEntity)
-                        .role("interviewer")
-                        .questionIndex(nextIndex)
-                        .messageType("質問")
-                        .text(nextQuestion)
-                        .createdAt(Instant.now())
-                        .build();
-                interviewMessageRepository.save(followUpMsgEntity);
-
-                // Update session state in MySQL
-                session.setCurrentQuestionIndex(nextIndex);
-                sessionEntity.setCurrentQuestionIndex(nextIndex);
-                applyProviderTrace(sessionEntity);
-                interviewSessionRepository.save(sessionEntity);
-
-                log.info("Interview session [{}] progressed to question index {}", interviewId, nextIndex);
-                return new InterviewAnswerResponse(userMessage, aiFollowUpMessage, nextIndex, false);
+                log.info("Interview session [{}] completed after {} turns action={} quality={} ai={}",
+                        interviewId, nextIndex, decision.getNextAction(), decision.getAnswerQuality(), decision.isUsedAi());
+                return response;
             }
+
+            interviewSessionRepository.save(sessionEntity);
+            log.info("Interview session [{}] progressed to index {} action={} quality={} provider={} model={}",
+                    interviewId, nextIndex, decision.getNextAction(), decision.getAnswerQuality(),
+                    decision.getProvider(), decision.getModelId());
+            return response;
         } finally {
             session.getLock().unlock();
+        }
+    }
+
+    private ModelProfile resolveInterviewModelProfile(AiProfile profile) {
+        if (profile == AiProfile.SMART || profile == AiProfile.ULTRA || profile == AiProfile.AUTO) {
+            return ModelProfile.builder()
+                    .id("gateway-" + profile.name().toLowerCase())
+                    .provider(com.tronai.ai.model.ModelProviderType.OLLAMA)
+                    .providerModelName("gateway-" + profile.name().toLowerCase())
+                    .displayName("Interview " + profile.name())
+                    .enabled(true)
+                    .build();
+        }
+        try {
+            return aiProfileService.resolveModel(profile);
+        } catch (org.springframework.web.server.ResponseStatusException ex) {
+            return ModelProfile.builder()
+                    .id("gateway-smart")
+                    .provider(com.tronai.ai.model.ModelProviderType.OLLAMA)
+                    .providerModelName("gateway-smart")
+                    .displayName("Interview SMART")
+                    .enabled(true)
+                    .build();
         }
     }
 

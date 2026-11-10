@@ -114,6 +114,7 @@ const defaultInterviewConfig: InterviewConfig = {
   difficulty: 'intermediate',
   mode: 'manual',
   questionCount: 5,
+  aiProfile: 'SMART',
 };
 
 const initialSampleChatSession: ChatSession = {

@@ -100,15 +100,17 @@ public class InterviewAnalysisService {
             return result;
         }
 
-        // Try AI analysis using session's locked AI Profile
-        if (modelManager != null) {
-            try {
-                if (performAiAnalysis(session, result, selected)) {
-                    return result;
+        // Try AI analysis via cloud gateway (Interview V2)
+        try {
+            if (performAiAnalysis(session, result, selected)) {
+                if (result.getAiOverallFeedback() == null || result.getAiOverallFeedback().isBlank()
+                        || result.getStrongPoints() == null || result.getStrongPoints().isEmpty()) {
+                    populateDeterministicAnalysis(session, result, isEnglish);
                 }
-            } catch (Exception e) {
-                log.info("AI interview analysis fell back to deterministic scoring: {}", e.getMessage());
+                return result;
             }
+        } catch (Exception e) {
+            log.info("AI interview analysis fell back to deterministic scoring: {}", e.getMessage());
         }
 
         // Deterministic fallback scoring based on answers
@@ -118,15 +120,7 @@ public class InterviewAnalysisService {
 
     private boolean performAiAnalysis(InterviewSession session, InterviewAnalysisResultDto result,
                                       com.tronai.language.ExperienceLanguage language) {
-        ModelProfile profile;
-        if (aiProfileService != null && session.getAiProfile() != null) {
-            profile = aiProfileService.resolveModel(session.getAiProfile());
-        } else {
-            profile = modelManager.getDefaultModel();
-        }
-
-        AiProvider provider = modelManager.getProvider(profile.getProvider());
-        if (provider == null || !provider.isAvailable()) {
+        if (aiGateway == null) {
             return false;
         }
 
@@ -175,29 +169,24 @@ public class InterviewAnalysisService {
                 ChatMessage.builder().role("user").content(prompt).build()
         );
 
+        // Interview V2: prefer cloud SMART/ULTRA via gateway; do not silently use dead local FAST.
         ChatGenerationResult response;
-        AiProfile logical = safeProfile(session.getAiProfile());
-        if (aiGateway != null && (logical == AiProfile.SMART || logical == AiProfile.ULTRA || logical == AiProfile.AUTO)) {
-            response = aiGateway.generate(AiRequestContext.builder()
-                    .feature(AiFeature.INTERVIEW_FEEDBACK)
-                    .mode(toMode(logical))
-                    .userId(com.tronai.auth.SecurityUtils.getCurrentUser().map(u -> u.getId()).orElse(null))
-                    .messages(messages)
-                    .temperature(0.2)
-                    .maxTokens(800)
-                    .jsonMode(true)
-                    .idempotencyKey(UUID.randomUUID().toString())
-                    .build()).toChatGenerationResult();
-        } else {
-            ChatGenerationRequest request = ChatGenerationRequest.builder()
-                    .model(profile.getProviderModelName())
-                    .messages(messages)
-                    .temperature(0.2)
-                    .numPredict(800)
-                    .jsonMode(true)
-                    .build();
-            response = provider.generate(request);
+        AiProfile logical = com.tronai.interview.engine.InterviewTurnEngine
+                .resolveInterviewRoutingProfile(session.getAiProfile());
+        if (aiGateway == null) {
+            return false;
         }
+        response = aiGateway.generate(AiRequestContext.builder()
+                .feature(AiFeature.INTERVIEW_FEEDBACK)
+                .mode(logical == AiProfile.ULTRA ? AiMode.ULTRA : AiMode.SMART)
+                .userId(com.tronai.auth.SecurityUtils.getCurrentUser().map(u -> u.getId()).orElse(null))
+                .messages(messages)
+                .temperature(0.2)
+                .maxTokens(800)
+                .jsonMode(true)
+                .allowCloud(true)
+                .idempotencyKey(UUID.randomUUID().toString())
+                .build()).toChatGenerationResult();
         if (response == null || response.getText() == null || response.getText().isBlank()) {
             return false;
         }

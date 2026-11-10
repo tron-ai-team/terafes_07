@@ -122,16 +122,20 @@ public class HealthController {
         }
         response.put("aiProfiles", profileHealth);
 
-        // Core platform is OK if Database and Ollama FAST are healthy
-        if (dbOk && aiOk) {
-            return ResponseEntity.ok(response);
-        } else {
-            response.put("status", "degraded");
+        // Liveness for production containers: database is required.
+        // AI / STT / TTS / queue may be unreachable in phase-1 (AI node later).
+        // HTTP 503 only when MySQL is down; otherwise 200 with status ok|degraded.
+        if (!dbOk) {
+            response.put("status", "down");
             return ResponseEntity.status(503).body(response);
         }
+        if (!aiOk) {
+            response.put("status", "degraded");
+        }
+        return ResponseEntity.ok(response);
     }
 
-    /** Release readiness deliberately excludes external inference nodes. */
+    /** Release readiness does not depend on the external inference node. */
     @GetMapping(value = "/health/ready", produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<Map<String, Object>> releaseReadiness() {
         boolean database = checkDatabase();

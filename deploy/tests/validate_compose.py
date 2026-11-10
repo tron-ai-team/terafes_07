@@ -17,7 +17,7 @@ with tempfile.TemporaryDirectory() as temporary:
         pins = directory / 'pins.env'
         pins.write_text(f'TRON_ENV_FILE={runtime}\nTRON_BACKEND_IMAGE=ghcr.io/tron-ai-team/terafes_07/tron-ai-backend@sha256:{"b"*64}\nTRON_FRONTEND_DIR={directory/environment}\nTRON_NGINX_CONFIG={root}/nginx/private.conf\nTRON_BACKEND_HOST_PORT={port}\nTRON_FRONTEND_HOST_PORT={port+1}\n')
         env = {k: v for k, v in os.environ.items() if not k.startswith(('TRON_', 'COMPOSE_'))}
-        result = subprocess.run(['docker', 'compose', '-p', 'tron-ai-' + environment, '--env-file', str(runtime), '--env-file', str(pins), '-f', str(root/'compose.prod.yml'), 'config', '--format', 'json'], env=env, check=True, capture_output=True)
+        result = subprocess.run(['docker', 'compose', '-p', 'tron-ai-' + environment, '--env-file', str(runtime), '--env-file', str(pins), '-f', str(root/'compose.relay.yml'), 'config', '--format', 'json'], env=env, check=True, capture_output=True)
         config = json.loads(result.stdout)
         assert 'ports' not in config['services']['gotenberg']
         assert 'ports' not in config['services']['mysql-proxy']

@@ -2,6 +2,7 @@ package com.tronai.voice;
 
 import com.tronai.ai.AiProvider;
 import com.tronai.ai.AiProviderUnavailableException;
+import com.tronai.ai.FallbackAiProvider;
 import com.tronai.ai.ChatGenerationRequest;
 import com.tronai.ai.ChatGenerationResult;
 import com.tronai.ai.ChatMessage;
@@ -210,14 +211,7 @@ public class VoiceService {
 
         int answerBudget = effectiveProfile == AiProfile.QUALITY || effectiveProfile == AiProfile.ULTRA ? 128 : 96;
         long llmStarted = System.currentTimeMillis();
-        ChatGenerationResult genResult;
-        try {
-            genResult = generateVoiceReply(effectiveProfile, messages, answerBudget);
-        } catch (com.tronai.ai.gateway.AiQuotaExceededException ex) {
-            throw new ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS, ex.getMessage());
-        } catch (IllegalStateException ex) {
-            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, ex.getMessage());
-        }
+        ChatGenerationResult genResult = generateVoiceReply(effectiveProfile, messages, answerBudget);
         int llmMs = (int) (System.currentTimeMillis() - llmStarted);
 
         String replyText = genResult.getText().trim();
@@ -297,7 +291,8 @@ public class VoiceService {
                             .logicalProfile(profile.name())
                             .build());
                 } catch (AiProviderUnavailableException localDown) {
-                    if (!hybrid.allowsCloudInference()) {
+                    if (FallbackAiProvider.LOCAL_UNAVAILABLE_DETAIL.equals(localDown.getMessage())
+                            || !hybrid.allowsCloudInference()) {
                         throw localDown;
                     }
                     log.info("Local voice FAST/QUALITY failed; falling back to cloud gateway");

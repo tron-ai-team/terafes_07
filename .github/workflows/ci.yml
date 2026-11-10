@@ -18,9 +18,15 @@ permissions:
 jobs:
   deployment:
     name: Deployment recovery tests
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Preserve the verified production revision
+        if: github.base_ref == 'main' || github.ref == 'refs/heads/main'
+        run: git merge-base --is-ancestor 43d1f3f12a24182e863342be27bb5059b5185edc HEAD
       - name: Release transaction and provenance regressions
         run: python3 -m unittest discover -s deploy/tests -v
       - name: Shell syntax
@@ -33,7 +39,7 @@ jobs:
 
   frontend:
     name: Frontend build
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     defaults:
       run:
         working-directory: frontend
@@ -61,7 +67,7 @@ jobs:
 
   backend:
     name: Backend Maven tests
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     defaults:
       run:
         working-directory: backend/backend-spring
@@ -77,13 +83,13 @@ jobs:
         # Those remain manual / local verification; CI gates on the hermetic suite.
         run: >
           ./mvnw -B test
-          -Dtest='!DesktopAgentControlLiveTest,!DesktopAgentLiveE2ETest,!DesktopAgentThreadLiveTest,!GotenbergLiveConvertIT,!Mission09LiveProviderVerificationIT,!CareerCenterV1BuilderIT,!CareerCenterJourneyIT'
+          -Dtest='!DesktopAgentControlLiveTest,!DesktopAgentLiveE2ETest,!DesktopAgentThreadLiveTest,!GotenbergLiveConvertIT,!Mission09LiveProviderVerificationIT,!CareerCenterV1BuilderIT,!CareerCenterJourneyIT,!CareerCenterCp03CvBuilderIT'
       - name: Package
         run: ./mvnw -B -DskipTests package
 
   security:
     name: Security checks
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - name: Block committed secrets (heuristic)
@@ -101,7 +107,7 @@ jobs:
 
   docker:
     name: Docker image build (no push)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: [backend]
     steps:
       - uses: actions/checkout@v4
@@ -120,3 +126,5 @@ jobs:
         run: sudo apt-get update -qq && sudo apt-get install -y -qq poppler-utils
       - name: Disposable Compose / MySQL / PDF runtime smoke
         run: python3 deploy/tests/smoke_compose.py
+      - name: Disposable backend production topology smoke
+        run: python3 deploy/tests/smoke_backend_production.py

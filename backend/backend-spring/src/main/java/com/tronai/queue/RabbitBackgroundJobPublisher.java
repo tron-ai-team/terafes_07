@@ -3,6 +3,7 @@ package com.tronai.queue;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
@@ -10,6 +11,7 @@ import java.util.Map;
 import java.util.UUID;
 
 @Service
+@ConditionalOnProperty(prefix = "tron.rabbitmq", name = "enabled", havingValue = "true", matchIfMissing = true)
 public class RabbitBackgroundJobPublisher implements BackgroundJobPublisher {
 
     private static final Logger log = LoggerFactory.getLogger(RabbitBackgroundJobPublisher.class);

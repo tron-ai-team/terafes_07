@@ -220,7 +220,7 @@ class Releases:
         target.mkdir(parents=True)
         manifest = unpack(data, target, sha)
         source = Path(__file__).resolve().parents[1]
-        shutil.copyfile(source / 'compose.prod.yml', target / 'compose.yml')
+        shutil.copyfile(source / 'compose.relay.yml', target / 'compose.yml')
         shutil.copyfile(source / 'nginx/private.conf', target / 'nginx.conf')
         pins = {'TRON_ENV_FILE': str(self.runtime), 'TRON_BACKEND_IMAGE': manifest['image'],
                 'TRON_FRONTEND_DIR': str(target / 'frontend'), 'TRON_NGINX_CONFIG': str(target / 'nginx.conf'),

@@ -274,13 +274,18 @@ export const tronApi = {
   },
 
   /**
-   * Synthesize Japanese speech using backend VOICEVOX (/demo/voice/speak)
+   * Synthesize speech via shared SpeechSynthesisRouter (Gemini Algenib primary).
+   * POST /demo/voice/speak — same router as interview voice-answer TTS.
    */
-  async synthesizeSpeech(text: string): Promise<string> {
+  async synthesizeSpeech(text: string, language?: string): Promise<string> {
     const cleanText = text.trim().slice(0, 399);
+    const body: { text: string; language?: string } = { text: cleanText };
+    if (language && language.trim()) {
+      body.language = language.trim();
+    }
     const res = await apiFetch('/demo/voice/speak', {
       method: 'POST',
-      body: JSON.stringify({ text: cleanText }),
+      body: JSON.stringify(body),
     });
 
     if (!res.ok) {

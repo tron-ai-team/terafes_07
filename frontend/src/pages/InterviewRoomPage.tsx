@@ -145,11 +145,11 @@ export const InterviewRoomPage: React.FC = () => {
   };
 
   /**
-   * Synthesize and play Japanese interviewer's question using VOICEVOX
-   * Used for initial opening question and manual mode follow-up questions
+   * Synthesize and play interviewer questions via shared Gemini Algenib TTS router.
+   * Used for initial opening question and manual mode follow-up questions.
    */
   const playAiVoice = useCallback(async (text: string, isInitialQuestion: boolean = false) => {
-    // Prevent mic from recording while AI is speaking
+    // Prevent mic from recording while AI is speaking (feedback-loop guard)
     if (isRecordingRef.current) {
       void stopAudioRecordingOnly();
     }
@@ -174,12 +174,14 @@ export const InterviewRoomPage: React.FC = () => {
     setAiState('thinking');
     setStatusMessage(
       uiLanguage === 'ja'
-        ? 'TRON AIが音声を準備しています...'
-        : 'TRON AI is preparing speech with VOICEVOX...'
+        ? 'TRON AIが Gemini Algenib 音声を準備しています...'
+        : 'TRON AI is preparing Gemini Algenib robotic speech...'
     );
 
     try {
-      const url = await tronApi.synthesizeSpeech(text);
+      const interviewLang =
+        interviewConfig.language === 'english' || interviewConfig.language === 'en' ? 'en' : 'ja';
+      const url = await tronApi.synthesizeSpeech(text, interviewLang);
       if (audioPlayGenRef.current !== currentGen || !isSessionActiveRef.current || isFinishedRef.current) {
         return;
       }
@@ -224,8 +226,8 @@ export const InterviewRoomPage: React.FC = () => {
         setAiState('speaking');
         setStatusMessage(
           uiLanguage === 'ja'
-            ? 'TRON AIが質問を話しています...'
-            : 'TRON AI is speaking with VOICEVOX...'
+            ? 'TRON AIが Gemini Algenib で質問を話しています...'
+            : 'TRON AI is speaking with Gemini Algenib robotic voice...'
         );
         setIsAutoplayBlocked(false);
       } catch (playErr: any) {
@@ -251,7 +253,7 @@ export const InterviewRoomPage: React.FC = () => {
         void startAudioRecording();
       }
     }
-  }, [audioMuted, uiLanguage]);
+  }, [audioMuted, uiLanguage, interviewConfig.language]);
 
   /**
    * User-gesture fallback handler when browser autoplay blocks opening question audio (TASK 3)
@@ -264,8 +266,8 @@ export const InterviewRoomPage: React.FC = () => {
         setAiState('speaking');
         setStatusMessage(
           uiLanguage === 'ja'
-            ? 'TRON AIが質問を話しています...'
-            : 'TRON AI is speaking with VOICEVOX...'
+            ? 'TRON AIが Gemini Algenib で質問を話しています...'
+            : 'TRON AI is speaking with Gemini Algenib robotic voice...'
         );
         await audio.play();
         return;
@@ -351,7 +353,7 @@ export const InterviewRoomPage: React.FC = () => {
       setStatusMessage(
         uiLanguage === 'ja'
           ? 'TRON AIが質問を話しています...'
-          : 'TRON AI is speaking with VOICEVOX...'
+          : 'TRON AI is speaking with Gemini Algenib robotic voice...'
       );
     }).catch((playErr) => {
       console.warn('playReturnedAudio play failed:', playErr);
@@ -790,7 +792,11 @@ export const InterviewRoomPage: React.FC = () => {
 
     setIsSubmitting(true);
     setAiState('thinking');
-    setStatusMessage('TRON AI is processing voice answer with qwen3:8b...');
+    setStatusMessage(
+      uiLanguage === 'ja'
+        ? 'TRON AIが音声回答を解析しています...'
+        : 'TRON AI is processing your voice answer...'
+    );
 
     const currentSessionId = interviewIdRef.current;
     const qIndex = currentQIndexRef.current;
@@ -913,7 +919,11 @@ export const InterviewRoomPage: React.FC = () => {
     setUserAnswerText('');
     setIsSubmitting(true);
     setAiState('thinking');
-    setStatusMessage('TRON AI is analyzing your answer with qwen3:8b...');
+    setStatusMessage(
+      uiLanguage === 'ja'
+        ? 'TRON AIが回答を評価しています...'
+        : 'TRON AI is evaluating your answer...'
+    );
 
     const currentSessionId = interviewIdRef.current;
     const qIndex = currentQIndexRef.current;

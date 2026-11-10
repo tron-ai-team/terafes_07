@@ -84,7 +84,8 @@ public class VoiceController {
             throw new VoiceException(HttpStatus.BAD_REQUEST, "Text to synthesize cannot be empty");
         }
 
-        byte[] audioData = voiceService.speak(text);
+        String language = (request != null) ? request.getLanguage() : null;
+        byte[] audioData = voiceService.speak(text, language);
 
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.parseMediaType("audio/wav"));

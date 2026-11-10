@@ -1,0 +1,187 @@
+@page {
+  size: A4 portrait;
+  margin: 10mm 12mm;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  color: #111;
+  font-family: "Noto Sans CJK JP", "Noto Sans JP", "IPAexGothic", "Yu Gothic", "YuGothic",
+               "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Meiryo", "MS PGothic", sans-serif;
+  font-size: 10pt;
+  line-height: 1.35;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+
+.page {
+  width: 186mm;
+  min-height: 270mm;
+  page-break-after: always;
+  break-after: page;
+}
+
+.page:last-child {
+  page-break-after: auto;
+  break-after: auto;
+}
+
+.header-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 4mm;
+  gap: 4mm;
+}
+
+.title-block {
+  flex: 1;
+}
+
+.title {
+  font-size: 22pt;
+  font-weight: 700;
+  letter-spacing: 0.55em;
+  margin: 0 0 3mm 2mm;
+}
+
+.doc-date {
+  font-size: 9.5pt;
+  margin-left: 2mm;
+}
+
+.photo-box {
+  width: 30mm;
+  height: 40mm;
+  border: 1px solid #222;
+  flex-shrink: 0;
+  overflow: hidden;
+  background: #fafafa;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+.photo-box img {
+  width: 30mm;
+  height: 40mm;
+  object-fit: cover;
+  object-position: center 20%;
+  display: block;
+}
+
+.photo-placeholder {
+  text-align: center;
+  font-size: 7.5pt;
+  color: #666;
+  line-height: 1.4;
+  padding: 2mm;
+}
+
+table.form {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+table.form th,
+table.form td {
+  border: 1px solid #222;
+  padding: 2.2mm 2.5mm;
+  vertical-align: middle;
+  word-wrap: break-word;
+  overflow-wrap: anywhere;
+}
+
+table.form th {
+  background: #f2f2f2;
+  font-weight: 600;
+  text-align: center;
+  white-space: nowrap;
+  font-size: 9pt;
+}
+
+.lbl-narrow { width: 16mm; }
+.lbl-mid { width: 18mm; }
+.col-year { width: 16mm; text-align: center; font-variant-numeric: tabular-nums; }
+.col-month { width: 10mm; text-align: center; font-variant-numeric: tabular-nums; }
+
+.furigana {
+  font-size: 8.5pt;
+  color: #333;
+  min-height: 4.5mm;
+}
+
+.name-ja {
+  font-size: 15pt;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  line-height: 1.3;
+  min-height: 9mm;
+}
+
+.section-banner {
+  margin: 3.5mm 0 0;
+  border: 1px solid #222;
+  border-bottom: none;
+  background: #f2f2f2;
+  text-align: center;
+  font-weight: 700;
+  font-size: 10.5pt;
+  letter-spacing: 0.35em;
+  padding: 1.6mm 0;
+}
+
+.section-banner + table.form {
+  margin-top: 0;
+}
+
+.group-label td {
+  background: #fafafa;
+  font-weight: 700;
+  text-align: center;
+  letter-spacing: 0.4em;
+  padding: 1.4mm;
+  font-size: 9.5pt;
+}
+
+.history-row td {
+  height: 7.2mm;
+  font-size: 9.5pt;
+}
+
+.history-desc {
+  text-align: left;
+}
+
+.prose-box {
+  min-height: 42mm;
+  white-space: pre-wrap;
+  word-break: break-word;
+  line-height: 1.55;
+  font-size: 9.5pt;
+  padding: 1mm 0;
+}
+
+.prose-box.tall {
+  min-height: 55mm;
+}
+
+.prose-box.short {
+  min-height: 28mm;
+}
+
+.muted {
+  color: #888;
+  font-size: 8.5pt;
+}
+
+.footnote {
+  margin-top: 3mm;
+  font-size: 7.5pt;
+  color: #666;
+}

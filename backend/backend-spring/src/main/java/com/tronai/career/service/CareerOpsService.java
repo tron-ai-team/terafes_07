@@ -43,29 +43,39 @@ public class CareerOpsService {
         for (String provider : BLOCKED_OAUTH) {
             ensureCheckpoint(user, provider, "BLOCKED", languageHelper.message("ops.blocked.oauth", "en"));
         }
-        ensureCheckpoint(user, "mynavi", "AVAILABLE",
-                "Public HTML scrape; lastStatus=" + mynaviJobProvider.lastFetchStatus());
-        ensureCheckpoint(user, "careermap", careerMapJobProvider.isOauthEnabled() ? "OAUTH_READY" : "PUBLIC_ONLY",
-                "Public scrape; school-linked OAuth blocked without credentials; lastStatus="
+        ensureCheckpoint(user, "mynavi", "NO_PUBLIC_API",
+                "JS-rendered search; no authorized API; lastStatus=" + mynaviJobProvider.lastFetchStatus());
+        ensureCheckpoint(user, "careermap", careerMapJobProvider.isOauthEnabled() ? "OAUTH_READY" : "SITEMAP_OG",
+                "Public sitemap + Open Graph; school-linked OAuth blocked; lastStatus="
                         + careerMapJobProvider.lastFetchStatus());
 
         List<CareerDtos.OpsProviderStatus> providers = new ArrayList<>();
         for (CareerOpsCheckpointEntity cp : checkpointRepository.findByUser_Id(userId)) {
             // Refresh live scrape statuses each call
             if ("mynavi".equals(cp.getProvider())) {
-                cp.setStatus("AVAILABLE");
-                cp.setLastError("Public HTML scrape; lastStatus=" + mynaviJobProvider.lastFetchStatus());
+                String st = mynaviJobProvider.lastFetchStatus();
+                cp.setStatus(st != null && st.startsWith("LIVE_ERROR") ? "BLOCKED" : "NO_PUBLIC_API");
+                cp.setLastError("No authorized API; JS-rendered results. Use official search URL or import. lastStatus="
+                        + st);
                 checkpointRepository.save(cp);
             } else if ("careermap".equals(cp.getProvider())) {
-                cp.setStatus(careerMapJobProvider.isOauthEnabled() ? "OAUTH_READY" : "PUBLIC_ONLY");
-                cp.setLastError("Public scrape; school-linked OAuth blocked without credentials; lastStatus="
-                        + careerMapJobProvider.lastFetchStatus());
+                String st = careerMapJobProvider.lastFetchStatus();
+                boolean empty = st != null && (st.contains("EMPTY") || st.contains("ERROR"));
+                cp.setStatus(empty ? "EMPTY" : (careerMapJobProvider.isOauthEnabled() ? "OAUTH_READY" : "SITEMAP_OG"));
+                cp.setLastError("Public sitemap + OG metadata; school-linked OAuth blocked; lastStatus=" + st);
                 checkpointRepository.save(cp);
+            }
+            String ext = null;
+            if ("mynavi".equals(cp.getProvider())) {
+                ext = mynaviJobProvider.externalSearchUrl(new com.tronai.career.service.provider.JobSearchCriteria());
+            } else if ("careermap".equals(cp.getProvider())) {
+                ext = careerMapJobProvider.externalSearchUrl(new com.tronai.career.service.provider.JobSearchCriteria());
             }
             providers.add(CareerDtos.OpsProviderStatus.builder()
                     .provider(cp.getProvider())
                     .status(cp.getStatus())
                     .message(cp.getLastError())
+                    .externalSearchUrl(ext)
                     .build());
         }
         return CareerDtos.OpsStatusResponse.builder().providers(providers).build();

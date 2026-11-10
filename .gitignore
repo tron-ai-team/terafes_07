@@ -1,4 +1,4 @@
-# TRON local / cleanup
+﻿# TRON local / cleanup
 .runtime/
 DELETE_LATER/
 node_modules/
@@ -41,12 +41,3 @@ _v4_golden_evidence/
 .vscode/*
 !.vscode/extensions.json
 !.vscode/settings.json
-
-# Build and platform artifacts
-**/target/
-**/dist/
-*.tsbuildinfo
-
-# Python runtime artifacts
-__pycache__/
-*.py[cod]

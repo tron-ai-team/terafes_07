@@ -52,13 +52,6 @@ export const SUPPORTED_LANGUAGES: readonly LanguageDefinition[] = [
     aiLanguage: 'ja',
   },
   {
-    code: 'si',
-    label: 'Sinhala',
-    nativeName: 'සිංහල',
-    uiLocale: 'en',
-    aiLanguage: 'si',
-  },
-  {
     code: 'bn',
     label: 'Bengali',
     nativeName: 'বাংলা',
@@ -117,8 +110,6 @@ export function resolveInterviewLanguage(code: SupportedLanguage): string {
   switch (code) {
     case 'ja':
       return 'japanese';
-    case 'si':
-      return 'sinhala';
     case 'bn':
       return 'bengali';
     case 'ne':
@@ -138,8 +129,6 @@ export function getVoiceNotice(code: SupportedLanguage): string | null {
   switch (code) {
     case 'ja':
       return null;
-    case 'si':
-      return 'VOICEVOX ජපන් හඬ පමණක් සපයයි. පෙළ ප්‍රතිචාරය ඉහතින් දක්වා ඇත.';
     case 'bn':
       return 'VOICEVOX শুধুমাত্র জাপানি ভয়েস সমর্থন করে। টেক্সট প্রতিক্রিয়া উপরে প্রদর্শিত হয়েছে।';
     case 'ne':

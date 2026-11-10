@@ -617,7 +617,7 @@ export const VoiceModePage: React.FC = () => {
     isActive && (voiceState === 'listening' || voiceState === 'calibrating');
 
   return (
-    <div className="relative flex-1 flex flex-col justify-between items-center max-w-4xl mx-auto w-full h-[calc(100vh-6rem)] select-none py-4 text-center">
+    <div className="relative flex-1 flex flex-col justify-between items-center max-w-4xl mx-auto w-full min-h-[calc(100dvh-5.5rem)] md:h-[calc(100vh-6rem)] select-none py-3 sm:py-4 text-center">
       {/* Top Bar: Mode Selector & Live Status Pill */}
       <div className="flex flex-wrap items-center justify-center gap-3">
         {/* Auto / Manual Segmented Toggle */}
@@ -690,7 +690,7 @@ export const VoiceModePage: React.FC = () => {
           <HUDCircle
             size={340}
             animate={isActive}
-            className="w-[280px] h-[280px] md:w-[340px] md:h-[340px]"
+            className="w-[220px] h-[220px] sm:w-[280px] sm:h-[280px] md:w-[340px] md:h-[340px]"
           />
           <div className="absolute inset-0 flex items-center justify-center">
             <TronLogo
@@ -875,6 +875,7 @@ export const VoiceModePage: React.FC = () => {
                 locked={hasStartedSession || isActive}
                 availableProfiles={aiProfiles}
                 placement="top"
+                compact
               />
               <button
                 onClick={startVoiceSession}

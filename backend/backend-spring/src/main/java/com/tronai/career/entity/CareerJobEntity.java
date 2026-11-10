@@ -80,6 +80,18 @@ public class CareerJobEntity {
     @Column(name = "content_hash", nullable = false, length = 64)
     private String contentHash;
 
+    @Column(name = "last_verified_at")
+    private Instant lastVerifiedAt;
+
+    @Column(name = "application_status", length = 40)
+    private String applicationStatus;
+
+    @Column(name = "international_student_policy", length = 40)
+    private String internationalStudentPolicy;
+
+    @Column(name = "verification_notes", length = 1024)
+    private String verificationNotes;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 

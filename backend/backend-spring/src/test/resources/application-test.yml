@@ -42,10 +42,6 @@ ollama:
 
 tron:
   default-model: qwen3-8b
-  # CI/GitHub Actions has no live Ollama. Keep local route deterministic so tests that
-  # mock AiProvider exercise the real Chat/Voice path without cloud provider keys.
-  hybrid:
-    assume-local-healthy: true
 
 stt:
   base-url: http://127.0.0.1:8091

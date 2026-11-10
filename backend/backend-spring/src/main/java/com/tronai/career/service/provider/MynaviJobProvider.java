@@ -2,32 +2,43 @@ package com.tronai.career.service.provider;
 
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
-import org.jsoup.nodes.Element;
-import org.jsoup.select.Elements;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
-import java.util.ArrayList;
-import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Locale;
-import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
- * Mynavi public job discovery. Attempts live HTML extraction from job.mynavi.jp.
- * Does not fabricate listings when live extraction yields nothing.
+ * Mynavi 2027 connector.
+ * <p>
+ * Findings (CP-04): there is no public authorized job-search API for job.mynavi.jp/2027.
+ * Search result cards are populated client-side (static HTML shows 0社). Hitting undocumented
+ * AJAX endpoints would be unauthorized scraping. This provider therefore:
+ * <ul>
+ *   <li>Does <b>not</b> fabricate listings</li>
+ *   <li>Returns empty automated discovery with honest status</li>
+ *   <li>Exposes verified deep-links to the official Mynavi search UI</li>
+ *   <li>Supports URL import via Open Graph / title metadata when the user pastes a page</li>
+ * </ul>
  */
 @Component
 public class MynaviJobProvider implements JobSearchProvider {
 
     private static final Logger log = LoggerFactory.getLogger(MynaviJobProvider.class);
-    private static final String SEARCH_URL =
-            "https://job.mynavi.jp/27/pc/search/query.html?FW:word=%E3%82%B7%E3%82%B9%E3%83%86%E3%83%A0%E3%82%A8%E3%83%B3%E3%82%B8%E3%83%8B%E3%82%A2";
+    private static final String SEARCH_BASE = "https://job.mynavi.jp/27/pc/search/query.html";
+    private static final String HOME_2027 = "https://job.mynavi.jp/2027/";
+    private static final String USER_AGENT =
+            "TRON-CareerCenter/1.0 (+https://tron.ai; respectful job discovery)";
 
     private final AtomicReference<String> lastStatus = new AtomicReference<>("NOT_FETCHED");
+
+    @Value("${career.jobs.mynavi.enabled:true}")
+    private boolean enabled = true;
 
     @Override
     public String providerId() {
@@ -36,68 +47,77 @@ public class MynaviJobProvider implements JobSearchProvider {
 
     @Override
     public boolean isAvailable() {
-        return true;
+        return enabled;
     }
 
+    @Override
     public String lastFetchStatus() {
         return lastStatus.get();
     }
 
     @Override
+    public String externalSearchUrl(JobSearchCriteria criteria) {
+        String q = criteria != null && criteria.getQuery() != null ? criteria.getQuery().trim() : "";
+        if (q.isBlank() && criteria != null && criteria.getKeywords() != null && !criteria.getKeywords().isEmpty()) {
+            q = String.join(" ", criteria.getKeywords());
+        }
+        if (q.isBlank()) {
+            return HOME_2027;
+        }
+        return SEARCH_BASE + "?FW:word=" + URLEncoder.encode(q, StandardCharsets.UTF_8);
+    }
+
+    @Override
     public List<ExternalJobListing> fetchJobs() {
+        return search(new JobSearchCriteria());
+    }
+
+    @Override
+    public List<ExternalJobListing> search(JobSearchCriteria criteria) {
+        if (!enabled) {
+            lastStatus.set("DISABLED");
+            return List.of();
+        }
+        // Probe connectivity for ops status — do not parse fabricated cards from nav chrome.
         try {
-            Document doc = Jsoup.connect(SEARCH_URL)
-                    .userAgent("TRON-CareerCenter/1.0 (+https://tron.ai; job-finder)")
-                    .timeout(15000)
+            String url = externalSearchUrl(criteria);
+            Document doc = Jsoup.connect(url)
+                    .userAgent(USER_AGENT)
+                    .timeout(12000)
                     .followRedirects(true)
                     .get();
-            List<ExternalJobListing> parsed = parseListings(doc);
-            if (parsed.isEmpty()) {
-                lastStatus.set("LIVE_EMPTY_OR_BLOCKED");
-                log.info("Mynavi live fetch returned no parseable company links (page may require JS/auth)");
-                return List.of();
-            }
-            lastStatus.set("LIVE_OK");
-            return parsed;
+            String bodyText = doc.body() != null ? doc.body().text() : "";
+            boolean zeroResultsMarker = bodyText.contains("0社") || doc.select("#searchResultkensuu").stream()
+                    .anyMatch(el -> "0".equals(el.text().trim()));
+            // Confirm page is reachable but listings are JS-rendered / empty in static HTML.
+            lastStatus.set(zeroResultsMarker
+                    ? "NO_PUBLIC_API_JS_RENDERED"
+                    : "LIVE_REACHABLE_NO_STRUCTURED_LISTINGS");
+            log.info("Mynavi automated listing extraction blocked (no public API; JS-rendered results). "
+                    + "External search URL available: {}", url);
+            return List.of();
         } catch (Exception e) {
             lastStatus.set("LIVE_ERROR:" + e.getClass().getSimpleName());
-            log.warn("Mynavi live fetch failed: {}", e.getMessage());
+            log.warn("Mynavi connectivity probe failed: {}", e.getMessage());
             return List.of();
         }
     }
 
-    private List<ExternalJobListing> parseListings(Document doc) {
-        Set<String> seen = new LinkedHashSet<>();
-        List<ExternalJobListing> out = new ArrayList<>();
-        Elements anchors = doc.select("a[href]");
-        for (Element a : anchors) {
-            String href = a.absUrl("href");
-            if (href == null || href.isBlank()) continue;
-            String lower = href.toLowerCase(Locale.ROOT);
-            if (!lower.contains("job.mynavi.jp")) continue;
-            if (!(lower.contains("/corp") || lower.contains("/company") || lower.contains("/job")
-                    || lower.contains("/search/") || lower.contains("/preview"))) {
-                continue;
-            }
-            String title = a.text() == null ? "" : a.text().trim();
-            if (title.length() < 2) continue;
-            if (!seen.add(href)) continue;
-            String company = title.length() > 80 ? title.substring(0, 80) : title;
-            out.add(ExternalJobListing.builder()
-                    .provider(providerId())
-                    .sourceId(Integer.toHexString(href.hashCode()))
-                    .sourceUrl(href)
-                    .title(title)
-                    .company(company)
-                    .location("")
-                    .employmentType("full_time")
-                    .newGraduateEligible(true)
-                    .description("Extracted from Mynavi public HTML at " + Instant.now())
-                    .tags(List.of("mynavi"))
-                    .publishedAt(Instant.now())
-                    .build());
-            if (out.size() >= 15) break;
+    /**
+     * Import a user-supplied Mynavi URL using public page metadata only.
+     */
+    public ExternalJobListing importFromUrl(String url) {
+        try {
+            String html = Jsoup.connect(url)
+                    .userAgent(USER_AGENT)
+                    .timeout(12000)
+                    .followRedirects(true)
+                    .get()
+                    .html();
+            return OpenGraphJobParser.parseMynaviImport(url, html, Instant.now());
+        } catch (Exception e) {
+            log.warn("Mynavi import fetch failed: {}", e.getMessage());
+            return OpenGraphJobParser.parseMynaviImport(url, null, Instant.now());
         }
-        return out;
     }
 }

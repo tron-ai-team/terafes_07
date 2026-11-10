@@ -6,6 +6,7 @@ import com.tronai.career.dto.CareerDtos;
 import com.tronai.career.entity.CareerJobEntity;
 import com.tronai.career.entity.CareerMatchEntity;
 import com.tronai.career.i18n.CareerLanguageHelper;
+import com.tronai.career.profile.CandidateProfileService;
 import com.tronai.career.repo.CareerMatchRepository;
 import com.tronai.career.util.SkillMatchEngine;
 import com.tronai.cv.CvDocumentRepository;
@@ -18,8 +19,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -30,6 +34,7 @@ public class CareerMatchService {
     private final CvDocumentRepository cvDocumentRepository;
     private final CvProfileRepository cvProfileRepository;
     private final CareerJobService careerJobService;
+    private final CandidateProfileService candidateProfileService;
     private final UserRepository userRepository;
     private final ObjectMapper objectMapper;
     private final CareerLanguageHelper languageHelper;
@@ -38,6 +43,7 @@ public class CareerMatchService {
                               CvDocumentRepository cvDocumentRepository,
                               CvProfileRepository cvProfileRepository,
                               CareerJobService careerJobService,
+                              CandidateProfileService candidateProfileService,
                               UserRepository userRepository,
                               ObjectMapper objectMapper,
                               CareerLanguageHelper languageHelper) {
@@ -45,6 +51,7 @@ public class CareerMatchService {
         this.cvDocumentRepository = cvDocumentRepository;
         this.cvProfileRepository = cvProfileRepository;
         this.careerJobService = careerJobService;
+        this.candidateProfileService = candidateProfileService;
         this.userRepository = userRepository;
         this.objectMapper = objectMapper;
         this.languageHelper = languageHelper;
@@ -59,8 +66,12 @@ public class CareerMatchService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "CV not found"));
         CareerJobEntity job = careerJobService.requireOwnedJob(userId, request.getJobId());
         CvProfileEntity profile = cvProfileRepository.findByDocumentId(request.getCvDocumentId()).orElse(null);
-        List<String> candidateSkills = profile != null ? readList(profile.getSkillsJson()) : List.of();
-        List<String> languages = profile != null ? readList(profile.getLanguagesJson()) : List.of();
+        List<String> candidateSkills = mergeSkills(
+                profile != null ? readList(profile.getSkillsJson()) : List.of(),
+                candidateProfileService.skillNamesForUser(userId));
+        List<String> languages = mergeSkills(
+                profile != null ? readList(profile.getLanguagesJson()) : List.of(),
+                candidateProfileService.languageNamesForUser(userId));
         List<String> required = careerJobService.readStringList(job.getRequiredSkillsJson());
         String lang = languageHelper.normalize(request.getLanguage());
         SkillMatchEngine.MatchAnalysis analysis = SkillMatchEngine.analyze(
@@ -99,11 +110,30 @@ public class CareerMatchService {
 
     public SkillMatchEngine.MatchAnalysis analyzeForJob(Long userId, Long cvId, CareerJobEntity job, String language) {
         CvProfileEntity profile = cvProfileRepository.findByDocumentId(cvId).orElse(null);
-        List<String> candidateSkills = profile != null ? readList(profile.getSkillsJson()) : List.of();
-        List<String> languages = profile != null ? readList(profile.getLanguagesJson()) : List.of();
+        List<String> candidateSkills = mergeSkills(
+                profile != null ? readList(profile.getSkillsJson()) : List.of(),
+                candidateProfileService.skillNamesForUser(userId));
+        List<String> languages = mergeSkills(
+                profile != null ? readList(profile.getLanguagesJson()) : List.of(),
+                candidateProfileService.languageNamesForUser(userId));
         List<String> required = careerJobService.readStringList(job.getRequiredSkillsJson());
         String lang = languageHelper.normalize(language);
         return SkillMatchEngine.analyze(candidateSkills, required, job.getJapaneseRequirement(), languages, lang, languageHelper);
+    }
+
+    private static List<String> mergeSkills(List<String> fromCv, List<String> fromProfile) {
+        Set<String> out = new LinkedHashSet<>();
+        if (fromCv != null) {
+            for (String s : fromCv) {
+                if (s != null && !s.isBlank()) out.add(s.trim());
+            }
+        }
+        if (fromProfile != null) {
+            for (String s : fromProfile) {
+                if (s != null && !s.isBlank()) out.add(s.trim());
+            }
+        }
+        return new ArrayList<>(out);
     }
 
     private CareerDtos.MatchResponse toResponse(CareerMatchEntity entity) {

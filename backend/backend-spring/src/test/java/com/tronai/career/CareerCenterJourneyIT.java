@@ -27,6 +27,7 @@ import java.time.Instant;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
@@ -72,10 +73,14 @@ class CareerCenterJourneyIT {
 
         when(mynaviJobProvider.isAvailable()).thenReturn(true);
         when(mynaviJobProvider.fetchJobs()).thenReturn(List.of(listing));
+        when(mynaviJobProvider.search(any())).thenReturn(List.of(listing));
         when(mynaviJobProvider.providerId()).thenReturn("mynavi");
+        when(mynaviJobProvider.lastFetchStatus()).thenReturn("MOCK_FIXTURE");
         when(careerMapJobProvider.isAvailable()).thenReturn(true);
         when(careerMapJobProvider.fetchJobs()).thenReturn(List.of());
+        when(careerMapJobProvider.search(any())).thenReturn(List.of());
         when(careerMapJobProvider.providerId()).thenReturn("careermap");
+        when(careerMapJobProvider.lastFetchStatus()).thenReturn("MOCK_EMPTY");
 
         userA = userRepository.findByEmailIgnoreCase("career-a@tron.ai")
                 .orElseGet(() -> userRepository.save(User.builder()
@@ -192,7 +197,9 @@ class CareerCenterJourneyIT {
     @DisplayName("TEST L — empty Mynavi/CareerMap fail gracefully without fabricated jobs")
     void emptyProvidersNoFabrication() throws Exception {
         when(mynaviJobProvider.fetchJobs()).thenReturn(List.of());
+        when(mynaviJobProvider.search(any())).thenReturn(List.of());
         when(careerMapJobProvider.fetchJobs()).thenReturn(List.of());
+        when(careerMapJobProvider.search(any())).thenReturn(List.of());
 
         mockMvc.perform(post("/api/v1/career/jobs/search")
                         .header("Authorization", authA)

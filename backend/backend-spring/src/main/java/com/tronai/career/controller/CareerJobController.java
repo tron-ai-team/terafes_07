@@ -24,9 +24,34 @@ public class CareerJobController {
     }
 
     @PostMapping(value = "/search", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
-    @Operation(summary = "Search Mynavi and CareerMap public listings")
+    @Operation(summary = "Search verified Mynavi/CareerMap listings (never fabricates jobs)")
     public ResponseEntity<List<CareerDtos.CareerJobResult>> search(@RequestBody CareerDtos.JobSearchRequest request) {
         return ResponseEntity.ok(careerJobService.searchJobs(SecurityUtils.getRequiredUserId(), request));
+    }
+
+    @PostMapping(value = "/sources", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
+    @Operation(summary = "Provider status and official external search URLs")
+    public ResponseEntity<CareerDtos.JobSourcesResponse> sources(
+            @RequestBody(required = false) CareerDtos.JobSearchRequest request) {
+        return ResponseEntity.ok(careerJobService.sources(SecurityUtils.getRequiredUserId(), request));
+    }
+
+    @GetMapping(value = "/sources", produces = MediaType.APPLICATION_JSON_VALUE)
+    @Operation(summary = "Provider status and official external search URLs")
+    public ResponseEntity<CareerDtos.JobSourcesResponse> sourcesGet() {
+        return ResponseEntity.ok(careerJobService.sources(SecurityUtils.getRequiredUserId(), new CareerDtos.JobSearchRequest()));
+    }
+
+    @PostMapping(value = "/refresh", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
+    @Operation(summary = "Force refresh from allowed public sources")
+    public ResponseEntity<Map<String, Object>> refresh(@RequestBody(required = false) CareerDtos.JobSearchRequest request) {
+        return ResponseEntity.ok(careerJobService.refreshSources(SecurityUtils.getRequiredUserId(), request));
+    }
+
+    @GetMapping(value = "/saved", produces = MediaType.APPLICATION_JSON_VALUE)
+    @Operation(summary = "List saved jobs for the authenticated user")
+    public ResponseEntity<List<CareerDtos.CareerJobResult>> saved() {
+        return ResponseEntity.ok(careerJobService.listSavedJobs(SecurityUtils.getRequiredUserId()));
     }
 
     @PostMapping(value = "/import", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)

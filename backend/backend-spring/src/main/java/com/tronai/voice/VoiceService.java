@@ -2,7 +2,6 @@ package com.tronai.voice;
 
 import com.tronai.ai.AiProvider;
 import com.tronai.ai.AiProviderUnavailableException;
-import com.tronai.ai.FallbackAiProvider;
 import com.tronai.ai.ChatGenerationRequest;
 import com.tronai.ai.ChatGenerationResult;
 import com.tronai.ai.ChatMessage;
@@ -291,8 +290,7 @@ public class VoiceService {
                             .logicalProfile(profile.name())
                             .build());
                 } catch (AiProviderUnavailableException localDown) {
-                    if (FallbackAiProvider.LOCAL_UNAVAILABLE_DETAIL.equals(localDown.getMessage())
-                            || !hybrid.allowsCloudInference()) {
+                    if (!hybrid.allowsCloudInference()) {
                         throw localDown;
                     }
                     log.info("Local voice FAST/QUALITY failed; falling back to cloud gateway");

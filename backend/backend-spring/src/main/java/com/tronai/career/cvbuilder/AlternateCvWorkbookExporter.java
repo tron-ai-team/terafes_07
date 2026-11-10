@@ -84,12 +84,20 @@ public class AlternateCvWorkbookExporter {
         if (raw instanceof List<?> list) {
             for (Object item : list) {
                 if (item instanceof Map<?, ?> map) {
-                    Object detail = map.get("detail");
-                    if (detail == null) detail = map.get("title");
-                    if (detail == null) detail = map.get("school");
-                    if (detail == null) detail = map.get("organization");
-                    if (detail == null) detail = map.toString();
-                    rowIdx = writeLine(sheet, rowIdx, "", String.valueOf(detail));
+                    @SuppressWarnings("unchecked")
+                    Map<String, Object> typed = (Map<String, Object>) map;
+                    String line = CvEducationSanitizer.formatExportLine(typed);
+                    if (line.isBlank()) {
+                        Object detail = map.get("detail");
+                        if (detail == null) detail = map.get("title");
+                        if (detail == null) detail = map.get("schoolName");
+                        if (detail == null) detail = map.get("school");
+                        if (detail == null) detail = map.get("organization");
+                        if (detail == null) detail = map.get("name");
+                        if (detail == null) detail = map.toString();
+                        line = String.valueOf(detail);
+                    }
+                    rowIdx = writeLine(sheet, rowIdx, "", line);
                 } else {
                     rowIdx = writeLine(sheet, rowIdx, "", String.valueOf(item));
                 }

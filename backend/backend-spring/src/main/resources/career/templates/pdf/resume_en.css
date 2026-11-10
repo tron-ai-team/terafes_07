@@ -1,0 +1,35 @@
+@page { size: A4; margin: 16mm 18mm; }
+* { box-sizing: border-box; }
+body {
+  font-family: "Segoe UI", "Helvetica Neue", Arial, "Noto Sans", sans-serif;
+  font-size: 10.5pt;
+  color: #1a1a1a;
+  line-height: 1.45;
+  margin: 0;
+}
+header {
+  border-bottom: 2.5px solid #1a1a1a;
+  padding-bottom: 10px;
+  margin-bottom: 16px;
+}
+h1 { margin: 0 0 6px; font-size: 22pt; letter-spacing: 0.02em; }
+.contact { font-size: 9.5pt; color: #333; }
+h2 {
+  font-size: 11pt;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin: 16px 0 6px;
+  border-bottom: 1px solid #bbb;
+  padding-bottom: 3px;
+}
+ul { margin: 0; padding-left: 18px; }
+li { margin-bottom: 6px; }
+.desc {
+  margin-top: 2px;
+  font-size: 9.5pt;
+  color: #333;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.muted { color: #666; font-weight: 400; }
+.summary { white-space: pre-wrap; word-break: break-word; }

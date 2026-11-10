@@ -6,9 +6,11 @@ export interface CareerJobResult {
   company: string;
   location: string;
   sourceUrl: string;
+  sourceProvider?: string | null;
 
-  matchScore: number; // 0 to 100
+  matchScore: number; // 0 to 100 — relevance estimate, not hiring probability
   matchTier?: 'HIGH' | 'MEDIUM' | 'LOW';
+  matchScoreDisclosure?: string | null;
 
   employmentType?: string | null;
   newGraduateEligible?: boolean | null;
@@ -27,6 +29,10 @@ export interface CareerJobResult {
   risks?: string[] | string;
 
   discoveredAt?: string;
+  lastVerifiedAt?: string | null;
+  applicationStatus?: string | null;
+  internationalStudentPolicy?: string | null;
+  verificationNotes?: string | null;
   fullDescription?: string | null;
   saved?: boolean;
 }

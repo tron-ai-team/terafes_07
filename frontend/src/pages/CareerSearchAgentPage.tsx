@@ -74,9 +74,10 @@ export const CareerSearchAgentPage: React.FC = () => {
   // Core Form State
   const [providerId, setProviderId] = useState<'mynavi' | 'careermap' | 'custom'>('mynavi');
   const [websiteUrl, setWebsiteUrl] = useState('https://job.mynavi.jp/');
-  const [targetRole, setTargetRole] = useState('Backend Engineer');
-  const [location, setLocation] = useState('Tokyo');
-  const [keywords, setKeywords] = useState('Java, Spring Boot, SQL, REST API');
+  const [targetRole, setTargetRole] = useState('システムエンジニア');
+  const [location, setLocation] = useState('東京都');
+  const [keywords, setKeywords] = useState('Java, Spring Boot, Webエンジニア');
+  const [externalSearchUrls, setExternalSearchUrls] = useState<string[]>([]);
   const [minimumMatch, setMinimumMatch] = useState<number>(70);
   const [maxResults, setMaxResults] = useState<number>(10);
   const [selectedCvId, setSelectedCvId] = useState<number | undefined>(undefined);
@@ -246,7 +247,23 @@ export const CareerSearchAgentPage: React.FC = () => {
         newGraduateOnly,
         maxResults,
         language: selectedLanguage || 'ja',
+        useProfilePreferences: true,
+        aiExplain: false,
       });
+
+      try {
+        const sources = await careerCenterClient.getJobSources({
+          query: targetRole,
+          location,
+          keywords: kw,
+        });
+        setExternalSearchUrls(sources.externalSearchUrls || []);
+      } catch {
+        setExternalSearchUrls([
+          `https://job.mynavi.jp/27/pc/search/query.html?FW:word=${encodeURIComponent(targetRole)}`,
+          `https://www.careermap.jp/jobs/jobs-search?q=${encodeURIComponent(targetRole)}`,
+        ]);
+      }
 
       setSteps((prev) =>
         prev.map((s) =>
@@ -272,7 +289,7 @@ export const CareerSearchAgentPage: React.FC = () => {
         const ops = await careerCenterClient.getOpsStatus();
         const providers = ops.providers || [];
         opsNote = providers
-          .map((p) => `${p.name || p.id}: ${p.status || p.detail || p.message || 'unknown'}`)
+          .map((p) => `${p.provider || p.name || p.id}: ${p.status || p.detail || p.message || 'unknown'}`)
           .join(' · ');
         setProviderStatusNote(opsNote);
         authRequired = providers.some((p) =>
@@ -282,13 +299,23 @@ export const CareerSearchAgentPage: React.FC = () => {
         );
         sourceIssue = providers
           .filter((p) => {
-            const id = String(p.id || p.name || '').toLowerCase();
+            const id = String(p.provider || p.id || p.name || '').toLowerCase();
             return id.includes('mynavi') || id.includes('careermap');
           })
           .every((p) => {
             const st = String(p.status || '').toUpperCase();
-            return st.includes('BLOCKED') || st.includes('EMPTY') || st === 'UNAVAILABLE';
+            return st.includes('BLOCKED') || st.includes('EMPTY') || st === 'UNAVAILABLE' || st.includes('NO_PUBLIC_API');
           });
+        // Mynavi alone being NO_PUBLIC_API is expected — not a total source failure if CareerMap works.
+        const cm = providers.find((p) =>
+          String(p.provider || p.id || p.name || '').toLowerCase().includes('careermap')
+        );
+        if (cm && filtered.length === 0) {
+          const st = String(cm.status || '').toUpperCase();
+          sourceIssue = st.includes('EMPTY') || st.includes('BLOCKED') || st.includes('ERROR');
+        } else if (filtered.length > 0) {
+          sourceIssue = false;
+        }
       } catch {
         // ops optional
       }
@@ -913,21 +940,19 @@ export const CareerSearchAgentPage: React.FC = () => {
               </div>
               <div className="space-y-1">
                 <h3 className="text-lg font-bold text-slate-800 font-display">
-                  {searchOutcome === 'NO_RESULTS'
-                    ? 'No matching jobs found'
-                    : searchOutcome === 'SOURCE_UNAVAILABLE'
-                      ? 'Job source unavailable'
-                      : searchOutcome === 'AUTHORIZATION_REQUIRED'
-                        ? 'Authorization required'
-                        : searchOutcome === 'ERROR'
-                          ? 'Search failed'
-                          : 'Find jobs that fit you'}
+                  {searchOutcome === 'NO_RESULTS' || searchOutcome === 'SOURCE_UNAVAILABLE'
+                    ? 'No verified jobs found for these search conditions.'
+                    : searchOutcome === 'AUTHORIZATION_REQUIRED'
+                      ? 'Authorization required'
+                      : searchOutcome === 'ERROR'
+                        ? 'Search failed'
+                        : 'Find jobs that fit you'}
                 </h3>
                 <p className="text-xs text-slate-500 max-w-md mx-auto leading-relaxed">
                   {errorMessage ||
                     blockedNotice ||
-                    (searchOutcome === 'NO_RESULTS'
-                      ? 'Providers returned no listings for this query. TRON does not invent results.'
+                    (searchOutcome === 'NO_RESULTS' || searchOutcome === 'SOURCE_UNAVAILABLE'
+                      ? 'TRON never invents vacancies. Change filters, retry source search, or open the official site.'
                       : 'Search Mynavi or CareerMap. Results come only from approved providers.')}
                 </p>
                 {searchOutcome !== 'IDLE' && (
@@ -936,15 +961,52 @@ export const CareerSearchAgentPage: React.FC = () => {
                   </p>
                 )}
               </div>
+              {(searchOutcome === 'NO_RESULTS' ||
+                searchOutcome === 'SOURCE_UNAVAILABLE' ||
+                searchOutcome === 'AUTHORIZATION_REQUIRED') && (
+                <div className="flex flex-wrap items-center justify-center gap-2 pt-2">
+                  <button
+                    type="button"
+                    onClick={(e) => handleSearch(e)}
+                    className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-600 text-white font-bold text-xs hover:bg-blue-700 transition-colors"
+                  >
+                    <RefreshCw className="w-3.5 h-3.5" />
+                    <span>Retry source search</span>
+                  </button>
+                  {(externalSearchUrls.length > 0
+                    ? externalSearchUrls
+                    : [
+                        `https://job.mynavi.jp/27/pc/search/query.html?FW:word=${encodeURIComponent(targetRole)}`,
+                        `https://www.careermap.jp/jobs/jobs-search?q=${encodeURIComponent(targetRole)}`,
+                      ]
+                  ).map((url) => (
+                    <a
+                      key={url}
+                      href={url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white border border-slate-200 text-slate-700 font-bold text-xs hover:border-blue-300 transition-colors"
+                    >
+                      <ExternalLink className="w-3.5 h-3.5" />
+                      <span>
+                        {url.includes('mynavi') ? 'Open Mynavi 2027' : 'Open CareerMap'}
+                      </span>
+                    </a>
+                  ))}
+                </div>
+              )}
               {searchOutcome === 'IDLE' && (
-                <div className="pt-2">
+                <div className="pt-2 space-y-2">
+                  <p className="text-[10px] text-slate-400">
+                    Demo fixtures are labeled and never mixed into live search results.
+                  </p>
                   <button
                     type="button"
                     onClick={handleLoadDemoData}
                     className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-50 text-blue-700 font-bold text-xs hover:bg-blue-100 transition-colors"
                   >
                     <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-                    <span>Preview with verified Japanese IT demo postings</span>
+                    <span>Preview UI with labeled demo fixtures</span>
                   </button>
                 </div>
               )}

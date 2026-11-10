@@ -83,7 +83,7 @@ export const CareerCenterPage: React.FC = () => {
                 CV Builder
               </h3>
               <p className="text-xs text-slate-500 leading-relaxed">
-                履歴書 / 職務経歴書 / Resume with AI assist and XLSX·PDF export.
+                Japanese 履歴書 / English Resume — Magic Fill, PDF preview, Excel download.
               </p>
             </div>
             <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs font-semibold text-purple-600 group-hover:translate-x-0.5 transition-transform">

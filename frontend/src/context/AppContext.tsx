@@ -153,7 +153,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     } catch {
       // ignore
     }
-    return 'en';
+    return 'ja';
   });
 
   const languageResolution = resolveLanguage(selectedLanguage);

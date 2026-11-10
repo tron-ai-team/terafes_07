@@ -100,13 +100,16 @@ export const CareerJobCard: React.FC<CareerJobCardProps> = ({
         <div className="shrink-0 flex items-center sm:flex-col sm:items-end gap-1.5">
           <div className={`px-3 py-1.5 rounded-2xl font-display font-extrabold text-xs sm:text-sm shadow-xs border flex items-center gap-1.5 ${getScoreColor(job.matchScore)}`}>
             <Sparkles className="w-3.5 h-3.5" />
-            <span>{job.matchScore}% MATCH</span>
+            <span>{job.matchScore}% RELEVANCE</span>
           </div>
           {job.matchTier && (
             <span className="text-[10px] font-mono font-bold uppercase text-slate-400">
               {job.matchTier} FIT
             </span>
           )}
+          <span className="text-[9px] text-slate-400 max-w-[140px] text-right leading-snug">
+            {job.matchScoreDisclosure || 'Relevance estimate — not hiring probability'}
+          </span>
         </div>
       </div>
 
@@ -141,7 +144,39 @@ export const CareerJobCard: React.FC<CareerJobCardProps> = ({
       </div>
 
       {/* Structured Opportunity Attributes (Strict 'Unknown' UX rule) */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 py-2.5 border-t border-slate-100/90 text-xs bg-slate-50/50 rounded-2xl px-3 my-1">
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 py-2.5 border-t border-slate-100/90 text-xs bg-slate-50/50 rounded-2xl px-3 my-1">
+        <div>
+          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block font-mono">
+            Source
+          </span>
+          <span className="font-semibold text-slate-800 flex items-center gap-1">
+            <Globe className="w-3 h-3 text-slate-400" />
+            {job.sourceProvider || 'verified'}
+          </span>
+        </div>
+
+        <div>
+          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block font-mono">
+            Application
+          </span>
+          <span className="font-semibold text-slate-800">
+            {job.applicationStatus && job.applicationStatus !== 'UNKNOWN'
+              ? job.applicationStatus
+              : 'UNKNOWN'}
+          </span>
+        </div>
+
+        <div>
+          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block font-mono">
+            Last verified
+          </span>
+          <span className="font-semibold text-slate-800 truncate block" title={job.lastVerifiedAt || 'Unknown'}>
+            {job.lastVerifiedAt
+              ? new Date(job.lastVerifiedAt).toLocaleString()
+              : 'Unknown'}
+          </span>
+        </div>
+
         <div>
           <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block font-mono">
             New Graduate
@@ -151,7 +186,7 @@ export const CareerJobCard: React.FC<CareerJobCardProps> = ({
               ? '✓ Eligible (新卒可)'
               : job.newGraduateEligible === false
               ? 'Experienced only'
-              : 'Unknown'}
+              : 'UNKNOWN'}
           </span>
         </div>
 
@@ -160,29 +195,20 @@ export const CareerJobCard: React.FC<CareerJobCardProps> = ({
             Japanese Level
           </span>
           <span className="font-semibold text-slate-800">
-            {job.japaneseRequirement || 'Not stated'}
+            {job.japaneseRequirement && job.japaneseRequirement !== 'UNKNOWN'
+              ? job.japaneseRequirement
+              : 'UNKNOWN'}
           </span>
         </div>
 
         <div>
           <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block font-mono">
-            Visa Support
+            Intl. students
           </span>
           <span className="font-semibold text-slate-800">
-            {job.visaSupport === true
-              ? '✓ Available'
-              : job.visaSupport === false
-              ? 'Not available'
-              : 'Unknown'}
-          </span>
-        </div>
-
-        <div>
-          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block font-mono">
-            Education
-          </span>
-          <span className="font-semibold text-slate-800 truncate block" title={job.educationRequirement || 'Not stated'}>
-            {job.educationRequirement || 'Not stated'}
+            {job.internationalStudentPolicy && job.internationalStudentPolicy !== 'UNKNOWN'
+              ? job.internationalStudentPolicy
+              : 'UNKNOWN'}
           </span>
         </div>
       </div>

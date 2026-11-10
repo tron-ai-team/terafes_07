@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { useSearchParams, useNavigate } from 'react-router-dom';
+import { useSearchParams, useNavigate, Link } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
 import { authApi, refreshSessionSingleFlight, setAccessToken as setHttpAccessToken } from '../services/httpClient';
 import { CORE_API_URL } from '../config/api';
@@ -101,14 +101,19 @@ export const AuthCallbackPage: React.FC = () => {
       <div className="fixed w-[640px] h-[640px] rounded-full bg-gradient-to-tr from-cyan-400/20 via-blue-500/15 to-transparent blur-3xl pointer-events-none" />
 
       <div className="relative z-10 w-full max-w-[420px] rounded-3xl bg-white/95 backdrop-blur-2xl border border-white/80 p-8 shadow-2xl shadow-blue-500/10 text-center animate-in fade-in duration-300">
-        <div className="flex justify-center mb-4">
-          <TronLogo size="hero" />
-        </div>
-
-        <div className="flex items-center justify-center gap-1.5 font-display text-2xl font-black tracking-tight text-slate-900 mb-2">
-          <span>TRON</span>
-          <span className="text-[#008CFF]">AI</span>
-        </div>
+        <Link
+          to="/"
+          className="inline-flex flex-col items-center group mb-4 hover:opacity-90 transition-opacity focus:outline-hidden"
+          title="Return to TRON AI Homepage"
+        >
+          <div className="flex justify-center mb-3">
+            <TronLogo size="hero" />
+          </div>
+          <div className="flex items-center justify-center gap-1.5 font-display text-2xl font-black tracking-tight text-slate-900 group-hover:text-blue-600 transition-colors">
+            <span>TRON</span>
+            <span className="text-[#008CFF]">AI</span>
+          </div>
+        </Link>
 
         {status === 'loading' && (
           <div className="py-6 space-y-4">

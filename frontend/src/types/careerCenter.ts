@@ -2,6 +2,149 @@
 
 export type CareerLanguage = 'en' | 'ja' | 'si' | 'bn' | 'ne' | 'my' | string;
 
+export type EducationStatus =
+  | 'Currently studying'
+  | 'Graduated'
+  | 'Expected graduation'
+  | 'Withdrawn'
+  | 'Other'
+  | string;
+
+export type SchoolType =
+  | 'Junior High School'
+  | 'High School'
+  | 'Vocational / Specialized School'
+  | 'University'
+  | 'Graduate School'
+  | 'Language School'
+  | 'Other'
+  | string;
+
+export interface EducationEntry {
+  id?: string;
+  schoolName?: string;
+  schoolNameJa?: string;
+  country?: string;
+  schoolType?: SchoolType;
+  department?: string;
+  course?: string;
+  startYear?: number | null;
+  startMonth?: number | null;
+  endYear?: number | null;
+  endMonth?: number | null;
+  status?: EducationStatus;
+  /** Legacy compatibility */
+  school?: string;
+  detail?: string;
+  suggested?: boolean;
+  needsReview?: boolean;
+}
+
+export interface CareerEntry {
+  id?: string;
+  company?: string;
+  organization?: string;
+  jobTitle?: string;
+  role?: string;
+  employmentType?: string;
+  startDate?: string;
+  endDate?: string;
+  currentlyEmployed?: boolean;
+  responsibilities?: string;
+  achievements?: string;
+  technologies?: string[];
+  period?: string;
+}
+
+export interface SkillEntry {
+  id?: string;
+  name: string;
+  category?: string;
+  proficiency?: string;
+  experienceMonths?: number | null;
+}
+
+export interface LanguageEntry {
+  id?: string;
+  language: string;
+  proficiency?: string;
+  certification?: string;
+  score?: string;
+  dateObtained?: string;
+  verified?: boolean;
+}
+
+export interface ProjectEntry {
+  id?: string;
+  name: string;
+  description?: string;
+  projectType?: string;
+  role?: string;
+  technologies?: string[];
+  startDate?: string;
+  endDate?: string;
+  githubUrl?: string;
+  liveDemoUrl?: string;
+  keyFeatures?: string;
+  technicalChallenges?: string;
+  solutions?: string;
+  achievements?: string;
+}
+
+export interface CertificationEntry {
+  id?: string;
+  name: string;
+  issuingOrganization?: string;
+  dateObtained?: string;
+  expirationDate?: string;
+  status?: 'Obtained' | 'Studying' | 'Exam scheduled' | 'Expired' | string;
+  credentialUrl?: string;
+}
+
+export interface CareerStories {
+  selfPr?: string;
+  gakuchika?: string;
+  strengths?: string;
+  weaknesses?: string;
+  careerGoals?: string;
+  reasonForIt?: string;
+  learningExperiences?: string;
+  technicalAchievements?: string;
+  generalMotivation?: string;
+  otherAchievements?: string;
+  [key: string]: unknown;
+}
+
+export interface InternationalInfo {
+  currentCountry?: string;
+  nationality?: string;
+  residenceStatus?: string;
+  residenceExpiration?: string;
+  workEligibility?: string;
+  japaneseProficiency?: string;
+  otherLanguages?: string;
+  [key: string]: unknown;
+}
+
+export interface CareerPreferences {
+  desiredJobTitles?: string[];
+  preferredIndustries?: string[];
+  preferredPrefectures?: string[];
+  preferredLocations?: string[];
+  preferredEmploymentTypes?: string[];
+  expectedGraduationYear?: string;
+  schoolCategory?: string;
+  desiredStartDate?: string;
+  desiredSalary?: string;
+  preferredTechnologies?: string[];
+  preferredCompanyEnvironment?: string[];
+  willingnessToRelocate?: boolean | string;
+  workStylePreference?: string;
+  jobCategory?: string;
+  employmentType?: string;
+  [key: string]: unknown;
+}
+
 export interface CandidateProfile {
   id?: number;
   fullName?: string;
@@ -9,26 +152,89 @@ export interface CandidateProfile {
   furigana?: string;
   dateOfBirth?: string | null;
   nationality?: string;
+  gender?: string;
   addressText?: string;
+  postalCode?: string;
+  prefecture?: string;
+  city?: string;
+  streetAddress?: string;
+  building?: string;
   email?: string;
   phone?: string;
   photoObjectKey?: string;
-  education?: Array<Record<string, unknown>>;
-  career?: Array<Record<string, unknown>>;
-  skills?: string[];
-  languages?: string[];
+  education?: EducationEntry[];
+  educationLegacyText?: string;
+  educationMigrationStatus?: string;
+  educationSuggestions?: EducationEntry[];
+  career?: CareerEntry[];
+  noWorkExperience?: boolean;
+  skills?: SkillEntry[] | string[];
+  languages?: LanguageEntry[] | string[];
+  projects?: ProjectEntry[];
+  certifications?: CertificationEntry[];
   selfPr?: string;
   careerGoals?: string;
+  /** Master-profile general motivation — not company-specific 志望動機. */
   motivation?: string;
-  preferences?: Record<string, unknown>;
+  careerStories?: CareerStories;
+  international?: InternationalInfo;
+  preferences?: CareerPreferences;
   completenessScore?: number;
   confirmedFields?: string[];
   missingFields?: string[];
+  completenessBreakdown?: Record<string, boolean | unknown>;
   updatedAt?: string;
 }
 
-export interface CandidateProfileRequest extends Omit<CandidateProfile, 'id' | 'completenessScore' | 'missingFields' | 'updatedAt' | 'photoObjectKey'> {
+export interface CandidateProfileRequest {
+  fullName?: string;
+  nameJa?: string;
+  furigana?: string;
+  dateOfBirth?: string | null;
+  nationality?: string;
+  gender?: string;
+  addressText?: string;
+  postalCode?: string;
+  prefecture?: string;
+  city?: string;
+  streetAddress?: string;
+  building?: string;
+  email?: string;
+  phone?: string;
+  education?: EducationEntry[];
+  educationLegacyText?: string;
+  confirmEducationMigration?: boolean;
+  career?: CareerEntry[];
+  noWorkExperience?: boolean;
+  skills?: SkillEntry[] | string[];
+  languages?: LanguageEntry[] | string[];
+  projects?: ProjectEntry[];
+  certifications?: CertificationEntry[];
+  selfPr?: string;
+  careerGoals?: string;
+  motivation?: string;
+  careerStories?: CareerStories;
+  international?: InternationalInfo;
+  preferences?: CareerPreferences;
+  confirmedFields?: string[];
   allowOverwriteConfirmed?: boolean;
+}
+
+export interface ProfileAiSuggestRequest {
+  fieldKey: string;
+  currentText?: string;
+  instruction?: string;
+  language?: string;
+  allowCloud?: boolean;
+}
+
+export interface ProfileAiSuggestResponse {
+  fieldKey: string;
+  originalText?: string;
+  proposedText?: string;
+  reason?: string;
+  engine?: string;
+  requiresApproval?: boolean;
 }
 
 export interface CvTemplateSummary {
@@ -42,6 +248,38 @@ export interface CvTemplateSchema {
   fields: string[];
 }
 
+export interface CvEducationPreview {
+  inputCount?: number;
+  keptCount?: number;
+  rejectedCount?: number;
+  duplicateCount?: number;
+  templateCapacity?: number;
+  exportCount?: number;
+  overflow?: boolean;
+  kept?: Array<Record<string, unknown>>;
+  rejected?: Array<Record<string, unknown>>;
+  willExport?: Array<Record<string, unknown>>;
+  message?: string;
+  draftId?: string;
+  templateCode?: string;
+}
+
+export interface CvVersionSummary {
+  versionId: string;
+  versionNumber: number;
+  versionLabel?: string;
+  templateCode?: string;
+  createdAt?: string;
+}
+
+export interface CvPhotoMeta {
+  included?: boolean;
+  hasDraftPhoto?: boolean;
+  hasProfilePhoto?: boolean;
+  source?: string;
+  available?: boolean;
+}
+
 export interface CvDraft {
   id: string;
   templateCode: string;
@@ -51,6 +289,10 @@ export interface CvDraft {
   status?: string;
   updatedAt?: string;
   suggestions?: CvSuggestion[];
+  educationPreview?: CvEducationPreview;
+  refreshedFromProfile?: boolean;
+  sanitizedEducation?: boolean;
+  photo?: CvPhotoMeta;
 }
 
 export interface CvSuggestion {
@@ -60,6 +302,9 @@ export interface CvSuggestion {
   originalText?: string;
   proposedText?: string;
   reason?: string;
+  category?: string;
+  requiresConfirmation?: boolean;
+  clarificationNeeded?: boolean;
   status?: 'PENDING' | 'ACCEPTED' | 'REJECTED' | string;
 }
 
@@ -115,12 +360,24 @@ export interface JobSearchRequest {
   newGraduateOnly?: boolean;
   maxResults?: number;
   language?: string;
+  useProfilePreferences?: boolean;
+  forceRefresh?: boolean;
+  aiExplain?: boolean;
 }
 
 export interface OpsProviderStatus {
   id?: string;
   name?: string;
+  provider?: string;
   status?: string;
   detail?: string;
   message?: string;
+  externalSearchUrl?: string;
+  cachedFreshCount?: number;
+}
+
+export interface JobSourcesResponse {
+  providers?: OpsProviderStatus[];
+  externalSearchUrls?: string[];
+  emptyStateMessage?: string;
 }

@@ -50,6 +50,18 @@ tron:
 stt:
   base-url: http://127.0.0.1:8091
   timeout-seconds: 5
+  prefer-local: true
+  groq-enabled: true
+  groq-model: whisper-large-v3-turbo
+  groq-timeout-seconds: 5
+
+tts:
+  groq:
+    enabled: true
+    model-english: canopylabs/orpheus-v1-english
+    voice-english: autumn
+    timeout-seconds: 5
+    max-input-chars: 200
 
 voicevox:
   base-url: http://127.0.0.1:50021
@@ -57,5 +69,3 @@ voicevox:
   timeout-seconds: 5
   audio-ttl-seconds: 600
   max-stored-clips: 20
-
-

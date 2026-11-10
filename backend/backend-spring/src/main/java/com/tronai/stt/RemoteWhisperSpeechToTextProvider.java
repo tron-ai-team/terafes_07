@@ -21,11 +21,12 @@ import org.springframework.web.client.RestClientResponseException;
 import java.time.Duration;
 
 /**
- * Speech-to-Text provider communicating over HTTP with the standalone faster-whisper worker (:8091).
+ * Local Speech-to-Text via the standalone faster-whisper worker (:8091).
  * Supports profile-aware transcription (FAST vs QUALITY).
+ * Not the primary Spring {@link SpeechToTextProvider} bean — see {@link RoutingSpeechToTextProvider}.
  */
 @Component
-public class RemoteWhisperSpeechToTextProvider implements SpeechToTextProvider {
+public class RemoteWhisperSpeechToTextProvider {
 
     private static final Logger log = LoggerFactory.getLogger(RemoteWhisperSpeechToTextProvider.class);
     private static final int MAX_AUDIO_BYTES = 4 * 1024 * 1024;
@@ -49,13 +50,14 @@ public class RemoteWhisperSpeechToTextProvider implements SpeechToTextProvider {
                 .build();
     }
 
-    @Override
     public SttTranscriptionResult transcribe(String filename, String contentType, byte[] data, String language) {
         return transcribe(filename, contentType, data, language, AiProfile.FAST);
     }
 
-    @Override
     public SttTranscriptionResult transcribe(String filename, String contentType, byte[] data, String language, AiProfile profile) {
+        if (properties.getBaseUrl() == null || properties.getBaseUrl().isBlank()) {
+            throw new VoiceException(HttpStatus.SERVICE_UNAVAILABLE, "STT service is unavailable");
+        }
         if (data == null || data.length == 0) {
             throw new VoiceException(HttpStatus.BAD_REQUEST, "The audio file is empty");
         }
@@ -120,8 +122,10 @@ public class RemoteWhisperSpeechToTextProvider implements SpeechToTextProvider {
         }
     }
 
-    @Override
     public boolean isAvailable() {
+        if (properties.getBaseUrl() == null || properties.getBaseUrl().isBlank()) {
+            return false;
+        }
         try {
             SimpleClientHttpRequestFactory quickFactory = new SimpleClientHttpRequestFactory();
             quickFactory.setConnectTimeout(Duration.ofSeconds(2));

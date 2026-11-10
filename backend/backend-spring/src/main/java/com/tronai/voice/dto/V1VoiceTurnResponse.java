@@ -31,6 +31,13 @@ public class V1VoiceTurnResponse {
     @JsonProperty("speechDetail")
     private String speechDetail;
 
+    /**
+     * When true, the SPA should play the reply with the browser Web Speech API
+     * because server-side TTS is unavailable for this language.
+     */
+    @JsonProperty("browserSpeechFallback")
+    private boolean browserSpeechFallback;
+
     @JsonProperty("latency_ms")
     private VoiceLatencyDto latencyMs;
 
@@ -116,6 +123,14 @@ public class V1VoiceTurnResponse {
 
     public void setSpeechDetail(String speechDetail) {
         this.speechDetail = speechDetail;
+    }
+
+    public boolean isBrowserSpeechFallback() {
+        return browserSpeechFallback;
+    }
+
+    public void setBrowserSpeechFallback(boolean browserSpeechFallback) {
+        this.browserSpeechFallback = browserSpeechFallback;
     }
 
     public VoiceLatencyDto getLatencyMs() {

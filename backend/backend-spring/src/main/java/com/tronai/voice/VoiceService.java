@@ -2,7 +2,6 @@ package com.tronai.voice;
 
 import com.tronai.ai.AiProvider;
 import com.tronai.ai.AiProviderUnavailableException;
-import com.tronai.ai.FallbackAiProvider;
 import com.tronai.ai.ChatGenerationRequest;
 import com.tronai.ai.ChatGenerationResult;
 import com.tronai.ai.ChatMessage;
@@ -229,15 +228,23 @@ public class VoiceService {
         if (speech.speechSynthesis() && ExperienceLanguage.JA.code().equals(speech.language())
                 && !JAPANESE_PATTERN.matcher(spoken).find()) {
             speech = new SpeechLanguageCapability(speech.language(), true, false, null,
-                    "The reply has no Japanese text, so VOICEVOX was not called.");
+                    "The reply has no Japanese text, so VOICEVOX was not called. Browser speech fallback can be used.");
         }
         if (speech.speechSynthesis()) {
-            long ttsStarted = System.currentTimeMillis();
-            byte[] wavBytes = speechSynthesisRouter.synthesizeRequired(spoken, normalizedLanguage);
-            ttsMs = (int) (System.currentTimeMillis() - ttsStarted);
-            String clipId = audioStoreService.storeClip(wavBytes);
-            audioUrl = "/api/v1/voice/audio/" + clipId;
+            try {
+                long ttsStarted = System.currentTimeMillis();
+                byte[] wavBytes = speechSynthesisRouter.synthesizeRequired(spoken, normalizedLanguage);
+                ttsMs = (int) (System.currentTimeMillis() - ttsStarted);
+                String clipId = audioStoreService.storeClip(wavBytes);
+                audioUrl = "/api/v1/voice/audio/" + clipId;
+            } catch (VoiceException ttsFailure) {
+                log.warn("Server TTS failed; enabling browser speech fallback: {}", ttsFailure.getMessage());
+                speech = new SpeechLanguageCapability(speech.language(), true, false, null,
+                        "Server TTS failed. Browser speech fallback can be used. (" + ttsFailure.getMessage() + ")");
+            }
         }
+
+        boolean browserFallback = !speech.speechSynthesis() || audioUrl.isBlank();
 
         int totalMs = (int) (System.currentTimeMillis() - totalStarted);
         VoiceLatencyDto latency = new VoiceLatencyDto(sttMs, llmMs, ttsMs, totalMs);
@@ -250,8 +257,13 @@ public class VoiceService {
         response.setLanguage(normalizedLanguage);
         response.setAudioUrl(audioUrl);
         response.setAudioContentType("audio/wav");
-        response.setSpeechSupported(speech.speechSynthesis());
-        response.setSpeechDetail(speech.detail());
+        response.setSpeechSupported(speech.speechSynthesis() && !audioUrl.isBlank());
+        response.setSpeechDetail(browserFallback
+                ? (speech.detail() != null && !speech.detail().isBlank()
+                    ? speech.detail()
+                    : "Browser speech fallback — server TTS unavailable for this language.")
+                : speech.detail());
+        response.setBrowserSpeechFallback(browserFallback);
         response.setLatencyMs(latency);
         response.setAiProfile(effectiveProfile.name());
         // Locked session reports the logical profile model id (tron-fast / tron-quality).
@@ -291,8 +303,7 @@ public class VoiceService {
                             .logicalProfile(profile.name())
                             .build());
                 } catch (AiProviderUnavailableException localDown) {
-                    if (FallbackAiProvider.LOCAL_UNAVAILABLE_DETAIL.equals(localDown.getMessage())
-                            || !hybrid.allowsCloudInference()) {
+                    if (!hybrid.allowsCloudInference()) {
                         throw localDown;
                     }
                     log.info("Local voice FAST/QUALITY failed; falling back to cloud gateway");

@@ -41,8 +41,24 @@ ollama:
   timeout-seconds: ${OLLAMA_TIMEOUT_SECONDS:180}
 
 stt:
+  # Empty until RTX AI node; cloud Groq Whisper is used when GROQ_API_KEY is set.
   base-url: ${STT_BASE_URL:}
   timeout-seconds: ${STT_TIMEOUT_SECONDS:30}
+  prefer-local: ${STT_PREFER_LOCAL:true}
+  groq-enabled: ${STT_GROQ_ENABLED:true}
+  groq-model: ${STT_GROQ_MODEL:whisper-large-v3-turbo}
+  groq-timeout-seconds: ${STT_GROQ_TIMEOUT_SECONDS:60}
+
+tts:
+  multilingual:
+    base-url: ${MULTILINGUAL_TTS_BASE_URL:}
+    timeout-seconds: ${MULTILINGUAL_TTS_TIMEOUT_SECONDS:30}
+  groq:
+    enabled: ${TTS_GROQ_ENABLED:true}
+    model-english: ${TTS_GROQ_MODEL_ENGLISH:canopylabs/orpheus-v1-english}
+    voice-english: ${TTS_GROQ_VOICE_ENGLISH:autumn}
+    timeout-seconds: ${TTS_GROQ_TIMEOUT_SECONDS:30}
+    max-input-chars: ${TTS_GROQ_MAX_INPUT_CHARS:200}
 
 voicevox:
   base-url: ${VOICEVOX_BASE_URL:}

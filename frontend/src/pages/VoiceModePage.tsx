@@ -6,7 +6,12 @@ import { AiProfileSelector } from '../components/common/AiProfileSelector';
 import { AiProfile } from '../types/aiProfile';
 import { tronApi } from '../services/api';
 import { TronAudioRecorder } from '../utils/audioRecorder';
-import { getVoiceNotice } from '../utils/languageResolver';
+import {
+  browserSpeechFallbackLabel,
+  isBrowserSpeechSupported,
+  speakWithBrowserFallback,
+  stopBrowserSpeechFallback,
+} from '../utils/browserSpeechFallback';
 import {
   Mic,
   MicOff,
@@ -351,6 +356,7 @@ export const VoiceModePage: React.FC = () => {
   // ── Start Initial Voice Session ──────────────────────────────────────────────
   const startVoiceSession = async () => {
     try {
+      stopBrowserSpeechFallback();
       if (currentAudioRef.current) {
         currentAudioRef.current.onended = null;
         currentAudioRef.current.onerror = null;
@@ -437,25 +443,24 @@ export const VoiceModePage: React.FC = () => {
         setCaptions((prev) => [...prev, { speaker: 'ai', text: response.reply }]);
       }
 
-      // Note when VOICEVOX audio is unavailable for non-Japanese languages
       const hasAudio = !!response.audio_url;
-      const isJapanese = selectedLanguage === 'ja' || response.language === 'ja';
+      const useBrowserFallback =
+        !hasAudio &&
+        !!response.reply &&
+        (response.browserSpeechFallback !== false || response.speechSupported === false);
 
-      if (!hasAudio && !isJapanese) {
-        const notice = getVoiceNotice(selectedLanguage);
-        if (notice) {
-          setCaptions((prev) => [
-            ...prev,
-            {
-              speaker: 'system',
-              text: notice,
-            },
-          ]);
+      const resumeAfterSpeech = async () => {
+        if (!isActiveRef.current) return;
+        if (voiceModeRef.current === 'auto') {
+          await startRecordingTurn();
+        } else {
+          setVoiceState('idle');
+          voiceStateRef.current = 'idle';
         }
-      }
+      };
 
-      // ── Play returned VOICEVOX audio ────────────────────────────────────────
-      if (response.audio_url) {
+      // ── Play server audio (VOICEVOX / Groq Orpheus) ─────────────────────────
+      if (hasAudio) {
         setVoiceState('speaking');
         voiceStateRef.current = 'speaking';
 
@@ -464,37 +469,45 @@ export const VoiceModePage: React.FC = () => {
         currentAudioRef.current = audio;
 
         const onAudioDone = async () => {
-          // Guard: clear ref only if still the same audio element
           if (currentAudioRef.current === audio) {
             currentAudioRef.current = null;
           }
-          if (!isActiveRef.current) return;
-          if (voiceModeRef.current === 'auto') {
-            await startRecordingTurn();
-          } else {
-            setVoiceState('idle');
-            voiceStateRef.current = 'idle';
-          }
+          await resumeAfterSpeech();
         };
 
         audio.onended = onAudioDone;
         audio.onerror = onAudioDone;
 
         await audio.play().catch(async () => {
-          // Autoplay blocked or error — still try to resume listening
           if (currentAudioRef.current === audio) currentAudioRef.current = null;
-          if (isActiveRef.current && voiceModeRef.current === 'auto') {
-            await startRecordingTurn();
-          } else {
-            setVoiceState('idle');
-            voiceStateRef.current = 'idle';
-          }
+          await resumeAfterSpeech();
         });
+      } else if (useBrowserFallback && isBrowserSpeechSupported()) {
+        // Labeled browser Web Speech fallback (Groq TTS has no Japanese; VOICEVOX offline)
+        setCaptions((prev) => [
+          ...prev,
+          { speaker: 'system', text: browserSpeechFallbackLabel(uiLanguage) },
+        ]);
+        setVoiceState('speaking');
+        voiceStateRef.current = 'speaking';
+        try {
+          await speakWithBrowserFallback(
+            response.reply,
+            response.language || selectedLanguage
+          );
+        } catch {
+          // Still resume the conversation loop if browser speech fails
+        }
+        await resumeAfterSpeech();
       } else {
-        // No audio returned (non-Japanese text-only or empty STT)
-        // IMPORTANT: must still reopen microphone in auto mode — do not wait for onended
+        if (!hasAudio && response.reply) {
+          setCaptions((prev) => [
+            ...prev,
+            { speaker: 'system', text: browserSpeechFallbackLabel(uiLanguage) },
+          ]);
+        }
+        // No playable audio — reopen mic in auto mode after a short pause
         if (isActiveRef.current && voiceModeRef.current === 'auto') {
-          // Brief pause for caption readability before resuming
           setTimeout(async () => {
             if (isActiveRef.current) {
               await startRecordingTurn();
@@ -565,6 +578,7 @@ export const VoiceModePage: React.FC = () => {
       activeStreamRef.current.getTracks().forEach((track) => track.stop());
       activeStreamRef.current = null;
     }
+    stopBrowserSpeechFallback();
     if (currentAudioRef.current) {
       currentAudioRef.current.onended = null;
       currentAudioRef.current.onerror = null;

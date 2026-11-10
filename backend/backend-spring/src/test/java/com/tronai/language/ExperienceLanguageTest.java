@@ -1,5 +1,6 @@
 package com.tronai.language;
 
+import com.tronai.tts.GroqTextToSpeechProvider;
 import com.tronai.tts.MultilingualTtsProperties;
 import com.tronai.tts.SpeechSynthesisRouter;
 import com.tronai.tts.TextToSpeechProvider;
@@ -25,8 +26,10 @@ class ExperienceLanguageTest {
     @Test
     void voicevoxIsNotUsedForNonJapaneseWhenNoMultilingualProviderExists() {
         TextToSpeechProvider voicevox = mock(TextToSpeechProvider.class);
+        GroqTextToSpeechProvider groq = mock(GroqTextToSpeechProvider.class);
         when(voicevox.isAvailable()).thenReturn(true);
-        SpeechSynthesisRouter router = new SpeechSynthesisRouter(voicevox, new MultilingualTtsProperties());
+        when(groq.supports(ExperienceLanguage.EN)).thenReturn(false);
+        SpeechSynthesisRouter router = new SpeechSynthesisRouter(voicevox, new MultilingualTtsProperties(), groq);
 
         assertThat(router.capability("ja").speechSynthesis()).isTrue();
         assertThat(router.capability("ja").synthesisProvider()).isEqualTo("voicevox");

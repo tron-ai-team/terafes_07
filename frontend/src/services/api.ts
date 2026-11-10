@@ -22,6 +22,8 @@ export interface V1VoiceTurnResponse {
   language?: string;
   speechSupported?: boolean;
   speechDetail?: string;
+  /** When true, play reply via browser Web Speech API (server TTS unavailable). */
+  browserSpeechFallback?: boolean;
   latency_ms: {
     stt: number;
     llm: number;

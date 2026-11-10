@@ -302,13 +302,54 @@ def pull_verified(sha, digest):
     return image, value["Id"]
 
 
+MIGRATION_PREFIX = "BOOT-INF/classes/db/migration/"
+MIGRATION_NAME = re.compile(r"V([0-9]+)__[A-Za-z0-9_]+\.sql\Z")
+
+
+def migration_filename(path):
+    require(path.startswith(MIGRATION_PREFIX) and path.count("/") == MIGRATION_PREFIX.count("/"),
+            f"Unexpected Flyway migration path: {path}")
+    name = path[len(MIGRATION_PREFIX):]
+    match = MIGRATION_NAME.fullmatch(name)
+    require(match, f"Unexpected Flyway migration file: {name}")
+    return name, int(match.group(1))
+
+
+def migration_inventory(hashes):
+    require(hashes, "Missing Flyway migration files")
+    versions = {}
+    for path in hashes:
+        name, version = migration_filename(path)
+        require(version not in versions, f"Duplicate Flyway migration version: V{version}")
+        versions[version] = name
+    return versions
+
+
+def compare_migration_hashes(current, candidate):
+    """Allow additive forward-only migrations; reject drift of historical files."""
+    current_versions = migration_inventory(current)
+    candidate_versions = migration_inventory(candidate)
+    for path, digest in current.items():
+        require(path in candidate, f"Historical Flyway migration removed: {path[len(MIGRATION_PREFIX):]}")
+        require(candidate[path] == digest,
+                f"Historical Flyway migration modified: {path[len(MIGRATION_PREFIX):]}")
+    baseline = max(current_versions)
+    for path in candidate:
+        if path in current:
+            continue
+        name, version = migration_filename(path)
+        require(version > baseline,
+                f"Unexpected Flyway migration {name}; only versions after V{baseline} may be added")
+
+
 def migration_hashes(container, destination):
     run("docker", "cp", f"{container}:/app/app.jar", str(destination), label="Read backend migration files")
     with zipfile.ZipFile(destination) as archive:
-        prefix = "BOOT-INF/classes/db/migration/"
-        files = [item for item in archive.infolist() if item.filename.startswith(prefix) and not item.is_dir()]
+        files = [item for item in archive.infolist()
+                 if item.filename.startswith(MIGRATION_PREFIX) and not item.is_dir()]
         hashes = {item.filename: hashlib.sha256(archive.read(item)).hexdigest() for item in files}
         require(hashes and len(hashes) == len(files), "Missing or ambiguous Flyway migration files")
+        migration_inventory(hashes)
         return hashes
 
 
@@ -318,8 +359,8 @@ def verify_migrations(current, image):
     try:
         with tempfile.TemporaryDirectory(dir=STATE) as directory:
             tmp = Path(directory)
-            require(migration_hashes(current, tmp / "current.jar") == migration_hashes(candidate, tmp / "next.jar"),
-                    "Flyway files differ; this release requires a separately reviewed database rollout")
+            compare_migration_hashes(migration_hashes(current, tmp / "current.jar"),
+                                     migration_hashes(candidate, tmp / "next.jar"))
     finally:
         # Only the stopped inspection container created above; no volume removal.
         run("docker", "container", "rm", candidate, label="Remove inert inspection container")

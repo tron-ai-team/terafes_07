@@ -261,6 +261,37 @@ class InterviewTurnEngineTest {
         assertThat(decision.interviewerUtterance()).contains("ありがとう");
     }
 
+    @Test
+    @DisplayName("CLOSE action spoken reply is grounded and does not invent a new follow-up question")
+    void closeActionNoInventedFollowUp() {
+        when(aiGateway.generate(any(AiRequestContext.class))).thenReturn(AiGenerationResult.builder()
+                .text("""
+                        {
+                          "answerQuality": "STRONG",
+                          "nextAction": "CLOSE",
+                          "spokenReply": "本日は貴重なお時間をありがとうございました。",
+                          "nextQuestion": "",
+                          "currentTopic": "reverse_questions",
+                          "coverage": ["self_intro","technical_skills"],
+                          "internalScores": {"relevance":88,"clarity":85,"specificity":80,"technicalAccuracy":86,"consistency":87},
+                          "assessmentNotes": "Session complete"
+                        }
+                        """)
+                .provider(GatewayProviderId.GROQ)
+                .modelId("openai/gpt-oss-120b")
+                .build());
+
+        InterviewSession session = japaneseSession(3);
+        session.recordAskedQuestion("Javaの経験を教えてください。", "technical_skills");
+        session.addTurn("candidate", "Spring Bootで認証APIを実装しました。");
+
+        InterviewTurnDecision decision = engine.decide(session, "Spring Bootで認証APIを実装しました。");
+        assertThat(decision.getNextAction()).isEqualTo(InterviewTurnAction.CLOSE);
+        assertThat(decision.getNextQuestion()).isBlank();
+        assertThat(decision.interviewerUtterance()).contains("ありがとう");
+        assertThat(decision.interviewerUtterance()).doesNotContain("具体的に言ってください");
+    }
+
     private static InterviewSession japaneseSession(int questionCount) {
         InterviewConfigDto config = new InterviewConfigDto();
         config.setLanguage("japanese");

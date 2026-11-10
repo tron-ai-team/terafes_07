@@ -4,6 +4,7 @@ import {
   InterviewAnalysisResult,
   TranscriptMessage,
   InterviewHistoryItem,
+  InterviewAnswerSubmissionResult,
 } from '../types/interview';
 
 import { LEGACY_API_URL, CORE_API_URL } from '../config/api';
@@ -129,12 +130,7 @@ export const tronApi = {
     _totalQuestions: number,
     answerText: string,
     _audioBlob?: Blob
-  ): Promise<{
-    userMessage: TranscriptMessage;
-    aiFollowUpMessage: TranscriptMessage;
-    nextQuestionIndex: number;
-    isFinished: boolean;
-  }> {
+  ): Promise<InterviewAnswerSubmissionResult> {
     const res = await apiFetch(`/api/v1/interviews/${interviewId}/answers`, {
       method: 'POST',
       body: JSON.stringify({ questionIndex, answerText }),
@@ -145,6 +141,36 @@ export const tronApi = {
       throw new Error(detail || `Answer submission failed with status ${res.status}`);
     }
 
+    return await res.json();
+  },
+
+  /**
+   * Download interview PDF report (/api/v1/interviews/{interviewId}/report.pdf)
+   */
+  async downloadInterviewReport(interviewId: string): Promise<Blob> {
+    const res = await apiFetch(`/api/v1/interviews/${interviewId}/report.pdf`);
+    if (!res.ok) {
+      const detail = await parseErrorDetail(res);
+      throw new Error(detail || `Report download failed with status ${res.status}`);
+    }
+    return await res.blob();
+  },
+
+  /**
+   * Fetch interview session detail from server (/api/v1/interviews/{interviewId})
+   */
+  async getInterviewDetail(interviewId: string): Promise<{
+    id: string;
+    config?: InterviewConfig;
+    transcript?: TranscriptMessage[];
+    analysis?: InterviewAnalysisResult;
+    finished?: boolean;
+  }> {
+    const res = await apiFetch(`/api/v1/interviews/${interviewId}`);
+    if (!res.ok) {
+      const detail = await parseErrorDetail(res);
+      throw new Error(detail || `Interview detail failed with status ${res.status}`);
+    }
     return await res.json();
   },
 

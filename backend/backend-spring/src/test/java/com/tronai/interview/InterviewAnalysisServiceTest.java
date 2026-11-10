@@ -89,6 +89,31 @@ class InterviewAnalysisServiceTest {
     }
 
     @Test
+    @DisplayName("Per-turn assessments are folded into category assessments when AI omits categories")
+    void assessmentsFoldedIntoCategories() {
+        analysisService = new InterviewAnalysisService(Mockito.mock(ModelManager.class), null, null);
+
+        InterviewConfigDto config = new InterviewConfigDto();
+        InterviewSession session = new InterviewSession("sess-assess", config, 5, "SMART", "gateway-smart");
+        session.addTurn("interviewer", "自己紹介をお願いします。");
+        session.addTurn("candidate", "Spring BootでAPIを開発しました。");
+        session.addAssessment(java.util.Map.of(
+                "quality", "ADEQUATE",
+                "action", "FOLLOW_UP",
+                "topic", "self_intro",
+                "scores", java.util.Map.of("relevance", 80, "clarity", 75, "technicalAccuracy", 82, "specificity", 70, "consistency", 78)
+        ));
+
+        InterviewAnalysisResultDto result = analysisService.analyze(session);
+
+        assertThat(result.getCategoryAssessments()).isNotEmpty();
+        assertThat(result.getCategoryAssessments().stream().map(c -> c.getCategory()))
+                .contains("Answer Relevance", "Technical Understanding");
+        assertThat(result.getCategoryAssessments().stream()
+                .anyMatch(c -> "not_assessed".equals(c.getLevel()) && c.getScore() == null)).isFalse();
+    }
+
+    @Test
     @DisplayName("Malformed AI output falls back to deterministic analysis without throwing error")
     void malformedAiOutputFallback() {
         when(aiGateway.generate(any(AiRequestContext.class))).thenReturn(AiGenerationResult.builder()

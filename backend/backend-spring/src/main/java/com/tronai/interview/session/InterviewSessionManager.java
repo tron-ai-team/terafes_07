@@ -146,9 +146,16 @@ public class InterviewSessionManager {
                     dto.setTextEn(msg.getText());
                 }
                 session.addTranscriptMessage(dto);
+            }
 
-                if (isAi && !"終了".equals(msg.getMessageType())) {
-                    session.recordAskedQuestion(msg.getText(), "");
+            boolean restoredEngineState = restoreEngineStateFromEntity(entity, session);
+
+            if (!restoredEngineState) {
+                for (InterviewMessageEntity msg : messages) {
+                    boolean isAi = !"candidate".equalsIgnoreCase(msg.getRole()) && !"user".equalsIgnoreCase(msg.getRole());
+                    if (isAi && !"終了".equals(msg.getMessageType())) {
+                        session.recordAskedQuestion(msg.getText(), "");
+                    }
                 }
             }
 
@@ -172,6 +179,29 @@ public class InterviewSessionManager {
         }
 
         return session;
+    }
+
+    boolean restoreEngineStateFromEntity(InterviewSessionEntity entity, InterviewSession session) {
+        if (entity.getEngineStateJson() == null || entity.getEngineStateJson().isBlank()) {
+            return false;
+        }
+        try {
+            InterviewEngineState state = objectMapper.readValue(entity.getEngineStateJson(), InterviewEngineState.class);
+            state.applyTo(session);
+            return true;
+        } catch (Exception e) {
+            log.warn("Failed to parse engine_state_json for session [{}]: {}", entity.getId(), e.getMessage());
+            return false;
+        }
+    }
+
+    public String serializeEngineState(InterviewSession session) {
+        try {
+            return objectMapper.writeValueAsString(InterviewEngineState.fromSession(session));
+        } catch (Exception e) {
+            log.warn("Failed to serialize engine state for session [{}]: {}", session.getInterviewId(), e.getMessage());
+            return null;
+        }
     }
 
     public void evict(String interviewId) {

@@ -20,6 +20,7 @@ import com.tronai.interview.engine.InterviewTurnEngine;
 import com.tronai.interview.generator.InterviewQuestionGenerator;
 import com.tronai.interview.session.InterviewSession;
 import com.tronai.interview.session.InterviewSessionManager;
+import com.tronai.career.cvbuilder.gotenberg.GotenbergPdfClient;
 import com.tronai.queue.BackgroundJobPublisher;
 import com.tronai.user.User;
 import com.tronai.user.UserRepository;
@@ -58,6 +59,8 @@ public class InterviewService {
     private final CompanyAnalysisRepository companyAnalysisRepository;
     private final CandidateProfileService candidateProfileService;
     private final ObjectMapper objectMapper;
+    private final InterviewReportService interviewReportService;
+    private final GotenbergPdfClient gotenbergPdfClient;
 
     private static final String FOLLOW_UP_CARD_JA = "次の質問は、回答後に下の文字起こしへ追加されます。";
     private static final String FOLLOW_UP_CARD_EN = "The next question will appear in the transcript below after your answer.";
@@ -77,7 +80,9 @@ public class InterviewService {
                             com.tronai.ai.profile.AiProfileResolver aiProfileResolver,
                             CompanyAnalysisRepository companyAnalysisRepository,
                             CandidateProfileService candidateProfileService,
-                            ObjectMapper objectMapper) {
+                            ObjectMapper objectMapper,
+                            InterviewReportService interviewReportService,
+                            GotenbergPdfClient gotenbergPdfClient) {
         this.sessionManager = sessionManager;
         this.questionGenerator = questionGenerator;
         this.turnEngine = turnEngine;
@@ -92,6 +97,8 @@ public class InterviewService {
         this.companyAnalysisRepository = companyAnalysisRepository;
         this.candidateProfileService = candidateProfileService;
         this.objectMapper = objectMapper;
+        this.interviewReportService = interviewReportService;
+        this.gotenbergPdfClient = gotenbergPdfClient;
     }
 
     /**
@@ -207,6 +214,7 @@ public class InterviewService {
                 .startedAt(Instant.now())
                 .build();
         applyProviderTrace(sessionEntity);
+        sessionEntity.setEngineStateJson(sessionManager.serializeEngineState(session));
         sessionEntity = interviewSessionRepository.save(sessionEntity);
 
         // Persist initial message
@@ -363,6 +371,7 @@ public class InterviewService {
                 sessionEntity.setProviderType(decision.getProvider());
             }
             applyProviderTrace(sessionEntity);
+            sessionEntity.setEngineStateJson(sessionManager.serializeEngineState(session));
 
             InterviewAnswerResponse response = new InterviewAnswerResponse(
                     userMessage, aiFollowUpMessage, nextIndex, isFinished);
@@ -503,6 +512,31 @@ public class InterviewService {
                     .build());
         }
         return results;
+    }
+
+    @Transactional(readOnly = true)
+    public byte[] generateInterviewReportPdf(Long userId, String interviewId) {
+        InterviewSessionEntity entity = interviewSessionRepository.findByIdAndUserId(interviewId, userId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Interview session not found"));
+        if (!entity.isFinished()) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Interview is not completed yet");
+        }
+
+        InterviewAnalysisResultDto analysis;
+        if (entity.getAnalysis() != null) {
+            InterviewSession session = sessionManager.getSession(interviewId);
+            analysis = mapEntityToAnalysisResult(entity.getAnalysis(), session);
+        } else {
+            analysis = getAnalysis(interviewId);
+        }
+
+        byte[] html = interviewReportService.buildReportHtml(analysis);
+        try {
+            return gotenbergPdfClient.convertHtml(html);
+        } catch (Exception e) {
+            log.error("Interview PDF generation failed for [{}]: {}", interviewId, e.getMessage());
+            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "PDF report generation is temporarily unavailable");
+        }
     }
 
     @Transactional(readOnly = true)

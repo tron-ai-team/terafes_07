@@ -14,6 +14,7 @@ import com.tronai.ai.model.ModelManager;
 import com.tronai.ai.model.ModelProfile;
 import com.tronai.ai.profile.AiProfile;
 import com.tronai.ai.profile.AiProfileService;
+import com.tronai.interview.dto.CategoryAssessmentDto;
 import com.tronai.interview.dto.InterviewAnalysisResultDto;
 import com.tronai.interview.dto.RadarDataDto;
 import com.tronai.interview.dto.StarSuggestionDto;
@@ -29,7 +30,9 @@ import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 /**
@@ -96,7 +99,7 @@ public class InterviewAnalysisService {
         long candidateTurnCount = turns.stream().filter(t -> "candidate".equalsIgnoreCase(t.getRole())).count();
 
         if (candidateTurnCount == 0) {
-            populateEmptyCandidateAnalysis(result, isEnglish);
+            populateEmptyCandidateAnalysis(session, result, isEnglish);
             return result;
         }
 
@@ -115,6 +118,7 @@ public class InterviewAnalysisService {
 
         // Deterministic fallback scoring based on answers
         populateDeterministicAnalysis(session, result, isEnglish);
+        ensureCategoryAssessments(session, result, isEnglish);
         return result;
     }
 
@@ -130,9 +134,11 @@ public class InterviewAnalysisService {
                     .append(turn.getContent()).append("\n");
         }
 
+        String assessmentsBlock = formatAssessmentsForPrompt(session.getAssessments());
+
         String prompt = """
-                あなたは採用面接の専門評価者です。以下の面接対話ログだけを根拠にして、JSON形式で評価を返してください。
-                発話にない架空の経歴や資格は言及しないでください。
+                あなたは採用面接の専門評価者です。以下の面接対話ログと各ターン評価メモだけを根拠にして、JSON形式で評価を返してください。
+                発話にない架空の経歴や資格は言及しないでください。根拠のない項目は "not_assessed" とし、score は null にしてください。
                 必ず以下のJSON構造のみを返してください。
                 {
                   "overallScore": 85,
@@ -147,6 +153,10 @@ public class InterviewAnalysisService {
                     {"metric": "STAR Structure", "metricJa": "回答構成", "score": 80, "benchmark": 65},
                     {"metric": "Company Fit", "metricJa": "適性", "score": 85, "benchmark": 70}
                   ],
+                  "categoryAssessments": [
+                    {"category": "Answer Relevance", "categoryJa": "回答の関連性", "level": "adequate", "score": 78, "evidence": "対話ログから引用した根拠"},
+                    {"category": "Communication Clarity", "categoryJa": "伝達の明確さ", "level": "not_assessed", "score": null, "evidence": "根拠不足"}
+                  ],
                   "strongPoints": ["良かった点1", "良かった点2"],
                   "weakPoints": ["改善点1", "改善点2"],
                   "aiOverallFeedback": "面接全体の総評と今後のアドバイス",
@@ -157,6 +167,16 @@ public class InterviewAnalysisService {
                     "result": "成果のまとめ"
                   }
                 }
+                categoryAssessments には必ず次の7カテゴリを含めてください（根拠不足時は level=not_assessed, score=null）:
+                Answer Relevance / 回答の関連性,
+                Communication Clarity / 伝達の明確さ,
+                Technical Understanding / 技術理解,
+                Problem Solving / 課題解決,
+                Specificity / 具体性,
+                Consistency / 一貫性,
+                Role Readiness / 職務適性
+                --- 各ターン評価メモ (per-turn assessments) ---
+                """ + assessmentsBlock + """
                 --- 面接対話ログ ---
                 """ + dialogue;
 
@@ -191,7 +211,26 @@ public class InterviewAnalysisService {
             return false;
         }
 
-        return parseAnalysisJson(response.getText(), result);
+        boolean parsed = parseAnalysisJson(response.getText(), result);
+        ensureCategoryAssessments(session, result, language != com.tronai.language.ExperienceLanguage.JA);
+        return parsed;
+    }
+
+    private String formatAssessmentsForPrompt(List<Map<String, Object>> assessments) {
+        if (assessments == null || assessments.isEmpty()) {
+            return "(なし / none)\n";
+        }
+        StringBuilder sb = new StringBuilder();
+        int i = 1;
+        for (Map<String, Object> a : assessments) {
+            sb.append(i++).append(". quality=").append(a.getOrDefault("quality", ""))
+                    .append(" action=").append(a.getOrDefault("action", ""))
+                    .append(" topic=").append(a.getOrDefault("topic", ""))
+                    .append(" notes=").append(a.getOrDefault("notes", ""))
+                    .append(" scores=").append(a.getOrDefault("scores", Map.of()))
+                    .append("\n");
+        }
+        return sb.toString();
     }
 
     private static AiMode toMode(AiProfile profile) {
@@ -280,6 +319,29 @@ public class InterviewAnalysisService {
                         star.path("result").asText("")
                 ));
             }
+
+            if (root.has("categoryAssessments") && root.get("categoryAssessments").isArray()) {
+                List<CategoryAssessmentDto> categories = new ArrayList<>();
+                for (JsonNode node : root.get("categoryAssessments")) {
+                    String level = node.path("level").asText("not_assessed");
+                    Integer score = node.has("score") && !node.get("score").isNull()
+                            ? clampScore(node.path("score").asInt(-1))
+                            : null;
+                    if ("not_assessed".equalsIgnoreCase(level)) {
+                        score = null;
+                    }
+                    categories.add(new CategoryAssessmentDto(
+                            node.path("category").asText("Category"),
+                            node.path("categoryJa").asText("カテゴリ"),
+                            level,
+                            score,
+                            node.path("evidence").asText("")
+                    ));
+                }
+                if (!categories.isEmpty()) {
+                    result.setCategoryAssessments(categories);
+                }
+            }
             return true;
         } catch (Exception e) {
             log.warn("Failed to parse AI analysis JSON: {}", e.getMessage());
@@ -358,7 +420,103 @@ public class InterviewAnalysisService {
         }
     }
 
-    private void populateEmptyCandidateAnalysis(InterviewAnalysisResultDto result, boolean isEnglish) {
+    private void ensureCategoryAssessments(InterviewSession session, InterviewAnalysisResultDto result, boolean isEnglish) {
+        if (result.getCategoryAssessments() != null && result.getCategoryAssessments().size() >= 7) {
+            return;
+        }
+        List<CategoryAssessmentDto> categories = buildCategoryAssessmentsFromTurns(session, isEnglish);
+        if (!categories.isEmpty()) {
+            result.setCategoryAssessments(categories);
+        }
+    }
+
+    private List<CategoryAssessmentDto> buildCategoryAssessmentsFromTurns(InterviewSession session, boolean isEnglish) {
+        List<Map<String, Object>> assessments = session.getAssessments();
+        Map<String, List<Integer>> scoreBuckets = new LinkedHashMap<>();
+        for (String key : List.of(
+                "relevance", "clarity", "technicalAccuracy", "specificity", "consistency")) {
+            scoreBuckets.put(key, new ArrayList<>());
+        }
+
+        int candidateTurns = 0;
+        for (InterviewTurn turn : session.getTurns()) {
+            if ("candidate".equalsIgnoreCase(turn.getRole())) {
+                candidateTurns++;
+            }
+        }
+
+        if (assessments != null) {
+            for (Map<String, Object> a : assessments) {
+                Object scoresObj = a.get("scores");
+                if (scoresObj instanceof Map<?, ?> scores) {
+                    accumulateScore(scoreBuckets.get("relevance"), scores.get("relevance"));
+                    accumulateScore(scoreBuckets.get("clarity"), scores.get("clarity"));
+                    accumulateScore(scoreBuckets.get("technicalAccuracy"), scores.get("technicalAccuracy"));
+                    accumulateScore(scoreBuckets.get("specificity"), scores.get("specificity"));
+                    accumulateScore(scoreBuckets.get("consistency"), scores.get("consistency"));
+                }
+            }
+        }
+
+        List<CategoryAssessmentDto> out = new ArrayList<>();
+        out.add(categoryFromAggregate("Answer Relevance", "回答の関連性", scoreBuckets.get("relevance"), candidateTurns, isEnglish));
+        out.add(categoryFromAggregate("Communication Clarity", "伝達の明確さ", scoreBuckets.get("clarity"), candidateTurns, isEnglish));
+        out.add(categoryFromAggregate("Technical Understanding", "技術理解", scoreBuckets.get("technicalAccuracy"), candidateTurns, isEnglish));
+        out.add(categoryFromAggregate("Problem Solving", "課題解決",
+                mergeLists(scoreBuckets.get("technicalAccuracy"), scoreBuckets.get("relevance")),
+                candidateTurns, isEnglish));
+        out.add(categoryFromAggregate("Specificity", "具体性", scoreBuckets.get("specificity"), candidateTurns, isEnglish));
+        out.add(categoryFromAggregate("Consistency", "一貫性", scoreBuckets.get("consistency"), candidateTurns, isEnglish));
+        out.add(categoryFromAggregate("Role Readiness", "職務適性",
+                mergeLists(scoreBuckets.get("relevance"), scoreBuckets.get("clarity"), scoreBuckets.get("technicalAccuracy")),
+                candidateTurns, isEnglish));
+        return out;
+    }
+
+    private static void accumulateScore(List<Integer> bucket, Object raw) {
+        if (bucket == null || raw == null) {
+            return;
+        }
+        try {
+            int v = Integer.parseInt(String.valueOf(raw));
+            if (v >= 0) {
+                bucket.add(v);
+            }
+        } catch (NumberFormatException ignored) {
+            // skip
+        }
+    }
+
+    @SafeVarargs
+    private static List<Integer> mergeLists(List<Integer>... lists) {
+        List<Integer> merged = new ArrayList<>();
+        if (lists != null) {
+            for (List<Integer> l : lists) {
+                if (l != null) {
+                    merged.addAll(l);
+                }
+            }
+        }
+        return merged;
+    }
+
+    private CategoryAssessmentDto categoryFromAggregate(
+            String en, String ja, List<Integer> values, int candidateTurns, boolean isEnglish) {
+        if (candidateTurns == 0 || values == null || values.isEmpty()) {
+            String evidence = isEnglish
+                    ? "Not assessed — insufficient candidate responses in transcript."
+                    : "評価不可 — 対話ログに十分な候補者回答がありません。";
+            return new CategoryAssessmentDto(en, ja, "not_assessed", null, evidence);
+        }
+        int avg = values.stream().mapToInt(Integer::intValue).sum() / values.size();
+        String level = avg >= 80 ? "strong" : avg >= 65 ? "adequate" : "weak";
+        String evidence = isEnglish
+                ? "Aggregated from " + values.size() + " turn assessment score(s); average " + avg + "."
+                : "各ターン評価スコア " + values.size() + " 件の平均 " + avg + " から集計。";
+        return new CategoryAssessmentDto(en, ja, level, clampScore(avg), evidence);
+    }
+
+    private void populateEmptyCandidateAnalysis(InterviewSession session, InterviewAnalysisResultDto result, boolean isEnglish) {
         result.setOverallScore(50);
         result.setCommunicationScore(50);
         result.setJapaneseScore(50);
@@ -382,6 +540,7 @@ public class InterviewAnalysisService {
             result.setWeakPoints(List.of("回答発話が記録される前に終了されました。"));
             result.setAiOverallFeedback("候補者の回答がまだないため、評価できる発話がありません。回答を話してから再度終了してください。");
         }
+        ensureCategoryAssessments(session, result, isEnglish);
     }
 
     private int clampScore(int score) {

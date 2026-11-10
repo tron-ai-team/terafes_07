@@ -78,6 +78,9 @@ public class InterviewSessionEntity implements org.springframework.data.domain.P
     @Column(name = "actual_model_id", length = 200)
     private String actualModelId;
 
+    @Column(name = "engine_state_json", columnDefinition = "LONGTEXT")
+    private String engineStateJson;
+
     @Column(name = "started_at", nullable = false, updatable = false)
     private Instant startedAt;
 

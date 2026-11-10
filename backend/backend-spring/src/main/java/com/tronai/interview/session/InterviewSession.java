@@ -195,6 +195,28 @@ public class InterviewSession {
         this.followUpsOnActiveTopic = 0;
     }
 
+    public synchronized void restoreFollowUpsOnActiveTopic(int value) {
+        this.followUpsOnActiveTopic = Math.max(0, value);
+    }
+
+    public synchronized void replaceAskedQuestions(List<String> questions) {
+        this.askedQuestions.clear();
+        if (questions != null) {
+            for (String q : questions) {
+                if (q != null && !q.isBlank()) {
+                    this.askedQuestions.add(q);
+                }
+            }
+        }
+    }
+
+    public synchronized void replaceAssessments(List<Map<String, Object>> items) {
+        this.assessments.clear();
+        if (items != null) {
+            this.assessments.addAll(items);
+        }
+    }
+
     public synchronized void addAssessment(Map<String, Object> assessment) {
         if (assessment != null) {
             this.assessments.add(assessment);

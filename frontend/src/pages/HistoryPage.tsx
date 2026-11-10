@@ -209,7 +209,13 @@ export const HistoryPage: React.FC = () => {
                 </button>
 
                 <button
-                  onClick={() => navigate('/career/interview/feedback')}
+                  onClick={() =>
+                    navigate(
+                      item.status === 'completed'
+                        ? `/career/interview/feedback?interviewId=${encodeURIComponent(item.id)}`
+                        : '/career/interview/feedback'
+                    )
+                  }
                   className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-[#008CFF] to-[#0066FF] text-white text-xs font-semibold hover:brightness-105 transition-all shadow-sm shadow-blue-500/20 flex items-center gap-1"
                 >
                   <span>View Feedback</span>

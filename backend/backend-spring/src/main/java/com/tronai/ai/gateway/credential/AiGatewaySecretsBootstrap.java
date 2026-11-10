@@ -3,6 +3,7 @@ package com.tronai.ai.gateway.credential;
 import com.tronai.ai.gateway.AiGatewayProperties;
 import com.tronai.ai.research.ResearchProperties;
 import com.tronai.ai.secrets.InfisicalSecretsLoader;
+import com.tronai.tts.GeminiTtsProperties;
 import jakarta.annotation.PostConstruct;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -23,14 +24,17 @@ public class AiGatewaySecretsBootstrap {
 
     private final AiGatewayProperties properties;
     private final ResearchProperties researchProperties;
+    private final GeminiTtsProperties geminiTtsProperties;
     private final InfisicalSecretsLoader infisicalSecretsLoader;
 
     public AiGatewaySecretsBootstrap(
             AiGatewayProperties properties,
             ResearchProperties researchProperties,
+            GeminiTtsProperties geminiTtsProperties,
             InfisicalSecretsLoader infisicalSecretsLoader) {
         this.properties = properties;
         this.researchProperties = researchProperties;
+        this.geminiTtsProperties = geminiTtsProperties;
         this.infisicalSecretsLoader = infisicalSecretsLoader;
     }
 
@@ -54,6 +58,12 @@ public class AiGatewaySecretsBootstrap {
         mergeIfBlank(secrets, "GEMINI_API_KEY_2", properties::getGeminiApiKey2, properties::setGeminiApiKey2);
         mergeIfBlank(secrets, "GEMINI_API_KEY_3", properties::getGeminiApiKey3, properties::setGeminiApiKey3);
         mergeIfBlank(secrets, "GEMINI_API_KEY_4", properties::getGeminiApiKey4, properties::setGeminiApiKey4);
+
+        // TTS prefers GEMINI_API_KEY, then GEMINI_API_KEY_1 from the same secrets file.
+        mergeIfBlank(secrets, "GEMINI_API_KEY", geminiTtsProperties::getApiKey, geminiTtsProperties::setApiKey);
+        if (geminiTtsProperties.getApiKey() == null || geminiTtsProperties.getApiKey().isBlank()) {
+            mergeIfBlank(secrets, "GEMINI_API_KEY_1", geminiTtsProperties::getApiKey, geminiTtsProperties::setApiKey);
+        }
 
         mergeIfBlank(secrets, "TAVILY_API_KEY",
                 () -> researchProperties.getTavily().getApiKey(),

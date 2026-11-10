@@ -239,19 +239,27 @@ public class VoiceService {
             speech = new SpeechLanguageCapability(speech.language(), true, false, null,
                     "The reply has no Japanese text, so VOICEVOX was not called. Browser speech fallback can be used.");
         }
-        if (speech.speechSynthesis()) {
-            try {
-                long ttsStarted = System.currentTimeMillis();
-                byte[] wavBytes = speechSynthesisRouter.synthesizeRequired(spoken, normalizedLanguage);
-                ttsMs = (int) (System.currentTimeMillis() - ttsStarted);
-                String clipId = audioStoreService.storeClip(wavBytes);
+        // Always attempt synthesizeBest when any server path may exist — cascading
+        // fallbacks can succeed even if the preferred capability later fails.
+        try {
+            long ttsStarted = System.currentTimeMillis();
+            var outcome = speechSynthesisRouter.synthesizeBest(spoken, normalizedLanguage);
+            ttsMs = (int) (System.currentTimeMillis() - ttsStarted);
+            if (outcome.isPresent()) {
+                String clipId = audioStoreService.storeClip(outcome.get().audio());
                 audioUrl = "/api/v1/voice/audio/" + clipId;
-                ttsProvider = speech.synthesisProvider();
-            } catch (VoiceException ttsFailure) {
-                log.warn("Server TTS failed; enabling browser speech fallback: {}", ttsFailure.getMessage());
+                ttsProvider = outcome.get().providerId();
+                speech = new SpeechLanguageCapability(
+                        normalizedLanguage, true, true, ttsProvider,
+                        "Server speech via " + ttsProvider);
+            } else if (speech.speechSynthesis()) {
                 speech = new SpeechLanguageCapability(speech.language(), true, false, null,
-                        "Server TTS failed. Browser speech fallback can be used. (" + ttsFailure.getMessage() + ")");
+                        "Server TTS unavailable. Browser speech fallback can be used.");
             }
+        } catch (VoiceException ttsFailure) {
+            log.warn("Server TTS failed; enabling browser speech fallback: {}", ttsFailure.getMessage());
+            speech = new SpeechLanguageCapability(speech.language(), true, false, null,
+                    "Server TTS failed. Browser speech fallback can be used. (" + ttsFailure.getMessage() + ")");
         }
 
         boolean browserFallback = !speech.speechSynthesis() || audioUrl.isBlank();

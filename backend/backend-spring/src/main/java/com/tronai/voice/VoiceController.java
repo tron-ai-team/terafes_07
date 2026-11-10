@@ -31,7 +31,7 @@ public class VoiceController {
     }
 
     @PostMapping(value = "/api/v1/voice/turn", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    @Operation(summary = "Process voice turn", description = "Transcribes voice input, generates conversational reply, and synthesizes Japanese audio with AI profile locking")
+    @Operation(summary = "Process voice turn", description = "Transcribes voice input, generates a reply, and synthesizes audio for the selected language with AI profile locking")
     public ResponseEntity<V1VoiceTurnResponse> voiceTurn(
             @RequestParam("file") MultipartFile file,
             @RequestParam(value = "sessionId", required = false) String sessionId,
@@ -77,7 +77,7 @@ public class VoiceController {
     }
 
     @PostMapping("/demo/voice/speak")
-    @Operation(summary = "Synthesize speech", description = "Direct text-to-speech synthesis via VOICEVOX")
+    @Operation(summary = "Synthesize speech", description = "Direct text-to-speech synthesis using the configured voice for the detected language")
     public ResponseEntity<byte[]> demoSpeak(@RequestBody(required = false) SpeakRequest request) {
         String text = (request != null && request.getText() != null) ? request.getText() : "";
         if (text.trim().isEmpty()) {

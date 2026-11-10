@@ -965,6 +965,16 @@ function formatSpeakingStatus(
   uiLanguage: string
 ): string {
   const tts = (response.ttsProvider || '').trim().toLowerCase();
+  if (tts === 'gemini-algenib') {
+    return uiLanguage === 'ja'
+      ? 'TRON AI が Gemini Algenib ロボティック音声で話しています...'
+      : 'TRON AI is speaking with Gemini Algenib robotic voice...';
+  }
+  if (tts === 'supertonic-m5') {
+    return uiLanguage === 'ja'
+      ? 'TRON AI がローカル音声（M5）で話しています...'
+      : 'TRON AI is speaking with its local M5 voice...';
+  }
   if (tts === 'elevenlabs') {
     return uiLanguage === 'ja'
       ? 'TRON AI がプレミアム音声で話しています...'

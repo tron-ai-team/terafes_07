@@ -180,12 +180,24 @@ stt:
   groq-model: ${STT_GROQ_MODEL:whisper-large-v3-turbo}
   groq-timeout-seconds: ${STT_GROQ_TIMEOUT_SECONDS:60}
 
-# ── Text-to-Speech (ElevenLabs bilingual + Groq Orpheus EN + VOICEVOX JA) ────
+# ── Text-to-Speech (Gemini Algenib primary + ElevenLabs/Groq/VOICEVOX fallbacks) ────
 tts:
   multilingual:
     base-url: ${MULTILINGUAL_TTS_BASE_URL:}
     timeout-seconds: ${MULTILINGUAL_TTS_TIMEOUT_SECONDS:30}
-  # Premium bilingual robotic voice (EN + JA). Requires ELEVENLABS_API_KEY.
+  # Approved primary voice: Gemini Algenib robotic (EN + JA). Requires GEMINI_API_KEY.
+  gemini:
+    enabled: ${TTS_GEMINI_ENABLED:false}
+    api-key: ${GEMINI_API_KEY:${GEMINI_API_KEY_1:}}
+    model: ${TTS_GEMINI_MODEL:gemini-3.8-flash-lite-tts}
+    voice: ${TTS_GEMINI_VOICE:Algenib}
+    style: "${TTS_GEMINI_STYLE:Low, resonant pitch; calm cinematic AI with subtle synthetic resonance, crisp diction and natural conversational pacing.}"
+    sample-rate: ${TTS_GEMINI_SAMPLE_RATE:24000}
+    stream: ${TTS_GEMINI_STREAM:true}
+    timeout-seconds: ${TTS_GEMINI_TIMEOUT_SECONDS:45}
+    max-input-chars: ${TTS_GEMINI_MAX_INPUT_CHARS:1200}
+    failure-cooldown-seconds: ${TTS_GEMINI_FAILURE_COOLDOWN_SECONDS:30}
+  # Fallback bilingual robotic voice (EN + JA). Requires ELEVENLABS_API_KEY.
   elevenlabs:
     enabled: ${TTS_ELEVENLABS_ENABLED:false}
     api-key: ${ELEVENLABS_API_KEY:}

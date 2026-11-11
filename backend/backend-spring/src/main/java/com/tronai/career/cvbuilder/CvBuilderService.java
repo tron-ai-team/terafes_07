@@ -117,8 +117,10 @@ public class CvBuilderService {
     @Transactional
     public Map<String, Object> updateDraft(Long userId, String draftId, Map<String, Object> body) {
         CvBuilderDraftEntity draft = requireDraft(userId, draftId);
+        assertExpectedUpdatedAt(draft, body);
         if (body.get("payload") != null) {
-            draft.setPayloadJson(write(preparePayload(castMap(body.get("payload")), false)));
+            draft.setPayloadJson(write(preparePayload(
+                    CvProfileSyncMerger.normalizePayload(castMap(body.get("payload"))), false)));
         }
         if (body.get("versionLabel") != null) draft.setVersionLabel(String.valueOf(body.get("versionLabel")));
         if (body.get("templateCode") != null) {
@@ -136,45 +138,26 @@ public class CvBuilderService {
 
     /**
      * Explicitly refresh draft fields from Candidate Profile.
-     * Preserves draft-only fields (hobbies, health, favoriteSubjects, sports, extracurricular,
-     * educationExportIds, company-specific motivation) unless {@code replaceAll=true}.
+     * Default mode {@code FILL_BLANK} never overwrites non-empty manual CV edits.
+     * Use {@code mode=REPLACE_ALL} or {@code replaceAll=true} for full profile replacement
+     * (draft-only fields such as hobbies / company motivation are still preserved).
      */
     @Transactional
     public Map<String, Object> refreshFromProfile(Long userId, String draftId, Map<String, Object> body) {
         CvBuilderDraftEntity draft = requireDraft(userId, draftId);
-        boolean replaceAll = Boolean.TRUE.equals(body.get("replaceAll"))
-                || "true".equalsIgnoreCase(String.valueOf(body.getOrDefault("replaceAll", "false")));
-        Map<String, Object> fromProfile = payloadFromProfile(userId);
+        Map<String, Object> req = body == null ? Map.of() : body;
+        CvProfileSyncMerger.Mode mode = CvProfileSyncMerger.parseMode(req);
+        Map<String, Object> fromProfile = CvProfileSyncMerger.normalizePayload(payloadFromProfile(userId));
         Map<String, Object> current = readMap(draft.getPayloadJson());
-        Map<String, Object> merged = new LinkedHashMap<>();
-        if (replaceAll) {
-            merged.putAll(fromProfile);
-            // Keep export selection if user already chose entries.
-            if (current.get("educationExportIds") != null) {
-                merged.put("educationExportIds", current.get("educationExportIds"));
-            }
-        } else {
-            merged.putAll(current);
-            for (Map.Entry<String, Object> e : fromProfile.entrySet()) {
-                String key = e.getKey();
-                if (isDraftOnlyField(key)) continue;
-                Object incoming = e.getValue();
-                Object existing = current.get(key);
-                // Fill blanks always; overwrite non-list scalars from profile on refresh.
-                if (incoming instanceof List<?> || incoming instanceof Map<?, ?>
-                        || existing == null || String.valueOf(existing).isBlank()) {
-                    merged.put(key, incoming);
-                } else {
-                    merged.put(key, incoming);
-                }
-            }
-        }
-        draft.setPayloadJson(write(preparePayload(merged, true)));
+        CvProfileSyncMerger.MergeResult merged = CvProfileSyncMerger.merge(current, fromProfile, mode);
+        draft.setPayloadJson(write(preparePayload(merged.payload(), true)));
         draft.setProfileId(profileRepository.findByUser_Id(userId).map(CandidateProfileEntity::getId).orElse(draft.getProfileId()));
         draftRepository.save(draft);
         Map<String, Object> dto = toDraftDto(draft);
         dto.put("refreshedFromProfile", true);
-        dto.put("replaceAll", replaceAll);
+        dto.put("replaceAll", mode == CvProfileSyncMerger.Mode.REPLACE_ALL);
+        dto.put("syncMode", mode.name());
+        dto.put("syncReport", merged.report().toMap());
         return dto;
     }
 
@@ -239,11 +222,20 @@ public class CvBuilderService {
         if (!draftId.equals(version.getDraftId())) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Version does not belong to draft");
         }
+        // Restore copies snapshot into the working draft. Later version rows are preserved
+        // (no destructive history rewrite). Callers may saveVersion() after restore if needed.
         draft.setPayloadJson(version.getPayloadJson());
-        draft.setTemplateCode(normalizeTemplateCode(version.getTemplateCode()));
+        // User-facing product is RIREKISHO_JA; keep legacy template codes intact on historical rows
+        // but force working draft to supported template when restoring unsupported codes.
+        String restoredTemplate = normalizeTemplateCode(version.getTemplateCode());
+        draft.setTemplateCode("RIREKISHO_JA".equals(restoredTemplate) ? restoredTemplate : "RIREKISHO_JA");
         draft.setVersionLabel(version.getVersionLabel());
         draftRepository.save(draft);
-        return toDraftDto(draft);
+        Map<String, Object> dto = toDraftDto(draft);
+        dto.put("restoredFromVersionId", versionId);
+        dto.put("restoredVersionNumber", version.getVersionNumber());
+        dto.put("historyPreserved", true);
+        return dto;
     }
 
     @Transactional(readOnly = true)
@@ -276,22 +268,23 @@ public class CvBuilderService {
 
     /**
      * Magic Fill — generates pending suggestions only (no silent overwrite).
-     * Local Ollama by default; cloud only when allowCloud=true explicitly.
+     * Cloud-first via existing AiGateway SMART routing (same infrastructure as Chat/Interview).
+     * Pass {@code allowCloud:false} or {@code localOnly:true} to force local Ollama.
      */
     @Transactional
     public Map<String, Object> magicFill(Long userId, String draftId, Map<String, Object> body) {
         CvBuilderDraftEntity draft = requireDraft(userId, draftId);
-        if (body != null && body.get("payload") != null) {
-            draft.setPayloadJson(write(preparePayload(castMap(body.get("payload")), false)));
+        Map<String, Object> req = body == null ? Map.of() : body;
+        if (req.get("payload") != null) {
+            draft.setPayloadJson(write(preparePayload(castMap(req.get("payload")), false)));
             draftRepository.save(draft);
         }
         Map<String, Object> payload = readMap(draft.getPayloadJson());
         String templateCode = normalizeTemplateCode(draft.getTemplateCode());
         // Language from template — ignore client/UI language for document narrative.
         String language = CvDocumentLanguage.requiredLanguage(templateCode);
-        String companyContext = body == null ? "" : String.valueOf(body.getOrDefault("companyContext", ""));
-        boolean allowCloud = body != null && (Boolean.TRUE.equals(body.get("allowCloud"))
-                || "true".equalsIgnoreCase(String.valueOf(body.getOrDefault("allowCloud", "false"))));
+        String companyContext = String.valueOf(req.getOrDefault("companyContext", ""));
+        boolean allowCloud = magicFillService.resolveAllowCloud(req);
         CandidateProfileEntity profile = profileRepository.findByUser_Id(userId).orElse(null);
         CvMagicFillService.MagicFillResult result = magicFillService.magicFill(
                 userId,
@@ -339,8 +332,8 @@ public class CvBuilderService {
         out.put("warnings", result.warnings());
         out.put("engine", result.engine());
         out.put("ollamaUsed", result.ollamaUsed());
-        out.put("cloudUsed", allowCloud && result.ollamaUsed() == false && result.engine() != null
-                && !result.engine().startsWith("none"));
+        out.put("cloudUsed", result.cloudUsed());
+        out.put("cloudAllowed", allowCloud);
         out.put("applied", false);
         out.put("message", suggestionDtos.isEmpty()
                 ? "No suggestions generated. Check warnings / missing fields."
@@ -400,8 +393,8 @@ public class CvBuilderService {
         String instruction = String.valueOf(body.getOrDefault("instruction", ""));
         String templateCode = normalizeTemplateCode(draft.getTemplateCode());
         String language = CvDocumentLanguage.requiredLanguage(templateCode);
-        boolean allowCloud = Boolean.TRUE.equals(body.get("allowCloud"))
-                || "true".equalsIgnoreCase(String.valueOf(body.getOrDefault("allowCloud", "false")));
+        // Cloud-first for AI Assist (same gateway as Magic Fill / Interview).
+        boolean allowCloud = magicFillService.resolveAllowCloud(body);
         Map<String, Object> payload = readMap(draft.getPayloadJson());
         String original = String.valueOf(payload.getOrDefault(field, ""));
         CandidateProfileEntity profile = profileRepository.findByUser_Id(userId).orElse(null);
@@ -774,11 +767,29 @@ public class CvBuilderService {
         return out;
     }
 
-    private static boolean isDraftOnlyField(String key) {
-        return Set.of(
-                "favoriteSubjects", "hobbies", "healthStatus", "extracurricular", "sports",
-                "educationExportIds", "educationExportSelection", "motivationCompany", "careerSummary"
-        ).contains(key);
+    /**
+     * Optional optimistic concurrency: clients may send {@code expectedUpdatedAt}
+     * (ISO-8601 from last GET). Mismatch → 409 without mutating payload.
+     */
+    private void assertExpectedUpdatedAt(CvBuilderDraftEntity draft, Map<String, Object> body) {
+        if (body == null || !body.containsKey("expectedUpdatedAt") || body.get("expectedUpdatedAt") == null) {
+            return;
+        }
+        String expected = String.valueOf(body.get("expectedUpdatedAt")).trim();
+        if (expected.isBlank() || "null".equalsIgnoreCase(expected)) return;
+        Instant expectedInstant;
+        try {
+            expectedInstant = Instant.parse(expected);
+        } catch (Exception e) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "expectedUpdatedAt must be ISO-8601 instant");
+        }
+        Instant actual = draft.getUpdatedAt();
+        if (actual != null && !actual.equals(expectedInstant)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "Draft was modified concurrently. Reload and retry. expectedUpdatedAt="
+                            + expected + " actualUpdatedAt=" + actual);
+        }
     }
 
     private String normalizeTemplateCode(String raw) {

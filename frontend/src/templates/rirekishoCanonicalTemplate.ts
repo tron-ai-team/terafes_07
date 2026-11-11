@@ -1,11 +1,10 @@
 /**
- * TRON AI — Canonical Japanese 履歴書 (RIREKISHO_JA) Template Engine
- * 
- * Based directly on official design reference: TRON_Rirekisho_Reference_Template.html
- * (measured from x履歴書フォーマット.pdf for exact JIS 2-page A4 print fidelity).
- * 
- * Exact geometry in print points (1pt = 1/72 in, A4 = 595.28 × 841.89 pt).
- * Single canonical HTML/CSS template shared between Live Browser Preview and Chromium PDF.
+ * TRON AI — Japanese 履歴書 validation + offline tooling helpers (RIREKISHO_JA).
+ *
+ * IMPORTANT (Phase 3): The canonical print document for Live Preview and Chromium PDF
+ * is generated ONLY by Spring {@code CvHtmlPdfRenderer} (+ {@code rirekisho_print.css}).
+ * {@link generateCanonicalRirekishoHtml} remains for local evidence scripts / design diffs
+ * and must not be used as a second production document source in the React UI.
  */
 
 export interface EducationItem {

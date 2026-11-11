@@ -185,13 +185,12 @@ class CareerCenterCp03CvBuilderIT {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].versionId").value(versionId));
 
-        // Template change is explicit and must stay consistent
+        // User-facing product is Japanese 履歴書 only — EN/SHOKUMU template switches are rejected.
         mockMvc.perform(put("/api/v1/career/cv-builder/drafts/" + draftId)
                         .header("Authorization", authA)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"templateCode\":\"RESUME_EN\"}"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.templateCode").value("RESUME_EN"));
+                .andExpect(status().isBadRequest());
         mockMvc.perform(put("/api/v1/career/cv-builder/drafts/" + draftId)
                         .header("Authorization", authA)
                         .contentType(MediaType.APPLICATION_JSON)
@@ -221,16 +220,13 @@ class CareerCenterCp03CvBuilderIT {
         }
         Files.write(evidenceDir.resolve("cp03_rirekisho.pdf"), pdf);
 
-        // SHOKUMU + RESUME_EN drafts
-        String shokumuId = createDraft("SHOKUMU_JA", "cp03-sh");
-        byte[] shXlsx = exportAndDownload(shokumuId, "xlsx", authA);
-        Files.write(evidenceDir.resolve("cp03_shokumu.xlsx"), shXlsx);
-        assertThat(shXlsx.length).isGreaterThan(500);
-
-        String resumeId = createDraft("RESUME_EN", "cp03-en");
-        byte[] enXlsx = exportAndDownload(resumeId, "xlsx", authA);
-        Files.write(evidenceDir.resolve("cp03_resume_en.xlsx"), enXlsx);
-        assertThat(enXlsx.length).isGreaterThan(500);
+        // New drafts are always RIREKISHO_JA (EN/SHOKUMU no longer created via API).
+        mockMvc.perform(post("/api/v1/career/cv-builder/drafts")
+                        .header("Authorization", authA)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"templateCode\":\"RESUME_EN\",\"versionLabel\":\"ignored-en\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.templateCode").value("RIREKISHO_JA"));
 
         // AI assist does not overwrite until accept
         MvcResult assist = mockMvc.perform(post("/api/v1/career/cv-builder/drafts/" + draftId + "/ai-assist")
@@ -246,14 +242,14 @@ class CareerCenterCp03CvBuilderIT {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("REJECTED"));
 
-        // Isolation — user B cannot read user A draft; user B can create own draft
+        // Isolation — user B cannot read user A draft; user B can create own Japanese draft
         mockMvc.perform(get("/api/v1/career/cv-builder/drafts/" + draftId).header("Authorization", authB))
                 .andExpect(status().isNotFound());
         mockMvc.perform(post("/api/v1/career/cv-builder/drafts").header("Authorization", authB)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"templateCode\":\"RESUME_EN\"}"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.templateCode").value("RESUME_EN"));
+                .andExpect(jsonPath("$.templateCode").value("RIREKISHO_JA"));
         mockMvc.perform(get("/api/v1/career/cv-builder/drafts")
                         .header("Authorization", authB))
                 .andExpect(status().isOk());
@@ -267,7 +263,8 @@ class CareerCenterCp03CvBuilderIT {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"templateCode\":\"" + template + "\",\"versionLabel\":\"" + label + "\"}"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.templateCode").value(template))
+                // Product forces RIREKISHO_JA for all new drafts.
+                .andExpect(jsonPath("$.templateCode").value("RIREKISHO_JA"))
                 .andReturn();
         return objectMapper.readTree(r.getResponse().getContentAsString()).get("id").asText();
     }

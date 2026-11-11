@@ -200,7 +200,7 @@ https://github.com/tron-ai-team/terafes_07/pull/21
 - **Title:** feat(cv-builder): Japanese CV Builder V3 frontend integration  
 - **Head:** `feature/cv-builder-v3-frontend-redesign`  
 - **Base:** `feature/cv-builder-v2-backend-complete`  
-- **Diff vs base:** 3 commits (frontend V3 + concurrency harden + report/evidence)  
+- **Diff vs base:** frontend V3 + concurrency harden + integration report/evidence (see commit list below)  
 - **Backend V2 PR:** https://github.com/tron-ai-team/terafes_07/pull/20 (OPEN — merge first)
 
 ---
@@ -253,6 +253,8 @@ Checked via `gh pr checks 21`. No separate GitHub Actions backend workflow obser
 485ed806 feat(cv-builder): complete Japanese CV Builder V3 professional frontend redesign
 70d41e11 feat(cv-builder): enhance concurrency guards and preview print window
 fcdfa5f3 docs(cv-builder): record V3 final integration E2E evidence and report
+2223cbae docs(cv-builder): add PR #21 link and initial CI status to V3 report
+703eacc7 docs(cv-builder): finalize V3 integration report with PR #21 and green CI
 ```
 
 Stack base: `feature/cv-builder-v2-backend-complete`

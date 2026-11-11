@@ -1,5 +1,6 @@
 {
   "gotenberg": "gotenberg/gotenberg@sha256:aa552cc115db488e0f0bcb07446aac13071ad51505b642c84bb894500907b42b",
   "nginx": "nginx@sha256:a3554c0d0b48177b1413c26e01f695334428020d9df01243fbae3e11cfd17417",
-  "socat": "alpine/socat@sha256:603174b77eebaba25ba8f8ebb15e1234d6600409554e95d6fb203fd106150287"
+  "socat": "alpine/socat@sha256:603174b77eebaba25ba8f8ebb15e1234d6600409554e95d6fb203fd106150287",
+  "poppler": "minidocks/poppler@sha256:62ea7e129b11a444a35ec7de0b0d1c4686c8f1786d7075756b6d4a1544e93d3d"
 }

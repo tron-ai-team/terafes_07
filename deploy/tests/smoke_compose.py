@@ -95,7 +95,14 @@ with tempfile.TemporaryDirectory() as temporary:
         assert pdf.startswith(b'%PDF'), 'PDF response invalid'
         path = directory/'result.pdf'
         path.write_bytes(pdf)
-        extracted = run('pdftotext',str(path),'-').decode()
+        # Host apt for poppler-utils is flaky on Azure GitHub runners (DNS to
+        # azure.archive.ubuntu.com). Extract text via a pinned poppler image instead.
+        extracted = run(
+            'docker', 'run', '--rm',
+            '-v', f'{path.resolve()}:/in.pdf:ro',
+            images['poppler'],
+            'pdftotext', '/in.pdf', '-',
+        ).decode()
         assert 'TRON English' in extracted and '日本語' in extracted, 'English/Japanese text did not survive conversion'
         print('Disposable Docker smoke PASS: Unix-socket DB proxy, MySQL Flyway startup, frontend/API auth, backend restart/persistence, English/Japanese PDF text')
     except Exception:

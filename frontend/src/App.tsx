@@ -63,6 +63,10 @@ export function App() {
           <Route path="/connect-device" element={<ConnectDevicePage />} />
           <Route path="/devices/connect/:requestId" element={<ConnectDevicePage />} />
 
+          {/* Standalone Enterprise Admin Control Center (Dedicated Layout) */}
+          <Route path="/admin" element={<AdminControlPage />} />
+          <Route path="/admin/*" element={<AdminControlPage />} />
+
           {/* Main Layout containing Sidebar and TopBar */}
           <Route element={<AppLayout />}>
             {/* 1. CHAT MODE ROUTES */}
@@ -124,7 +128,6 @@ export function App() {
             <Route path="/about" element={<AboutPage />} />
             <Route path="/help" element={<HelpPage />} />
             <Route path="/settings" element={<SettingsPage />} />
-            <Route path="/admin" element={<AdminControlPage />} />
             <Route path="/profile" element={<ProfilePage />} />
           </Route>
 

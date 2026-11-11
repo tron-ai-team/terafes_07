@@ -84,10 +84,11 @@ public class InterviewReportService {
                     h1 { font-size: 20pt; margin: 0 0 4px; color: #0369a1; }
                     h2 { font-size: 13pt; margin: 22px 0 8px; border-bottom: 2px solid #e2e8f0; padding-bottom: 4px; }
                     .meta { color: #64748b; font-size: 10pt; margin-bottom: 18px; }
-                    .scores { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin: 12px 0; }
-                    .score-box { border: 1px solid #cbd5e1; border-radius: 8px; padding: 8px; text-align: center; }
-                    .score-box .val { font-size: 16pt; font-weight: 800; color: #0284c7; }
-                    .score-box .lbl { font-size: 8pt; color: #475569; }
+                    /* Table layout — LibreOffice HTML→PDF (production Gotenberg) does not honor CSS grid */
+                    .scores { width: 100%%; border-collapse: collapse; margin: 12px 0; }
+                    .scores td { border: 1px solid #cbd5e1; padding: 8px; text-align: center; width: 20%%; }
+                    .score-box .val, .scores .val { font-size: 16pt; font-weight: 800; color: #0284c7; }
+                    .score-box .lbl, .scores .lbl { font-size: 8pt; color: #475569; }
                     table { width: 100%%; border-collapse: collapse; font-size: 9.5pt; }
                     th, td { border: 1px solid #e2e8f0; padding: 6px 8px; vertical-align: top; }
                     th { background: #f1f5f9; text-align: left; }
@@ -107,13 +108,15 @@ public class InterviewReportService {
                   <div class="meta">Interview Performance Report · Session %s · %s</div>
                   <p><strong>%s</strong> — %s</p>
 
-                  <div class="scores">
-                    <div class="score-box"><div class="val">%d</div><div class="lbl">総合 / Overall</div></div>
-                    <div class="score-box"><div class="val">%d</div><div class="lbl">伝達力 / Communication</div></div>
-                    <div class="score-box"><div class="val">%d</div><div class="lbl">日本語 / Japanese</div></div>
-                    <div class="score-box"><div class="val">%d</div><div class="lbl">技術 / Technical</div></div>
-                    <div class="score-box"><div class="val">%d</div><div class="lbl">自信 / Confidence</div></div>
-                  </div>
+                  <table class="scores">
+                    <tr>
+                      <td><div class="val">%d</div><div class="lbl">総合 / Overall</div></td>
+                      <td><div class="val">%d</div><div class="lbl">伝達力 / Communication</div></td>
+                      <td><div class="val">%d</div><div class="lbl">日本語 / Japanese</div></td>
+                      <td><div class="val">%d</div><div class="lbl">技術 / Technical</div></td>
+                      <td><div class="val">%d</div><div class="lbl">自信 / Confidence</div></td>
+                    </tr>
+                  </table>
 
                   <h2>評価カテゴリ（根拠ベース） / Evidence-Based Categories</h2>
                   <table>

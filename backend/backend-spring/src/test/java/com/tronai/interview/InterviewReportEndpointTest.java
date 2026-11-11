@@ -60,7 +60,7 @@ class InterviewReportEndpointTest {
     void setUp() {
         when(aiProvider.getProviderName()).thenReturn("ollama");
         when(aiProvider.isAvailable()).thenReturn(true);
-        when(gotenbergPdfClient.convertHtml(any())).thenReturn(MINIMAL_PDF);
+        when(gotenbergPdfClient.convertHtmlProductionSafe(any())).thenReturn(MINIMAL_PDF);
 
         com.tronai.user.User owner = userRepository.findByEmailIgnoreCase("tester@tron.ai")
                 .orElseGet(() -> userRepository.save(com.tronai.user.User.builder()

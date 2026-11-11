@@ -532,7 +532,8 @@ public class InterviewService {
 
         byte[] html = interviewReportService.buildReportHtml(analysis);
         try {
-            return gotenbergPdfClient.convertHtml(html);
+            // Production Gotenberg disables Chromium routes — use LibreOffice-first path.
+            return gotenbergPdfClient.convertHtmlProductionSafe(html);
         } catch (Exception e) {
             log.error("Interview PDF generation failed for [{}]: {}", interviewId, e.getMessage());
             throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "PDF report generation is temporarily unavailable");

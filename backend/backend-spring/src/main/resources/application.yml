@@ -109,8 +109,9 @@ tron:
     groq-model-fast: ${GROQ_MODEL_FAST:openai/gpt-oss-20b}
     groq-model-smart: ${GROQ_MODEL_SMART:openai/gpt-oss-120b}
     prefer-groq-for-smart: ${TRON_AI_PREFER_GROQ_SMART:true}
-    # Personal CV must opt in (request allowCloud=true or enable this flag).
-    cv-assist-cloud-enabled: ${TRON_AI_CV_CLOUD_ENABLED:false}
+    # Cloud-first for CV Magic Fill / AI Assist (same AiGateway as Chat/Interview).
+    # Set TRON_AI_CV_CLOUD_ENABLED=false or request localOnly=true to force Ollama-only.
+    cv-assist-cloud-enabled: ${TRON_AI_CV_CLOUD_ENABLED:true}
     company-analysis-cloud-enabled: ${TRON_AI_COMPANY_CLOUD_ENABLED:true}
     interview-cloud-enabled: ${TRON_AI_INTERVIEW_CLOUD_ENABLED:true}
   research:

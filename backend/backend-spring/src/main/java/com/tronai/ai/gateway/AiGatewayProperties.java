@@ -42,10 +42,10 @@ public class AiGatewayProperties {
     /** Prefer Groq ahead of OpenRouter for SMART when Groq is configured. */
     private boolean preferGroqForSmart = true;
     /**
-     * When false (default), CV assist stays local unless the request explicitly sets allowCloud=true.
-     * Personal CV content must not go to cloud without permission.
+     * When true (default), CV Magic Fill / AI Assist use cloud SMART via AiGateway
+     * (same production path as Chat / Interview). Set false or request localOnly=true for Ollama-only.
      */
-    private boolean cvAssistCloudEnabled = false;
+    private boolean cvAssistCloudEnabled = true;
     /** Company public-source synthesis may use cloud when true (no personal CV dump). */
     private boolean companyAnalysisCloudEnabled = true;
     /** Interview features may use cloud when true; still honor request localOnly. */

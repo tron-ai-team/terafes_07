@@ -72,19 +72,14 @@ public class CvBuilderService {
         this.languageHelper = languageHelper;
     }
 
-    /** User-facing templates only (SHOKUMU_JA kept for existing drafts / backend compat). */
+    /** TRON AI Final Decision: Support ONLY Japanese 履歴書 (RIREKISHO_JA). */
     public List<Map<String, Object>> listTemplates() {
         return List.of(
                 Map.of(
                         "code", "RIREKISHO_JA",
-                        "displayName", "履歴書（日本語）",
+                        "displayName", "履歴書（JIS規格・2ページ）",
                         "locale", "ja",
-                        "description", "Japanese companies — standard 履歴書"),
-                Map.of(
-                        "code", "RESUME_EN",
-                        "displayName", "Resume (English)",
-                        "locale", "en",
-                        "description", "English-language job applications")
+                        "description", "日本標準の2ページ履歴書（学歴・職歴・免許資格・自己PR）。A4判2枚出力。")
         );
     }
 

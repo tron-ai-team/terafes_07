@@ -1,0 +1,396 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TRON AI | Japanese 履歴書 — Owner Reference HTML</title>
+<style>
+  /*
+    TRON AI • editable HTML reconstruction of the 2-page owner PDF
+    Original reference: x履歴書フォーマット.pdf (A4, pages 1–2)
+    Coordinates in print points (1pt = 1/72 in), deliberately measured
+    against the PDF; NOT a screenshot pasted as a background.
+    Use window.renderTronRirekisho(data) to set validated CV JSON.
+    Never print a document if window.tronRirekishoWarnings() returns errors.
+  */
+  @page { size: A4 portrait; margin: 0; }
+  * { box-sizing: border-box; }
+  html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  body { margin:0; padding: 18px 0; background: #e8eaed; color:#111; font-family: "Noto Serif CJK JP", "Yu Mincho", "Hiragino Mincho ProN", serif; }
+  .paper { width: 595.28pt; height: 841.89pt; position: relative; background: white; margin: 0 auto 18px; box-shadow: 0 3px 18px rgba(0,0,0,.16); page-break-after: always; break-after: page; overflow: hidden; }
+  .paper:last-child { margin-bottom:0; page-break-after:auto; break-after:auto; }
+  .at { position:absolute; }
+  .form-frame { border: 1.55pt solid #101010; }
+  .thin { border: .48pt solid #111; }
+  .cell { position:absolute; display:flex; align-items:center; justify-content:center; padding: 1pt 2pt; }
+  .label { font-size: 9.8pt; line-height: 1.4; text-align:center; font-weight: 600; }
+  .label-small { font-size: 8pt; line-height:1.25; }
+  .line { position:absolute; background:#111; pointer-events:none; }
+  .v { width:.48pt; }
+  .h { height:.48pt; }
+  .dotted-v { background: transparent; border-left:.7pt dotted #444; }
+  .dotted-h { background: transparent; border-top:.6pt dashed #444; }
+  .value { position:absolute; font-family: "Noto Sans CJK JP", "Yu Gothic", sans-serif; font-size:9pt; line-height:1.35; white-space:pre-wrap; overflow-wrap:anywhere; }
+  .compact { font-size:7.9pt; line-height:1.3; }
+  .muted { font-size:7pt; }
+  .small { font-size:7.7pt; }
+  .center { text-align:center; }
+  .bold { font-weight:700; }
+  .large { font-size: 17pt; font-weight:700; line-height: 1.15; }
+  .field-name { font-size: 13.5pt; font-weight: 700; line-height:1.18; }
+  .furi { font-size:8pt; }
+  .grid-heading { font-size:10pt; font-weight:600; letter-spacing: .5pt; }
+  .title { font-size:19pt; letter-spacing:10pt; font-weight:bold; }
+  .history-table, .license-table { position:absolute; border-collapse:collapse; table-layout:fixed; font-size:9.5pt; }
+  .history-table { left:51.7pt; top:381.3pt; width:494.9pt; }
+  .history-table td, .history-table th, .license-table td, .license-table th { border:.55pt solid #151515; padding:0 3pt; height:24.48pt; vertical-align:middle; }
+  .history-table thead th { height:21.96pt; font-weight:600; text-align:center; }
+  .history-table td.y, .history-table td.m, .license-table td.y, .license-table td.m { text-align:center; font-size: 8.5pt; }
+  .history-table td.detail { padding-left:5pt; font-family: "Noto Sans CJK JP", "Yu Gothic", sans-serif; font-size:8.6pt; white-space:nowrap; }
+  .history-table .marker td.detail { text-align:center; font-size:10pt; font-weight:650; letter-spacing:2pt; }
+  .history-table .tail td.detail { text-align:right; padding-right:11pt; font-size:10pt; }
+  .license-table { left:106.5pt; top:359.4pt; width:438.1pt; }
+  .license-table th { height:24.48pt; text-align:center; font-size:9.5pt; font-weight:600; }
+  .license-table td { height:24.49pt; font-size:8.4pt; }
+  .portrait { position:absolute; left:449.7pt; top:68.2pt; width:85.05pt; height:113.39pt; border:.8pt dashed #444; display:flex; align-items:center; justify-content:center; font-size:9pt; text-align:center; line-height:1.45; overflow:hidden; background:#fff; }
+  .portrait img { width:100%; height:100%; object-fit:cover; }
+  .portrait img[hidden] { display:none; }
+  [data-field="birthDateJa"]:empty::before { content: "平成　　　年　　　月　　　日　生"; color:#333; }
+  .border-error { outline: 1.8pt solid #bd1b1b !important; }
+  .overflow-warning { display:none; }
+  /* Fixed geometry, designed for a single A4 sheet; never silently clip factual content. */
+  .free-text { overflow-wrap:anywhere; white-space:pre-wrap; }
+  @media print {
+    body { padding:0; margin:0; background:white; }
+    .paper { margin:0 !important; box-shadow:none; }
+    .paper:last-child { break-after:auto; }
+    .border-error { outline:1.5pt solid #bd1b1b; }
+  }
+  @media screen and (max-width: 820px) {
+    body { overflow-x:auto; }
+    .paper { margin-left:12px; margin-right:12px; }
+  }
+</style>
+</head>
+<body>
+<!-- PAGE 1: original owner form geometry, not CP-03D's generic resume. -->
+<section class="paper" id="cv-page-1" aria-label="履歴書 1ページ">
+  <div class="at title" style="left:107pt;top:52pt;">履 歴 書</div>
+  <div class="at" style="left:264pt;top:59.5pt;font-size:10pt;white-space:nowrap;">令和 <span data-field="warekiYear"></span> 年　<span data-field="asOfMonth"></span> 月　<span data-field="asOfDay"></span> 日　現在</div>
+
+  <!-- Photograph (30 × 40 mm, physical). -->
+  <div class="portrait" id="photo-box"><span id="photo-placeholder">写真貼付<br>縦4cm<br>横3cm</span><img id="cv-photo" alt="本人写真" hidden></div>
+
+  <!-- Name / furigana / optional gender -->
+  <div class="at form-frame" style="left:50.05pt;top:80.76pt;width:382.74pt;height:62.65pt;"></div>
+  <div class="line v" style="left:113.55pt;top:82.44pt;height:60.17pt;"></div>
+  <div class="line v" style="left:385.4pt;top:82.44pt;height:60.17pt;"></div>
+  <div class="line dotted-h" style="left:51.72pt;top:94.6pt;width:333.68pt;height:0;"></div>
+  <div class="at label" style="left:53pt;top:83pt;width:58pt;height:13pt;">ふりがな</div>
+  <div class="at label" style="left:53pt;top:105pt;width:58pt;height:36pt;display:flex;align-items:center;justify-content:center;">氏名</div>
+  <div class="value furi" data-field="furigana" style="left:116pt;top:83pt;width:265pt;height:12pt;line-height:1.15;"></div>
+  <div class="value field-name" data-field="displayName" style="left:116pt;top:99pt;width:266pt;max-height:41pt;"></div>
+  <div class="at center" style="left:388pt;top:82pt;width:42pt;font-size:10pt;line-height:1.52;">※<br>男<br>・<br>女</div>
+
+  <!-- DOB + nationality -->
+  <div class="at form-frame" style="left:50.05pt;top:142.59pt;width:382.74pt;height:39.72pt;"></div>
+  <div class="line v" style="left:113.55pt;top:143.4pt;height:38.05pt;"></div>
+  <div class="line v" style="left:291.17pt;top:143.4pt;height:38.05pt;"></div>
+  <div class="line v" style="left:328.87pt;top:143.4pt;height:38.05pt;"></div>
+  <div class="at label" style="left:51pt;top:144pt;width:62pt;height:36pt;display:flex;align-items:center;justify-content:center;">生 年 月 日</div>
+  <div class="value" data-field="birthDateJa" style="left:117pt;top:146pt;width:171pt;height:18pt;white-space:nowrap;"></div>
+  <div class="at center small" style="left:205pt;top:166pt;width:82pt;">（満 <span data-field="age"></span> 歳）</div>
+  <div class="at label" style="left:297pt;top:148pt;width:28pt;height:29pt;">国<br>籍</div>
+  <div class="value small" data-field="nationality" style="left:331pt;top:153pt;width:98pt;max-height:26pt;"></div>
+  <div class="at" style="left:334pt;top:145pt;font-size:6.4pt;">（留学生のみ記入）</div>
+
+  <!-- Address, telephone -->
+  <div class="at form-frame" style="left:50.05pt;top:181.01pt;width:497.85pt;height:85.25pt;"></div>
+  <div class="line v" style="left:113.55pt;top:182.6pt;height:82.77pt;"></div>
+  <div class="line v" style="left:431.59pt;top:182.6pt;height:82.77pt;"></div>
+  <div class="line dotted-h" style="left:51.72pt;top:199pt;width:380pt;height:0;"></div>
+  <div class="at label" style="left:52pt;top:185pt;width:60pt;height:13pt;">ふりがな</div>
+  <div class="at label" style="left:52pt;top:204pt;width:60pt;height:60pt;display:flex;align-items:center;justify-content:center;">現 住 所</div>
+  <div class="value furi" data-field="addressFurigana" style="left:117pt;top:184pt;width:311pt;height:13pt;"></div>
+  <div class="value" data-field="addressBlock" style="left:117pt;top:202pt;width:309pt;max-height:58pt;line-height:1.5;"></div>
+  <div class="at small" style="left:435pt;top:184pt;">電話</div>
+  <div class="value" data-field="phone" style="left:435pt;top:207pt;width:108pt;max-height:50pt;"></div>
+
+  <!-- Email / mobile -->
+  <div class="at form-frame" style="left:50.05pt;top:265.36pt;width:497.85pt;height:22.81pt;"></div>
+  <div class="line v" style="left:113.55pt;top:266.2pt;height:21.2pt;"></div>
+  <div class="line v" style="left:328.87pt;top:266.2pt;height:21.2pt;"></div>
+  <div class="line v" style="left:431.59pt;top:266.2pt;height:21.2pt;"></div>
+  <div class="at label-small" style="left:52pt;top:273pt;">E-mailアドレス</div>
+  <div class="value compact" data-field="email" style="left:116pt;top:270pt;width:209pt;max-height:15pt;"></div>
+  <div class="at center label-small" style="left:334pt;top:272pt;width:92pt;">携帯電話</div>
+  <div class="value compact center" data-field="mobile" style="left:434pt;top:271pt;width:110pt;max-height:15pt;"></div>
+
+  <!-- Vacation contact, reference's original optional area -->
+  <div class="at form-frame" style="left:50.05pt;top:287.33pt;width:497.85pt;height:93.97pt;"></div>
+  <div class="line v" style="left:113.55pt;top:288.17pt;height:92.3pt;"></div>
+  <div class="line v" style="left:431.59pt;top:288.17pt;height:92.3pt;"></div>
+  <div class="line dotted-h" style="left:51.72pt;top:305pt;width:380pt;height:0;"></div>
+  <div class="at label" style="left:52pt;top:289pt;width:60pt;height:14pt;">ふりがな</div>
+  <div class="at label" style="left:52pt;top:313pt;width:60pt;height:63pt;display:flex;align-items:center;justify-content:center;">休暇中の<br>連絡先</div>
+  <div class="at muted" style="left:170pt;top:306pt;width:256pt;white-space:nowrap;">（現住所以外で休暇中に連絡を希望する場合にのみ記入）</div>
+  <div class="value furi" data-field="holidayFurigana" style="left:116pt;top:291pt;width:310pt;max-height:12pt;"></div>
+  <div class="value" data-field="holidayAddress" style="left:116pt;top:325pt;width:308pt;max-height:49pt;"></div>
+  <div class="at small" style="left:434pt;top:291pt;">電話</div>
+  <div class="value compact" data-field="holidayPhone" style="left:434pt;top:324pt;width:108pt;max-height:45pt;"></div>
+
+  <!-- Year / Month / education / work grid (matches owner document). -->
+  <table class="history-table" aria-label="学歴・職歴"><colgroup><col style="width:62pt"><col style="width:28pt"><col></colgroup>
+    <thead><tr><th>年</th><th>月</th><th>学 歴・職 歴（各別にまとめて書く）</th></tr></thead>
+    <tbody id="history-rows"></tbody>
+  </table>
+</section>
+
+<!-- PAGE 2: exactly the owner PDF's blank continuation / self PR / license / supplemental structure. -->
+<section class="paper" id="cv-page-2" aria-label="履歴書 2ページ">
+  <!-- Outer form x=48.1..546.2 pt, y=64.7..776.4 pt -->
+  <div class="at form-frame" style="left:48.12pt;top:64.68pt;width:498.1pt;height:711.7pt;"></div>
+  <div class="line v" style="left:105.86pt;top:66.36pt;height:708.35pt;"></div>
+  <div class="line h" style="left:49.8pt;top:212.1pt;width:494.8pt;"></div>
+  <div class="line h" style="left:49.8pt;top:359pt;width:494.8pt;"></div>
+  <div class="line h" style="left:49.8pt;top:530.35pt;width:494.8pt;"></div>
+  <!-- Unlabeled continuation box from reference -->
+  <div class="value free-text" data-field="additionalNotes" style="left:111pt;top:70pt;width:426pt;max-height:136pt;"></div>
+  <!-- Self PR -->
+  <div class="at label" style="left:51pt;top:258pt;width:52pt;height:70pt;display:flex;align-items:center;justify-content:center;">自己<br>PR</div>
+  <div class="value free-text" data-field="selfPr" style="left:110pt;top:218pt;width:429pt;max-height:134pt;font-size:9.1pt;line-height:1.41;"></div>
+  <!-- Certification table and vertical label -->
+  <div class="at label" style="left:50pt;top:412pt;width:54pt;height:64pt;display:flex;align-items:center;justify-content:center;">免許<br>・<br>資格</div>
+  <table class="license-table" aria-label="免許・資格"><colgroup><col style="width:64.6pt"><col style="width:40pt"><col></colgroup>
+    <thead><tr><th>年</th><th>月</th><th>免許・資格（取得順に記入）</th></tr></thead>
+    <tbody id="certification-rows"></tbody>
+  </table>
+  <!-- Below, exact original vertical divides + horizontals; fields only in VALUE zones. -->
+  <div class="line v" style="left:298.49pt;top:531.2pt;height:243.5pt;"></div>
+  <div class="line v" style="left:355.75pt;top:531.2pt;height:243.5pt;"></div>
+  <div class="line h" style="left:49.8pt;top:579.3pt;width:249.5pt;"></div>
+  <div class="line h" style="left:49.8pt;top:628.3pt;width:494.8pt;"></div>
+  <div class="at label" style="left:51pt;top:541pt;width:52pt;height:35pt;">得意<br>科目</div>
+  <div class="at label" style="left:51pt;top:587pt;width:52pt;height:38pt;">健康<br>状態</div>
+  <div class="at label" style="left:51pt;top:667pt;width:52pt;height:69pt;">課外<br>活動<br>・<br>他</div>
+  <div class="at label" style="left:302pt;top:558pt;width:51pt;height:57pt;">趣味<br>・<br>特技</div>
+  <div class="at label" style="left:302pt;top:677pt;width:51pt;height:67pt;">愛好する<br>スポーツ</div>
+  <!-- Horizontal writing rules replicated from reference. -->
+  <div class="line h" style="left:106.7pt;top:554.83pt;width:191.8pt;"></div>
+  <div class="line h" style="left:106.7pt;top:603.79pt;width:191.8pt;"></div>
+  <div class="line h" style="left:106.7pt;top:652.78pt;width:191.8pt;"></div>
+  <div class="line h" style="left:106.7pt;top:677.26pt;width:191.8pt;"></div>
+  <div class="line h" style="left:106.7pt;top:701.74pt;width:191.8pt;"></div>
+  <div class="line h" style="left:106.7pt;top:726.22pt;width:191.8pt;"></div>
+  <div class="line h" style="left:106.7pt;top:750.7pt;width:191.8pt;"></div>
+  <div class="line h" style="left:356.6pt;top:554.83pt;width:187.9pt;"></div>
+  <div class="line h" style="left:356.6pt;top:579.31pt;width:187.9pt;"></div>
+  <div class="line h" style="left:356.6pt;top:603.79pt;width:187.9pt;"></div>
+  <div class="line h" style="left:356.6pt;top:652.78pt;width:187.9pt;"></div>
+  <div class="line h" style="left:356.6pt;top:677.26pt;width:187.9pt;"></div>
+  <div class="line h" style="left:356.6pt;top:701.74pt;width:187.9pt;"></div>
+  <div class="line h" style="left:356.6pt;top:726.22pt;width:187.9pt;"></div>
+  <div class="line h" style="left:356.6pt;top:750.7pt;width:187.9pt;"></div>
+  <!-- Individual entries placed in the correct cells. -->
+  <div class="value compact" data-field="favoriteSubjects" style="left:110pt;top:536pt;width:184pt;max-height:39pt;"></div>
+  <div class="value compact" data-field="healthStatus" style="left:110pt;top:583pt;width:184pt;max-height:40pt;"></div>
+  <div class="value compact" data-field="extracurricular" style="left:110pt;top:633pt;width:184pt;max-height:139pt;"></div>
+  <div class="value compact" data-field="hobbies" style="left:360pt;top:535pt;width:180pt;max-height:89pt;"></div>
+  <div class="value compact" data-field="sports" style="left:360pt;top:633pt;width:180pt;max-height:139pt;"></div>
+</section>
+
+<script>
+/*
+  Owner/Cursor integration contract:
+    window.renderTronRirekisho({
+      templateCode: 'RIREKISHO_JA',
+      nameJa: '...', furigana: '...', dateOfBirth: '2002-12-02',
+      postalCode: '...', addressText: '...', phone: '...', email: '...',
+      education: [{schoolName:'...', startYear:2024, startMonth:4,
+                   endYear:2026, endMonth:3, status:'graduated'}],
+      work: [], certifications: [], selfPr: '...',
+      photoDataUri: 'data:image/jpeg;base64,...'
+    });
+
+  This is a geometry reference template for Cursor to integrate with validated
+  Spring Boot DTOs. AI controls wording ONLY, never positions and CSS.
+*/
+(function(){
+  const q = (selector, root=document) => root.querySelector(selector);
+  const fields = [...document.querySelectorAll('[data-field]')];
+  const safe = v => v == null ? '' : String(v);
+  function setField(key, value) {
+    for (const element of fields.filter(e => e.dataset.field === key)) element.textContent = safe(value);
+  }
+  const fmt = v => v === undefined || v === null || v === '' ? '' : String(v);
+  const cleanPostal = v => safe(v).replace(/[^0-9]/g,'').slice(0,7);
+  const formattedPostal = v => { const s=cleanPostal(v); return s.length===7 ? s.slice(0,3)+'-'+s.slice(3) : s; };
+  function parseIsoDate(v){
+    const m=safe(v).trim().match(/^(\d{4})[-\/.](\d{1,2})[-\/.](\d{1,2})$/);
+    if (!m) return null;
+    const [y,mo,d]=[+m[1],+m[2],+m[3]];
+    const x=new Date(Date.UTC(y,mo-1,d));
+    if(x.getUTCFullYear()!==y||x.getUTCMonth()!==mo-1||x.getUTCDate()!==d) return null;
+    return {y,m:mo,d};
+  }
+  function wareki(x){
+    if(!x)return '';
+    const n=x.y*10000+x.m*100+x.d;
+    let era, yr;
+    if(n>=20190501){era='令和';yr=x.y-2018;}
+    else if(n>=19890108){era='平成';yr=x.y-1988;}
+    else if(n>=19261225){era='昭和';yr=x.y-1925;}
+    else return `${x.y}年${x.m}月${x.d}日`;
+    return `${era}${yr===1?'元':yr}年${x.m}月${x.d}日`;
+  }
+  function ageAt(d,asOf){
+    if (!d||!asOf) return '';
+    return asOf.y-d.y-((asOf.m*100+asOf.d)<(d.m*100+d.d)?1:0);
+  }
+  function rowStr(r){return safe(r.schoolName||r.school||r.institution||r.name||r.description||'').trim();}
+  function asNumberOrBlank(v){return /^\d+$/.test(safe(v)) ? Number(v) : '';}
+  function educationEvents(items){
+    const out=[];
+    for (const item of (Array.isArray(items)?items:[])) {
+      if(!item || typeof item!=='object') continue;
+      const school=rowStr(item);
+      if(!school)continue;
+      const startY=asNumberOrBlank(item.startYear||item.admissionYear);
+      const startM=asNumberOrBlank(item.startMonth||item.admissionMonth);
+      const endY=asNumberOrBlank(item.endYear||item.graduationYear);
+      const endM=asNumberOrBlank(item.endMonth||item.graduationMonth);
+      const status=safe(item.status||item.graduationStatus).toLowerCase();
+      if(startY){out.push({y:startY,m:startM,detail:school+'　入学',source:item});}
+      if(endY){const verb=/expected|planned|見込み|予定/.test(status)?'卒業見込み':/studying|enrolled|在学/.test(status)?'在学中':'卒業';out.push({y:endY,m:endM,detail:school+'　'+verb,source:item});}
+      if(!startY&&!endY)out.push({y:'',m:'',detail:school+(status?'　'+safe(item.status):''),source:item});
+    }
+    out.sort((a,b)=>((a.y||9999)*12+(a.m||1))-((b.y||9999)*12+(b.m||1)));
+    return out;
+  }
+  function workEvents(items){
+    const out=[];
+    for(const item of (Array.isArray(items)?items:[])) {
+      if(!item||typeof item!=='object') continue;
+      const name=safe(item.company||item.employer||item.name||item.description).trim();
+      if(!name)continue;
+      out.push({y:asNumberOrBlank(item.startYear||item.year),m:asNumberOrBlank(item.startMonth||item.month),detail:name+(item.action?'　'+safe(item.action):'')});
+    }
+    return out;
+  }
+  function putHistory(education,work){
+    const e=educationEvents(education), w=workEvents(work);
+    const tbody=q('#history-rows'); tbody.replaceChildren();
+    const warnings=[];
+    if(e.length>9) warnings.push(`Education has ${e.length} timeline events; this reference layout safely holds 9.`);
+    if(w.length>2) warnings.push(`Work has ${w.length} entries; this reference layout safely holds 2.`);
+    // Static original form rows: header 学歴, 9 school lines, 職歴, 1–2 work lines, 賞罰, 以上.
+    const rows=[{detail:'学　歴',kind:'marker'}];
+    for(let i=0;i<9;i++) rows.push(e[i]||{});
+    rows.push({detail:'職　歴',kind:'marker'});
+    const ws=w.length?w.slice(0,2):[{detail:'な　し'}];
+    rows.push(...ws);
+    rows.push({detail:'賞　罰',kind:'marker'});
+    rows.push({detail:'以上',kind:'tail'});
+    while(rows.length<15)rows.push({});
+    for(const r of rows.slice(0,15)){
+      const tr=document.createElement('tr');
+      if(r.kind)tr.className=r.kind;
+      for (const [k,klass] of [['y','y'],['m','m'],['detail','detail']]) {
+        const td=document.createElement('td');td.className=klass;td.textContent=fmt(r[k]);tr.append(td);
+      }
+      tbody.append(tr);
+    }
+    return warnings;
+  }
+  function putCertifications(items){
+    const list=Array.isArray(items)?items:[];
+    const tbody=q('#certification-rows');tbody.replaceChildren();
+    const warnings=list.length>6?[`Certifications has ${list.length} entries; this reference holds 6.`]:[];
+    for(let i=0;i<6;i++){
+      const c=list[i]||{};
+      const tr=document.createElement('tr');
+      for(const [v,cls] of [[c.year||c.earnedYear,'y'],[c.month||c.earnedMonth,'m'],[c.name||c.title||c.certification,'detail']]){
+        const td=document.createElement('td');td.className=cls;td.textContent=fmt(v);tr.append(td);
+      }
+      tbody.append(tr);
+    }
+    return warnings;
+  }
+  let currentWarnings=[];
+  function checkOverflow(){
+    document.querySelectorAll('.border-error').forEach(e=>e.classList.remove('border-error'));
+    const warnings=[];
+    const nodes=document.querySelectorAll('[data-field],.history-table td,.license-table td');
+    for(const el of nodes){
+      const r=el.getBoundingClientRect();
+      if(!el.textContent.trim())continue;
+      // Values cannot be hidden/overwritten. Detect and explicitly return errors to integrator.
+      if(el.scrollHeight>el.clientHeight+2 || el.scrollWidth>el.clientWidth+2){
+        const label=el.dataset.field||el.textContent.slice(0,22);
+        warnings.push(`Overflow in ${label}`);el.classList.add('border-error');
+      }
+    }
+    return warnings;
+  }
+  function render(data={}){
+    const asOf=data.asOf === '' ? null : parseIsoDate(data.asOf||new Date().toISOString().slice(0,10));
+    const dob=parseIsoDate(data.dateOfBirth);
+    const asOfEra=asOf?wareki(asOf):'';
+    const yearToken=asOfEra.match(/^令和(元|\d+)年/);
+    setField('warekiYear',yearToken?yearToken[1]:'');
+    setField('asOfMonth',asOf?.m||'');setField('asOfDay',asOf?.d||'');
+    setField('displayName',data.nameJa||data.fullName||'');
+    setField('furigana',data.furigana||'');
+    setField('birthDateJa',wareki(dob));
+    setField('age',ageAt(dob,asOf));
+    setField('nationality',data.nationality||'');
+    setField('addressFurigana',data.addressFurigana||'');
+    let addr=safe(data.addressText||data.address||'').trim();
+    let postal=formattedPostal(data.postalCode);
+    if(!postal){const m=addr.match(/(?:〒\s*)?(\d{3})[-‐ー\s]?(\d{4})/);if(m){postal=m[1]+'-'+m[2];}}
+    addr=addr.replace(/^\s*〒?\s*\d{3}[-‐ー\s]?\d{4}\s*/, '').trim();
+    setField('addressBlock',(postal?'〒'+postal:'')+(postal&&addr?'\n':'')+addr);
+    setField('phone',data.phone||data.landline||'');
+    setField('mobile',data.mobile||data.phone||'');
+    setField('email',data.email||'');
+    setField('holidayFurigana',data.holidayFurigana||'');
+    setField('holidayAddress',data.holidayAddress||'');
+    setField('holidayPhone',data.holidayPhone||'');
+    setField('selfPr',data.selfPr||'');
+    setField('additionalNotes',data.additionalNotes||'');
+    setField('favoriteSubjects',data.favoriteSubjects||'');
+    setField('healthStatus',data.healthStatus||'');
+    setField('extracurricular',data.extracurricular||'');
+    setField('hobbies',data.hobbies||'');
+    setField('sports',data.sports||'');
+    const im=q('#cv-photo'), ph=q('#photo-placeholder');
+    if (safe(data.photoDataUri).startsWith('data:image/')) {im.src=data.photoDataUri; im.hidden=false;ph.hidden=true;}
+    else {im.removeAttribute('src');im.hidden=true;ph.hidden=false;}
+    currentWarnings=[...putHistory(data.education||[],data.work||data.workExperience||[]),...putCertifications(data.certifications||[])];
+    requestAnimationFrame(()=>{currentWarnings=[...new Set([...currentWarnings,...checkOverflow()])];});
+    return {warnings:[...currentWarnings]};
+  }
+  window.renderTronRirekisho=render;
+  window.tronRirekishoWarnings=()=>[...currentWarnings];
+  // Default: faithful blank reference. Preview synthetic data using ?demo=1 (never real user data).
+  if(new URLSearchParams(location.search).get('demo')==='1'){
+    render({asOf:'2026-11-07', nameJa:'サンプル　タロウ',furigana:'さんぷる　たろう',dateOfBirth:'2001-04-05',
+      nationality:'', postalCode:'160-0000',addressText:'東京都新宿区架空町1-2-3',phone:'03-0000-0000',mobile:'080-0000-0000',email:'sample@example.test',
+      education:[{schoolName:'サンプル高等学校',startYear:2017,startMonth:4,endYear:2020,endMonth:3,status:'graduated'},
+        {schoolName:'サンプル専門学校',startYear:2020,startMonth:4,endYear:2022,endMonth:3,status:'graduated'}],
+      certifications:[{year:2023,month:7,name:'サンプル資格'}],
+      selfPr:'私は、課題を整理し、原因を検証しながら解決まで取り組みます。Javaとデータベースの学習を通じて、改善を継続する姿勢を身につけました。',
+      favoriteSubjects:'情報処理',healthStatus:'良好',hobbies:'読書',extracurricular:'学校での共同制作',sports:'水泳'});
+  } else render({asOf:''});
+})();
+</script>
+
+  <script>
+    (function() {
+      var data = {"asOf":"2026-11-11","nameJa":"長文　自己PR太郎","furigana":"ちょうぶん　じこぴーあーるたろう","dateOfBirth":"2001-04-15","nationality":"日本","postalCode":"160-0022","addressText":"東京都新宿区新宿4-1-6 ○○ビル4F","addressFurigana":"とうきょうとしんじゅくくしんじゅく4-1-6","phone":"03-1234-5678","mobile":"090-9876-5432","email":"taro.gijutsu@example.jp","photoDataUri":"data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMjAiIGhlaWdodD0iMTYwIiB2aWV3Qm94PSIwIDAgMTIwIDE2MCI+CiAgPHJlY3Qgd2lkdGg9IjEyMCIgaGVpZ2h0PSIxNjAiIGZpbGw9IiNmMWY1ZjkiLz4KICA8Y2lyY2xlIGN4PSI2MCIgY3k9IjU1IiByPSIzMCIgZmlsbD0iIzk0YTNiOCIvPgogIDxwYXRoIGQ9Ik0yMCAxNTAgQzIwIDEwNSwgMTAwIDEwNSwgMTAwIDE1MCBaIiBmaWxsPSIjNjQ3NDhiIi8+CiAgPHRleHQgeD0iNjAiIHk9IjE1NSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZm9udC1zaXplPSI5IiBmaWxsPSIjNDc1NTY5IiBmb250LWZhbWlseT0ic2Fucy1zZXJpZiI+VFJPTiBDQU5ESURBVEU8L3RleHQ+Cjwvc3ZnPg==","education":[{"schoolName":"東京都立新宿高等学校","startYear":2017,"startMonth":4,"endYear":2020,"endMonth":3,"status":"graduated"},{"schoolName":"東京情報工科大学 情報科学部","startYear":2020,"startMonth":4,"endYear":2024,"endMonth":3,"status":"graduated"}],"workExperience":[{"company":"株式会社テラフェス技術研究所","year":2023,"month":8,"action":"インターン入社"},{"company":"株式会社テラフェス技術研究所","year":2024,"month":2,"action":"期間満了退社"}],"certifications":[{"year":2022,"month":10,"name":"基本情報技術者試験 合格"},{"year":2023,"month":6,"name":"応用情報技術者試験 合格"},{"year":2023,"month":11,"name":"TOEIC Listening & Reading Test 820点 取得"},{"year":2024,"month":1,"name":"普通自動車第一種運転免許（AT限定） 取得"}],"selfPr":"私の強みは、物事の本質を論理的に見極め、周囲を巻き込みながら課題解決を完遂できる推進力です。学生時代には50名規模の技術コミュニティを立ち上げ、初学者がつまずきやすい概念を可視化する教材プラットフォームを開発しました。初期段階では要件定義の不透明さから開発が難航しましたが、ユーザーヒアリングを15回重ね、最も求められていたリアルタイム対話機能を優先実装した結果、月間アクティブユーザー数は当初目標の3倍となる1,500名を達成しました。この経験から、仮説検証の重要性と相手視点に立ったコミュニケーションの価値を深く理解しました。貴社においても、技術の探求心とユーザー価値の最大化を両立させ、信頼されるエンジニアとして成果を生み出します。","additionalNotes":"【志望動機】\n最先端のAIエージェント技術を社会基盤へ還元するという貴社のミッションに強く共感いたしました。高品質なドキュメント作成基盤およびフルスタック開発において即戦力として貢献いたします。\n\n【本人希望】\n勤務地：東京都内希望、給与：貴社規定に従います。","favoriteSubjects":"分散システム論、アルゴリズムとデータ構造、データベース工学","healthStatus":"極めて良好（病気・ケガによる欠勤なし）","extracurricular":"情報科学研究会 会長（部員40名）、学園祭技術展示プロジェクトリーダー","hobbies":"自作キーボード設計・製作、技術同人誌の執筆、ロードバイク","sports":"水泳（週2回）、フットサル（月1回）"};
+      if (window.renderTronRirekisho) {
+        window.renderTronRirekisho(data);
+      }
+    })();
+  </script></body>
+</html>

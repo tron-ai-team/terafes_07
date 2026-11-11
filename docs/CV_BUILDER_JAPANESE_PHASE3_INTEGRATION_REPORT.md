@@ -2,7 +2,8 @@
 
 **Date:** 2026-11-11  
 **Base Antigravity commit:** `bbc2e2ab1afef25eece659bddd376bbaf2404d95`  
-**Branch:** `feature/japanese-cv-builder-canonical`  
+**Branch:** `feature/japanese-cv-builder-canonical-v2` (clean replacement of conflicted #18)  
+**Backup branch:** `feature/japanese-cv-builder-canonical` (kept until verified)  
 **Scope:** Implementation + local verification — **no production deploy**
 
 ---
@@ -78,7 +79,10 @@ TS template file retained for **validation + offline evidence tools only**.
 
 ## 9. GitHub
 
-PR opened against `main` (no merge).
+- PR #18 was **CONFLICTING** with `main` because it still included Interview V2 / Auth commits already merged in #17 (~75 files).
+- Clean fix: branch `feature/japanese-cv-builder-canonical-v2` from latest `origin/main` + CV-only cherry-picks (`5760fb0f`, `1f86adc8`) → **28 CV files**, no Interview/Auth noise.
+- Old branch retained as backup (no force-push).
+- Replacement PR opened against `main` (not merged).
 
 ## 10. Remaining production requirements
 

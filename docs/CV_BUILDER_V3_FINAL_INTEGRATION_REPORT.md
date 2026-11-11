@@ -168,7 +168,7 @@ npx tsc --noEmit → PASS
 | Suite | Result |
 |-------|--------|
 | `scripts/test-cv-builder-v3-frontend-api.ps1` | **11/11 PASS** (after concurrency fix; create now returns `updatedAt`) |
-| `CvBuilderV2BackendIT` | Re-run after +1s token bump (see commit notes) |
+| `CvBuilderV2BackendIT` | **PASS (6/6)** after +1s same-second token bump |
 
 Other Career Center / Interview / Chat suites: not fully re-executed in this mission; no intentional changes outside CV Builder paths.
 
@@ -176,28 +176,43 @@ Other Career Center / Interview / Chat suites: not fully re-executed in this mis
 
 ## 11. Screenshots
 
-Browser evidence captured during live Magic Fill / editor sessions (Cursor browser tool). Key observed UI states:
+Committed evidence under `evidence/cvv3-final/`:
 
-- Magic Fill modal — Cloud SMART + GROQ engine banner + pending suggestion  
-- Editor — saved badge, education, certifications, accepted Japanese selfPR  
-- Conflict modal — HTTP 409 Force Overwrite / Reload paths  
+| File | Description |
+|------|-------------|
+| `00-magic-fill-modal-cloud-smart.png` | Magic Fill modal — Cloud SMART |
+| `01-magic-fill-cloud-suggestion.png` | Pending cloud suggestion |
+| `01-cv-builder-loaded.png` | Editor loaded with draft |
+| `02-a4-preview-and-specs.png` | Live A4 preview / specs |
+| `cvv3-e2e-rirekisho.pdf` | Exported Japanese PDF (~298 KB) |
+| `pdf-export-meta.json` | Export metadata |
+| `profile-sync-fill-blank.json` | FILL_BLANK sync report |
 
-Local folder: `evidence/cv-builder-v3/` (test photo asset present).
+Additional local assets: `evidence/cv-builder-v3/` (test photo; may be untracked).
 
 ---
 
 ## 12. GitHub PR link
 
-*(Filled after `gh pr create`)*
+**Stacked PR (OPEN, not merged):**  
+https://github.com/tron-ai-team/terafes_07/pull/21
 
-**Expected:** stacked PR  
-`feature/cv-builder-v3-frontend-redesign` → `feature/cv-builder-v2-backend-complete`
+- **Title:** feat(cv-builder): Japanese CV Builder V3 frontend integration  
+- **Head:** `feature/cv-builder-v3-frontend-redesign`  
+- **Base:** `feature/cv-builder-v2-backend-complete`  
+- **Diff vs base:** 3 commits (frontend V3 + concurrency harden + report/evidence)  
+- **Backend V2 PR:** https://github.com/tron-ai-team/terafes_07/pull/20 (OPEN — merge first)
 
 ---
 
 ## 13. CI status
 
-*(Filled after push — check PR checks)*
+| Check | Status |
+|-------|--------|
+| Vercel Preview Comments | PASS |
+| Vercel (preview deploy) | See latest `gh pr checks 21` (was pending at first open) |
+
+Re-check before merge. Do not merge until green. No separate GitHub Actions backend workflow observed on this PR rollup beyond Vercel.
 
 ---
 
@@ -207,7 +222,7 @@ Local folder: `evidence/cv-builder-v3/` (test photo asset present).
 2. Post-restart browser re-login automation flaky (React controlled password)  
 3. Deep PDF page-count / clipping visual audit not repeated (API download + HTML preview green)  
 4. Full regression of Chat / Voice / Interview V2 UI not re-run (out of CV Builder change surface)  
-5. PR #20 (backend) and this frontend PR must **not** be merged/deployed without owner approval  
+5. PR #20 (backend) and PR #21 (frontend) must **not** be merged/deployed without owner approval  
 
 ---
 
@@ -225,7 +240,7 @@ Local folder: `evidence/cv-builder-v3/` (test photo asset present).
 ### Correct merge order
 
 1. Review & merge **PR #20** (`feature/cv-builder-v2-backend-complete` → `main`)  
-2. Review & merge **frontend V3 stacked PR** (`feature/cv-builder-v3-frontend-redesign` → backend branch, then retarget/`main` after #20)  
+2. Retarget or merge **PR #21** (`feature/cv-builder-v3-frontend-redesign` → backend branch / then `main` after #20 lands)  
 3. Deploy only after owner approval  
 
 **Do not force-push. Do not merge. Do not deploy production.**
@@ -235,9 +250,9 @@ Local folder: `evidence/cv-builder-v3/` (test photo asset present).
 ## Commits on frontend branch (vs backend base)
 
 ```
-feat(cv-builder): complete Japanese CV Builder V3 professional frontend redesign
-feat(cv-builder): enhance concurrency guards and preview print window
-(+ follow-up concurrency token bump commit if present)
+485ed806 feat(cv-builder): complete Japanese CV Builder V3 professional frontend redesign
+70d41e11 feat(cv-builder): enhance concurrency guards and preview print window
+fcdfa5f3 docs(cv-builder): record V3 final integration E2E evidence and report
 ```
 
-Stack base: `feature/cv-builder-v2-backend-complete` @ `e8ed8196`
+Stack base: `feature/cv-builder-v2-backend-complete`

@@ -15,8 +15,12 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api/v1/career/cv-builder")
-@Tag(name = "CV Builder", description = "AI CV Builder with Japanese Excel master template")
+@Tag(name = "CV Builder", description = "Japanese 履歴書 builder — canonical HTML preview + Chromium PDF")
 public class CvBuilderController {
+
+    private static final String PREVIEW_CSP =
+            "default-src 'none'; img-src data:; style-src 'unsafe-inline'; font-src data: *; "
+                    + "base-uri 'none'; form-action 'none'; frame-ancestors 'self'; script-src 'none'";
 
     private final CvBuilderService service;
 
@@ -103,14 +107,39 @@ public class CvBuilderController {
     }
 
     /**
-     * Preview uses the same POI→Gotenberg pipeline as export; returns document metadata
-     * so the client can render the actual PDF (not a separate approximation).
+     * Canonical HTML preview (saved draft). Same {@code CvHtmlPdfRenderer} document as PDF.
+     * Does not invoke Gotenberg.
+     */
+    @GetMapping(value = "/drafts/{id}/preview-html", produces = MediaType.TEXT_HTML_VALUE)
+    public ResponseEntity<byte[]> previewHtmlSaved(@PathVariable String id) {
+        byte[] html = service.renderPreviewHtml(SecurityUtils.getRequiredUserId(), id, null);
+        return htmlPreviewResponse(html);
+    }
+
+    /**
+     * Canonical HTML preview with optional unsaved editor payload.
+     * Body: {@code { "payload": { ... } }} — when payload is present it is rendered without DB write.
+     */
+    @PostMapping(value = "/drafts/{id}/preview-html", produces = MediaType.TEXT_HTML_VALUE)
+    public ResponseEntity<byte[]> previewHtmlLive(@PathVariable String id,
+                                                  @RequestBody(required = false) Map<String, Object> body) {
+        Map<String, Object> override = null;
+        if (body != null && body.get("payload") instanceof Map<?, ?>) {
+            @SuppressWarnings("unchecked")
+            Map<String, Object> payload = (Map<String, Object>) body.get("payload");
+            override = payload;
+        }
+        byte[] html = service.renderPreviewHtml(SecurityUtils.getRequiredUserId(), id, override);
+        return htmlPreviewResponse(html);
+    }
+
+    /**
+     * Legacy PDF-document preview (generates a stored PDF). Prefer {@code preview-html} for live UI.
      */
     @PostMapping("/drafts/{id}/preview")
     public ResponseEntity<Map<String, Object>> preview(@PathVariable String id,
                                                        @RequestParam(defaultValue = "pdf") String format) {
         try {
-            // export() may return an immutable map — copy before tagging as preview.
             Map<String, Object> meta = new java.util.LinkedHashMap<>(
                     service.export(SecurityUtils.getRequiredUserId(), id, format));
             meta.put("preview", true);
@@ -122,6 +151,15 @@ public class CvBuilderController {
                     org.springframework.http.HttpStatus.BAD_REQUEST,
                     "Preview failed: " + (e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage()), e);
         }
+    }
+
+    private static ResponseEntity<byte[]> htmlPreviewResponse(byte[] html) {
+        return ResponseEntity.ok()
+                .contentType(new MediaType("text", "html", java.nio.charset.StandardCharsets.UTF_8))
+                .header("Content-Security-Policy", PREVIEW_CSP)
+                .header(HttpHeaders.CACHE_CONTROL, "no-store")
+                .header("X-Content-Type-Options", "nosniff")
+                .body(html);
     }
 
     @PostMapping("/drafts/{id}/refresh-from-profile")
@@ -173,7 +211,7 @@ public class CvBuilderController {
 
     @PostMapping("/drafts/{id}/export")
     public ResponseEntity<Map<String, Object>> export(@PathVariable String id,
-                                                      @RequestParam(defaultValue = "xlsx") String format) {
+                                                      @RequestParam(defaultValue = "pdf") String format) {
         try {
             return ResponseEntity.ok(service.export(SecurityUtils.getRequiredUserId(), id, format));
         } catch (org.springframework.web.server.ResponseStatusException e) {

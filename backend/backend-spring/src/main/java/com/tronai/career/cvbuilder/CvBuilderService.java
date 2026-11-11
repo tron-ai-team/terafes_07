@@ -72,19 +72,14 @@ public class CvBuilderService {
         this.languageHelper = languageHelper;
     }
 
-    /** User-facing templates only (SHOKUMU_JA kept for existing drafts / backend compat). */
+    /** TRON AI Final Decision: Support ONLY Japanese 履歴書 (RIREKISHO_JA). */
     public List<Map<String, Object>> listTemplates() {
         return List.of(
                 Map.of(
                         "code", "RIREKISHO_JA",
-                        "displayName", "履歴書（日本語）",
+                        "displayName", "履歴書（JIS規格・2ページ）",
                         "locale", "ja",
-                        "description", "Japanese companies — standard 履歴書"),
-                Map.of(
-                        "code", "RESUME_EN",
-                        "displayName", "Resume (English)",
-                        "locale", "en",
-                        "description", "English-language job applications")
+                        "description", "日本標準の2ページ履歴書（学歴・職歴・免許資格・自己PR）。A4判2枚出力。")
         );
     }
 
@@ -101,7 +96,8 @@ public class CvBuilderService {
     @Transactional
     public Map<String, Object> createDraft(Long userId, Map<String, Object> body) {
         User user = userRepository.findById(userId).orElseThrow();
-        String template = normalizeTemplateCode(String.valueOf(body.getOrDefault("templateCode", "RIREKISHO_JA")));
+        // Owner decision: new CVs are Japanese 履歴書 only. Legacy codes remain loadable for existing rows.
+        String template = "RIREKISHO_JA";
         Map<String, Object> payload = body.containsKey("payload")
                 ? preparePayload(castMap(body.get("payload")), false)
                 : payloadFromProfile(userId);
@@ -127,8 +123,11 @@ public class CvBuilderService {
         if (body.get("versionLabel") != null) draft.setVersionLabel(String.valueOf(body.get("versionLabel")));
         if (body.get("templateCode") != null) {
             String next = normalizeTemplateCode(String.valueOf(body.get("templateCode")));
-            // Changing template keeps payload; never invent/drop fields silently.
-            // Client must confirm; we only reject unknown codes.
+            // User-facing product is RIREKISHO_JA only — block switching to EN/SHOKUMU.
+            if (!"RIREKISHO_JA".equals(next)) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "Only RIREKISHO_JA is supported for CV Builder updates.");
+            }
             draft.setTemplateCode(next);
         }
         draftRepository.save(draft);
@@ -477,21 +476,40 @@ public class CvBuilderService {
         return Map.of("versionId", version.getId(), "versionNumber", next);
     }
 
+    /**
+     * Canonical HTML preview for browser iframe — same {@link CvHtmlPdfRenderer} document as PDF.
+     * Optional {@code payloadOverride} renders current editor state without writing the database.
+     */
+    @Transactional(readOnly = true)
+    public byte[] renderPreviewHtml(Long userId, String draftId, Map<String, Object> payloadOverride) {
+        CvBuilderDraftEntity draft = requireDraft(userId, draftId);
+        Map<String, Object> base = payloadOverride != null && !payloadOverride.isEmpty()
+                ? preparePayload(payloadOverride, false)
+                : readMap(draft.getPayloadJson());
+        Map<String, Object> payload = prepareExportPayload(base);
+        // Preview/PDF product path is Japanese 履歴書. Legacy EN/SHOKUMU drafts still load, but
+        // live builder always renders the JIS 2-page document.
+        String templateCode = "RIREKISHO_JA";
+        validateTemplateCapacity(templateCode, payload);
+        String photoUri = resolvePhotoDataUri(userId, templateCode, payload);
+        return htmlPdfRenderer.renderHtml(templateCode, payload, photoUri);
+    }
+
     @Transactional
     public Map<String, Object> export(Long userId, String draftId, String format) throws Exception {
         CvBuilderDraftEntity draft = requireDraft(userId, draftId);
         Map<String, Object> payload = prepareExportPayload(readMap(draft.getPayloadJson()));
-        String templateCode = normalizeTemplateCode(draft.getTemplateCode());
+        // User-facing PDF is Japanese 履歴書 only (canonical HTML → Chromium).
+        String templateCode = "RIREKISHO_JA";
         byte[] bytes;
         String contentType;
         String filename;
-        String fmt = format == null ? "xlsx" : format.toLowerCase(Locale.ROOT);
+        String fmt = format == null ? "pdf" : format.toLowerCase(Locale.ROOT);
         String shortId = draftId.length() >= 8 ? draftId.substring(0, 8) : draftId;
         if ("pdf".equals(fmt)) {
             validateTemplateCapacity(templateCode, payload);
-            // CP-03F: Japanese + English PDF = HTML/CSS → Gotenberg Chromium only.
+            // Canonical path: HTML/CSS → Gotenberg Chromium only.
             // Do NOT silently fall back to Excel→LibreOffice (different layout).
-            // Legacy LibreOffice path remains available via convertOfficeDocument for rollback tooling.
             try {
                 String photoUri = resolvePhotoDataUri(userId, templateCode, payload);
                 byte[] html = htmlPdfRenderer.renderHtml(templateCode, payload, photoUri);
@@ -500,18 +518,21 @@ public class CvBuilderService {
             } catch (GotenbergException ge) {
                 HttpStatus status = ge.isUnavailable() ? HttpStatus.SERVICE_UNAVAILABLE : HttpStatus.BAD_GATEWAY;
                 throw new ResponseStatusException(status,
-                        "PDF generation is temporarily unavailable. XLSX export still works. "
-                                + "Start local Gotenberg Chromium (Docker: tron-gotenberg on port 3000). "
+                        "PDF generation is temporarily unavailable. "
+                                + "Gotenberg Chromium must be reachable (local: tron-gotenberg on port 3000). "
                                 + ge.getMessage(),
                         ge);
             }
             contentType = "application/pdf";
-            filename = "cv-" + shortId + "-" + templateCode.toLowerCase(Locale.ROOT) + ".pdf";
-        } else {
+            filename = "cv-" + shortId + "-rirekisho_ja.pdf";
+        } else if ("xlsx".equals(fmt)) {
+            // Compatibility API retained; removed from user-facing UI.
             validateTemplateCapacity(templateCode, payload);
             bytes = buildWorkbookBytes(templateCode, payload, resolvePhotoBytes(userId, templateCode, payload));
             contentType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
-            filename = "cv-" + shortId + "-" + templateCode.toLowerCase(Locale.ROOT) + ".xlsx";
+            filename = "cv-" + shortId + "-rirekisho_ja.xlsx";
+        } else {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Unsupported format. Use pdf.");
         }
         String objectKey = "users/" + userId + "/cv-builder/" + draftId + "/" + UUID.randomUUID() + "." + fmt;
         objectStorageService.putObject(objectKey, bytes, contentType);

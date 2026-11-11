@@ -98,6 +98,28 @@ class CvHtmlPdfRendererTest {
         assertTrue(html.contains("テスト"));
         assertTrue(html.contains("な　し") || html.contains("なし"));
         assertFalse(html.contains("サンプル大学"));
+        assertFalse(html.contains("極めて良好"));
+        assertFalse(html.contains("<script"));
+    }
+
+    @Test
+    void userAdditionalNotesPreferredOverAutoBuiltMotivationBlock() {
+        Map<String, Object> payload = sampleJa();
+        payload.put("additionalNotes", "本人希望：土日祝休み希望");
+        payload.put("selfPr", "短い自己PR");
+        String html = new String(renderer.renderHtml("RIREKISHO_JA", payload), StandardCharsets.UTF_8);
+        assertTrue(html.contains("本人希望：土日祝休み希望"));
+        assertTrue(html.contains("cv-page-1") && html.contains("cv-page-2"));
+    }
+
+    @Test
+    void untrustedContentIsEscaped() {
+        Map<String, Object> payload = sampleJa();
+        payload.put("nameJa", "<script>alert(1)</script>");
+        payload.put("selfPr", "<img src=x onerror=alert(1)>");
+        String html = new String(renderer.renderHtml("RIREKISHO_JA", payload), StandardCharsets.UTF_8);
+        assertFalse(html.contains("<script>alert(1)</script>"));
+        assertTrue(html.contains("&lt;script&gt;") || html.contains("&lt;img"));
     }
 
     private static int countOccurrences(String haystack, String needle) {

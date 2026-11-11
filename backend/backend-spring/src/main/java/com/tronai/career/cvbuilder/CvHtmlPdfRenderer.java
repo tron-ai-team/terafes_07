@@ -94,7 +94,16 @@ public class CvHtmlPdfRenderer {
 
         // Keep Self PR inside its box; overflow / 志望動機 / 本人希望 go to continuation region.
         TextSplit pr = splitSelfPr(selfPr);
-        String additionalNotes = buildAdditionalNotes(motivation, personalHope, pr.continuation());
+        String userNotes = str(p.get("additionalNotes"));
+        String additionalNotes;
+        if (!userNotes.isBlank()) {
+            additionalNotes = userNotes;
+            if (!pr.continuation().isBlank()) {
+                additionalNotes += "\n\n【自己PR（続き）】\n" + pr.continuation();
+            }
+        } else {
+            additionalNotes = buildAdditionalNotes(motivation, personalHope, pr.continuation());
+        }
 
         String photoHtml = photoBlock(photoDataUri);
         String historyRows = buildOwnerHistoryRows(p);

@@ -80,10 +80,10 @@ export const CareerCenterPage: React.FC = () => {
                 <FileText className="w-5 h-5" />
               </div>
               <h3 className="font-bold text-sm text-slate-900 group-hover:text-blue-600 transition-colors">
-                CV Builder
+                CV Builder (履歴書)
               </h3>
               <p className="text-xs text-slate-500 leading-relaxed">
-                Japanese 履歴書 / English Resume — Magic Fill, PDF preview, Excel download.
+                Japanese 履歴書 — JIS規格 A4 2枚組、プロフィール連携、ライブプレビュー、PDFダウンロード。
               </p>
             </div>
             <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs font-semibold text-purple-600 group-hover:translate-x-0.5 transition-transform">

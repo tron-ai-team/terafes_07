@@ -1,7 +1,8 @@
 # TRON AI — optional LOCAL development services
-# Gotenberg v8: CV PDF conversion (LibreOffice). Bound to localhost only.
+# Gotenberg v8: CV PDF = Chromium HTML→PDF (Japanese 履歴書). Bound to localhost only.
 #
-# Production (Ubuntu core): use deploy/compose.prod.yml instead.
+# Production (Ubuntu core): use deploy/compose.prod.yml (Chromium currently DISABLED).
+# Owner-approved Chromium profile example: deploy/compose.gotenberg-chromium.example.yml
 #
 # Start:  docker compose up -d gotenberg
 # Stop:   docker compose stop gotenberg
@@ -14,5 +15,13 @@ services:
     restart: unless-stopped
     ports:
       - "127.0.0.1:3000:3000"
+    # Local: Chromium routes ENABLED (Gotenberg default) for CV Builder PDF.
+    # Cap concurrency so laptops stay responsive.
+    command:
+      - "gotenberg"
+      - "--api-timeout=120s"
+      - "--chromium-auto-start=false"
+      - "--chromium-max-concurrency=1"
+      - "--chromium-idle-shutdown-timeout=30s"
     # Keep conversion private — do not publish 3000 on 0.0.0.0
     # Default Gotenberg health: GET /health

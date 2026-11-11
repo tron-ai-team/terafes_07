@@ -262,6 +262,29 @@ export const careerCenterClient = {
     return jsonOrThrow(res);
   },
 
+  /**
+   * Canonical Japanese 履歴書 HTML from Spring CvHtmlPdfRenderer (same document as PDF).
+   * Pass payload to preview unsaved editor state without a DB write.
+   * Returns a blob object URL (caller must revoke).
+   */
+  async previewHtml(draftId: string, payload?: Record<string, unknown>): Promise<string> {
+    const path = `/api/v1/career/cv-builder/drafts/${encodeURIComponent(draftId)}/preview-html`;
+    const res = await apiFetch(path, {
+      method: 'POST',
+      body: JSON.stringify(payload ? { payload } : {}),
+    });
+    if (!res.ok) {
+      const detail = await parseErrorDetail(res);
+      throw new ApiError(res.status, detail);
+    }
+    const html = await res.text();
+    if (!html || !html.includes('<html')) {
+      throw new ApiError(500, 'Preview HTML empty or invalid');
+    }
+    const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+    return URL.createObjectURL(blob);
+  },
+
   async refreshFromProfile(draftId: string, replaceAll = false): Promise<CvDraft> {
     const res = await apiFetch(
       `/api/v1/career/cv-builder/drafts/${encodeURIComponent(draftId)}/refresh-from-profile`,
@@ -337,7 +360,7 @@ export const careerCenterClient = {
     return jsonOrThrow(res);
   },
 
-  async exportDraft(draftId: string, format: 'xlsx' | 'pdf'): Promise<CvExportMeta> {
+  async exportDraft(draftId: string, format: 'pdf' | 'xlsx' = 'pdf'): Promise<CvExportMeta> {
     const res = await apiFetch(
       `/api/v1/career/cv-builder/drafts/${encodeURIComponent(draftId)}/export?format=${encodeURIComponent(format)}`,
       { method: 'POST', body: '{}' }

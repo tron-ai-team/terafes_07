@@ -26,7 +26,6 @@ import {
   AlertTriangle,
 } from 'lucide-react';
 import {
-  generateCanonicalRirekishoHtml,
   validateRirekishoPayload,
   RIREKISHO_CAPACITIES,
   parseIsoDate,
@@ -59,10 +58,13 @@ export const CvBuilderPage: React.FC = () => {
   const [eduPreview, setEduPreview] = useState<CvEducationPreview | null>(null);
   const [versions, setVersions] = useState<CvVersionSummary[]>([]);
   const [photoThumbUrl, setPhotoThumbUrl] = useState<string | null>(null);
-  const [domOverflowWarnings, setDomOverflowWarnings] = useState<string[]>([]);
+  const [previewHtmlUrl, setPreviewHtmlUrl] = useState<string | null>(null);
+  const [previewBusy, setPreviewBusy] = useState(false);
+  const [previewError, setPreviewError] = useState<string | null>(null);
 
   const photoInputRef = useRef<HTMLInputElement>(null);
   const previewIframeRef = useRef<HTMLIFrameElement>(null);
+  const previewHtmlUrlRef = useRef<string | null>(null);
 
   // -------------------------------------------------------------------------
   // Validation Calculation
@@ -105,16 +107,53 @@ export const CvBuilderPage: React.FC = () => {
     };
   }, [photoThumbUrl]);
 
-  // Handle postMessage from preview iframe for DOM layout overflow detection
+  // Live preview: authenticated Spring CvHtmlPdfRenderer HTML (same document as PDF).
+  // Debounced; does not write the draft unless the user clicks Save.
   useEffect(() => {
-    const handleMessage = (e: MessageEvent) => {
-      if (e.data && e.data.type === 'TRON_OVERFLOW_CHECK') {
-        const warnings = Array.isArray(e.data.warnings) ? e.data.warnings : [];
-        setDomOverflowWarnings(warnings);
+    if (activeTab !== 'preview' || !draft) return;
+    let cancelled = false;
+    const timer = window.setTimeout(() => {
+      void (async () => {
+        setPreviewBusy(true);
+        setPreviewError(null);
+        try {
+          const url = await careerCenterClient.previewHtml(draft.id, payload);
+          if (cancelled) {
+            URL.revokeObjectURL(url);
+            return;
+          }
+          if (previewHtmlUrlRef.current) URL.revokeObjectURL(previewHtmlUrlRef.current);
+          previewHtmlUrlRef.current = url;
+          setPreviewHtmlUrl(url);
+        } catch (err: any) {
+          if (cancelled) return;
+          const msg =
+            err instanceof ApiError
+              ? err.detail
+              : err?.message === 'Failed to fetch'
+                ? ja
+                  ? 'サーバーに接続できません（ネットワーク / CORS / API停止）。PDFレンダラ障害とは限りません。'
+                  : 'Cannot reach API (network/CORS/backend down) — not necessarily a PDF renderer failure.'
+                : err?.message || 'Preview failed';
+          setPreviewError(msg);
+        } finally {
+          if (!cancelled) setPreviewBusy(false);
+        }
+      })();
+    }, 350);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [activeTab, draft?.id, payload, ja]);
+
+  useEffect(() => {
+    return () => {
+      if (previewHtmlUrlRef.current) {
+        URL.revokeObjectURL(previewHtmlUrlRef.current);
+        previewHtmlUrlRef.current = null;
       }
     };
-    window.addEventListener('message', handleMessage);
-    return () => window.removeEventListener('message', handleMessage);
   }, []);
 
   const applyDraft = (full: CvDraft) => {
@@ -645,15 +684,19 @@ export const CvBuilderPage: React.FC = () => {
       addToast(ja ? `PDFをダウンロードしました (${dl.bytes} bytes)` : `Downloaded PDF (${dl.bytes} bytes)`, 'success');
     } catch (err: any) {
       let msg = err instanceof ApiError ? err.detail : err?.message || 'Export failed';
-      if (/Gotenberg|PDF generation is temporarily unavailable/i.test(String(msg))) {
-        // Offer instant browser native print as fallback
+      if (/Failed to fetch/i.test(String(msg))) {
+        msg = ja
+          ? 'サーバーに接続できません（ネットワーク / CORS / API停止）。PDFレンダラ障害とは限りません。'
+          : 'Cannot reach API (network/CORS/backend down) — not necessarily a PDF renderer failure.';
+      } else if (/Gotenberg|PDF generation is temporarily unavailable|Chromium/i.test(String(msg))) {
         const usePrint = window.confirm(
           ja
-            ? `Gotenbergサービスがオフラインです。ブラウザの印刷機能（A4 PDF保存）を使用しますか？`
-            : `Gotenberg PDF service unavailable. Would you like to use browser native A4 Print to PDF?`
+            ? `Gotenberg Chromium が利用できません。ブラウザの印刷（A4 PDF保存）を試しますか？\n（本番では Chromium 有効化が必要です）`
+            : `Gotenberg Chromium unavailable. Try browser Print to PDF?\n(Production requires Chromium routes enabled.)`
         );
         if (usePrint) {
-          handleBrowserPrint();
+          setActiveTab('preview');
+          window.setTimeout(() => handleBrowserPrint(), 500);
           return;
         }
       }
@@ -672,15 +715,6 @@ export const CvBuilderPage: React.FC = () => {
       window.print();
     }
   };
-
-  // Canonical HTML string for Live Preview
-  const canonicalHtml = useMemo(() => {
-    return generateCanonicalRirekishoHtml(payload, {
-      photoDataUri: photoThumbUrl,
-      highlightOverflow: true,
-      interactiveScript: true,
-    });
-  }, [payload, photoThumbUrl]);
 
   if (loading) {
     return (
@@ -780,13 +814,12 @@ export const CvBuilderPage: React.FC = () => {
         </div>
       )}
 
-      {domOverflowWarnings.length > 0 && (
-        <div className="rounded-xl border border-rose-300 bg-rose-50 p-3 text-xs text-rose-800 flex items-center gap-2">
-          <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+      {validation.hasWarnings && (
+        <div className="rounded-xl border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900 flex items-start gap-2">
+          <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
           <span>
-            {ja
-              ? `ブラウザ描画による文字溢れを検出しました: ${domOverflowWarnings.join(', ')}。プレビューの赤枠をご確認ください。`
-              : `Text overflow detected in: ${domOverflowWarnings.join(', ')}. Red borders highlight overflowing fields.`}
+            {ja ? '容量・レイアウト警告: ' : 'Capacity / layout warnings: '}
+            {validation.warnings.map((w) => w.message).join(' / ')}
           </span>
         </div>
       )}
@@ -1022,14 +1055,40 @@ export const CvBuilderPage: React.FC = () => {
                 </div>
               </div>
 
-              {/* Canonical HTML in Iframe */}
-              <div className="rounded-2xl border border-slate-200 bg-slate-100 p-2 sm:p-4 overflow-hidden shadow-inner flex justify-center">
-                <iframe
-                  ref={previewIframeRef}
-                  title="Canonical Japanese 履歴書 Preview"
-                  srcDoc={canonicalHtml}
-                  className="w-full max-w-[850px] h-[920px] rounded-xl border border-slate-300 shadow-md bg-white"
-                />
+              {previewError && (
+                <div className="rounded-xl border border-red-200 bg-red-50 text-red-700 px-4 py-3 text-sm whitespace-pre-wrap">
+                  {previewError}
+                </div>
+              )}
+              {previewBusy && !previewHtmlUrl && (
+                <div className="text-center text-sm text-slate-500 py-8 flex items-center justify-center gap-2">
+                  <RefreshCw className="w-4 h-4 animate-spin" />
+                  {ja ? 'サーバーHTMLプレビューを生成中…' : 'Generating server HTML preview…'}
+                </div>
+              )}
+
+              {/* Canonical HTML from Spring CvHtmlPdfRenderer (blob URL — JWT never in iframe src) */}
+              <div className="rounded-2xl border border-slate-200 bg-slate-100 p-2 sm:p-4 overflow-hidden shadow-inner flex justify-center relative">
+                {previewBusy && previewHtmlUrl && (
+                  <div className="absolute top-3 right-3 z-10 text-[11px] font-semibold bg-white/90 border border-slate-200 rounded-lg px-2 py-1 text-slate-600">
+                    {ja ? '更新中…' : 'Refreshing…'}
+                  </div>
+                )}
+                {previewHtmlUrl ? (
+                  <iframe
+                    ref={previewIframeRef}
+                    title="Canonical Japanese 履歴書 Preview"
+                    src={previewHtmlUrl}
+                    sandbox="allow-same-origin allow-modals"
+                    className="w-full max-w-[850px] h-[920px] rounded-xl border border-slate-300 shadow-md bg-white"
+                  />
+                ) : (
+                  !previewBusy && (
+                    <div className="w-full max-w-[850px] h-[320px] flex items-center justify-center text-sm text-slate-500">
+                      {ja ? 'プレビューを表示できません' : 'Preview unavailable'}
+                    </div>
+                  )
+                )}
               </div>
             </div>
           ) : (
@@ -1595,7 +1654,7 @@ export const CvBuilderPage: React.FC = () => {
                     <span className="text-xs font-semibold text-slate-600">{ja ? '健康状態' : 'Health Status'}</span>
                     <input
                       className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
-                      placeholder={ja ? '極めて良好（病気・ケガによる欠勤なし）' : 'Excellent'}
+                      placeholder={ja ? '任意（未入力のまま可）' : 'Optional — leave blank if unknown'}
                       value={String(payload.healthStatus ?? '')}
                       onChange={(e) => setField('healthStatus', e.target.value)}
                     />

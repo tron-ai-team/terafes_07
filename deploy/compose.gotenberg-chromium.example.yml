@@ -1,0 +1,44 @@
+# EXAMPLE ONLY — do NOT apply to production without owner approval.
+#
+# Production today (compose.prod.yml) runs:
+#   --chromium-disable-routes=true
+# which breaks CV Builder PDF (HTML → /forms/chromium/convert/html).
+#
+# This fragment shows a resource-capped Chromium-enabled Gotenberg profile
+# suitable for Japanese 履歴書 HTML/CSS fidelity.
+#
+# Usage (after owner approval): merge these command/limits into deploy/compose.prod.yml
+# gotenberg service, then smoke-test on Ubuntu before declaring production PDF fixed.
+
+services:
+  gotenberg:
+    image: gotenberg/gotenberg:8
+    container_name: tron-ai-gotenberg
+    restart: unless-stopped
+    command:
+      - "gotenberg"
+      - "--api-timeout=120s"
+      - "--libreoffice-restart-after=10"
+      - "--libreoffice-max-queue-size=2"
+      # Chromium enabled (routes NOT disabled)
+      - "--chromium-auto-start=false"
+      - "--chromium-max-concurrency=1"
+      - "--chromium-max-queue-size=2"
+      - "--chromium-idle-shutdown-timeout=30s"
+      - "--chromium-restart-after=20"
+    networks:
+      - tron_ai_internal
+    # Raise memory vs LibreOffice-only 1024m — measure with docker stats under one CV convert.
+    mem_limit: ${TRON_GOTENBERG_MEM_LIMIT:-2048m}
+    cpus: ${TRON_GOTENBERG_CPUS:-1.5}
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:3000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
+
+# Smoke after apply (inside container):
+#   curl -s -o /tmp/t.pdf -w "%{http_code}" -X POST http://127.0.0.1:3000/forms/chromium/convert/html \
+#     -F files=@index.html
+# Expect HTTP 200 and %PDF magic — NOT 404.

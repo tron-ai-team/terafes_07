@@ -440,6 +440,12 @@ export const CvBuilderPage: React.FC = () => {
   };
 
   const handleConflictForceOverwrite = async () => {
+    const ok = window.confirm(
+      ja
+        ? '本当に現在の画面内容でサーバー上の最新データを強制上書きしますか？他セッションの変更は失われます。'
+        : 'Force overwrite the server draft with your current screen? Other sessions’ newer changes will be discarded.'
+    );
+    if (!ok) return;
     setShowConflictModal(false);
     await handleSave(true);
   };
@@ -450,8 +456,12 @@ export const CvBuilderPage: React.FC = () => {
     setBusy(true);
     setError(null);
     try {
-      // Save pending edits first
-      await careerCenterClient.updateDraft(draft.id, { payload });
+      // Persist pending edits with optimistic concurrency before sync.
+      const saved = await careerCenterClient.updateDraft(draft.id, {
+        payload,
+        ...(expectedUpdatedAt ? { expectedUpdatedAt } : {}),
+      });
+      setExpectedUpdatedAt(saved.updatedAt || null);
       const updated = await careerCenterClient.refreshFromProfile(draft.id, {
         mode,
         replaceAll: mode === 'REPLACE_ALL',
@@ -460,6 +470,17 @@ export const CvBuilderPage: React.FC = () => {
       addToast(ja ? 'プロフィールを同期しました' : 'Candidate profile synchronized', 'success');
       return updated.syncReport;
     } catch (err: any) {
+      if (err instanceof ApiError && err.status === 409) {
+        setSaveStatus('conflict');
+        setShowConflictModal(true);
+        addToast(
+          ja
+            ? '同期前の保存で競合が発生しました。最新版を確認してください。'
+            : 'Conflict before sync. Resolve concurrent edits first.',
+          'error'
+        );
+        return undefined;
+      }
       const msg = err instanceof ApiError ? err.detail : err?.message || 'Sync failed';
       setError(msg);
       addToast(msg, 'error');
@@ -474,18 +495,33 @@ export const CvBuilderPage: React.FC = () => {
     if (!draft) return;
     setMagicGenerating(true);
     try {
-      // Save current state first
-      await careerCenterClient.updateDraft(draft.id, { payload });
+      // Persist only when dirty. Always avoid sending payload on magicFill itself
+      // (backend would save again and invalidate expectedUpdatedAt).
+      if (hasUnsavedChanges) {
+        const saved = await careerCenterClient.updateDraft(draft.id, {
+          payload,
+          ...(expectedUpdatedAt ? { expectedUpdatedAt } : {}),
+        });
+        setExpectedUpdatedAt(saved.updatedAt || null);
+        setHasUnsavedChanges(false);
+        setSaveStatus('saved');
+      }
       const result = await careerCenterClient.magicFill(draft.id, {
-        payload,
         companyContext: magicCompanyContext || undefined,
         allowCloud: true,
       });
 
+      // Sync payload + concurrency token after Magic Fill metadata writes.
+      const fresh = await careerCenterClient.getDraft(draft.id);
+      applyDraft(fresh, true);
+
       setMagicSuggestions(result.suggestions || []);
       setMagicWarnings([
         ...(result.warnings || []),
-        ...(result.missingRequired || []).map((m) => `Missing in profile: ${m}`),
+        ...(result.missingRequired || []).map((m) =>
+          ja ? `不足項目: ${m}` : `Missing required: ${m}`
+        ),
+        ...(result.engine ? [`engine=${result.engine}`] : []),
       ]);
 
       if ((result.suggestions || []).length === 0) {
@@ -498,7 +534,26 @@ export const CvBuilderPage: React.FC = () => {
           'info'
         );
       }
+      if (result.applied) {
+        addToast(
+          ja
+            ? '警告: AI提案が自動適用された可能性があります。内容を確認してください。'
+            : 'Warning: suggestions may have been auto-applied. Please review.',
+          'error'
+        );
+      }
     } catch (err: any) {
+      if (err instanceof ApiError && err.status === 409) {
+        setSaveStatus('conflict');
+        setShowConflictModal(true);
+        addToast(
+          ja
+            ? 'Magic Fill前の保存で競合が発生しました。'
+            : 'Conflict before Magic Fill. Resolve concurrent edits first.',
+          'error'
+        );
+        return;
+      }
       const msg =
         err instanceof ApiError
           ? err.status === 502 || err.status === 503
@@ -520,10 +575,9 @@ export const CvBuilderPage: React.FC = () => {
     setMagicDeciding(true);
     try {
       const res = await careerCenterClient.decideMagicFill(draft.id, { acceptIds: [sid] });
-      if (res.draft) {
-        applyDraft(res.draft, false);
-        setHasUnsavedChanges(true);
-      }
+      // Prefer a fresh GET so expectedUpdatedAt cannot drift after decide.
+      const fresh = res.draft || (await careerCenterClient.getDraft(draft.id));
+      applyDraft(fresh, true);
       setMagicSuggestions((prev) => prev.filter((x) => careerCenterClient.suggestionId(x) !== sid));
       addToast(ja ? '提案を適用しました' : 'Suggestion accepted', 'success');
     } catch (err: any) {
@@ -539,7 +593,9 @@ export const CvBuilderPage: React.FC = () => {
     if (!sid) return;
     setMagicDeciding(true);
     try {
-      await careerCenterClient.decideMagicFill(draft.id, { rejectIds: [sid] });
+      const res = await careerCenterClient.decideMagicFill(draft.id, { rejectIds: [sid] });
+      const fresh = res.draft || (await careerCenterClient.getDraft(draft.id));
+      applyDraft(fresh, true);
       setMagicSuggestions((prev) => prev.filter((x) => careerCenterClient.suggestionId(x) !== sid));
       addToast(ja ? '提案を却下しました' : 'Suggestion rejected', 'info');
     } catch (err: any) {
@@ -554,10 +610,8 @@ export const CvBuilderPage: React.FC = () => {
     setMagicDeciding(true);
     try {
       const res = await careerCenterClient.decideMagicFill(draft.id, { acceptAll: true });
-      if (res.draft) {
-        applyDraft(res.draft, false);
-        setHasUnsavedChanges(true);
-      }
+      const fresh = res.draft || (await careerCenterClient.getDraft(draft.id));
+      applyDraft(fresh, true);
       setMagicSuggestions([]);
       addToast(
         ja ? `すべての提案を適用しました (${res.accepted}件)` : `Accepted all suggestions (${res.accepted})`,
@@ -580,8 +634,15 @@ export const CvBuilderPage: React.FC = () => {
     instruction: string
   ): Promise<CvSuggestion | null> => {
     if (!draft) return null;
+    setBusy(true);
     try {
-      await careerCenterClient.updateDraft(draft.id, { payload });
+      const saved = await careerCenterClient.updateDraft(draft.id, {
+        payload,
+        ...(expectedUpdatedAt ? { expectedUpdatedAt } : {}),
+      });
+      setExpectedUpdatedAt(saved.updatedAt || null);
+      setHasUnsavedChanges(false);
+      setSaveStatus('saved');
       const s = await careerCenterClient.aiAssist(draft.id, {
         fieldKey,
         instruction: instruction || undefined,
@@ -589,17 +650,78 @@ export const CvBuilderPage: React.FC = () => {
       });
       return s;
     } catch (err: any) {
+      if (err instanceof ApiError && err.status === 409) {
+        setSaveStatus('conflict');
+        setShowConflictModal(true);
+        addToast(
+          ja
+            ? 'AI添削前の保存で競合が発生しました。'
+            : 'Conflict before AI assist. Resolve concurrent edits first.',
+          'error'
+        );
+        return null;
+      }
       const msg = err instanceof ApiError ? err.detail : err?.message || 'AI Assist failed';
       addToast(msg, 'error');
       return null;
+    } finally {
+      setBusy(false);
     }
   };
 
-  const handleApplySingleAi = (proposedText: string) => {
-    if (singleAiState.fieldKey) {
-      handleFieldChange(singleAiState.fieldKey, proposedText);
+  const handleApplySingleAi = async (suggestion: CvSuggestion) => {
+    if (!draft || !singleAiState.fieldKey) return;
+    const sid = careerCenterClient.suggestionId(suggestion);
+    try {
+      if (sid) {
+        const accepted = await careerCenterClient.acceptSuggestion(draft.id, sid);
+        // Accept may return full draft or suggestion DTO.
+        if (accepted && 'payload' in accepted && accepted.payload) {
+          applyDraft(accepted as CvDraft, true);
+        } else if (suggestion.proposedText) {
+          handleFieldChange(singleAiState.fieldKey, suggestion.proposedText);
+        }
+      } else if (suggestion.proposedText) {
+        handleFieldChange(singleAiState.fieldKey, suggestion.proposedText);
+      }
       addToast(ja ? '提案を反映しました' : 'Applied AI suggestion', 'success');
+    } catch (err: any) {
+      // Fallback: still apply proposed text locally if accept endpoint fails.
+      if (suggestion.proposedText) {
+        handleFieldChange(singleAiState.fieldKey, suggestion.proposedText);
+      }
+      addToast(
+        err instanceof ApiError
+          ? `${err.detail} — applied locally; please Save.`
+          : 'Applied locally; please Save.',
+        'info'
+      );
     }
+  };
+
+  const handleRejectSingleAi = async (suggestion: CvSuggestion) => {
+    if (!draft) return;
+    const sid = careerCenterClient.suggestionId(suggestion);
+    if (!sid) return;
+    try {
+      await careerCenterClient.rejectSuggestion(draft.id, sid);
+    } catch {
+      // Best-effort reject; closing modal is still safe.
+    }
+  };
+
+  /** Merge photo metadata without wiping in-progress editor text. */
+  const applyPhotoDraftPreserveEdits = (updated: CvDraft) => {
+    const serverPayload = (updated.payload || {}) as Record<string, unknown>;
+    setDraft(updated);
+    setExpectedUpdatedAt(updated.updatedAt || null);
+    setPayload((prev) => ({
+      ...prev,
+      photoIncluded: serverPayload.photoIncluded ?? prev.photoIncluded,
+      photoSource: serverPayload.photoSource ?? prev.photoSource,
+      cvPhotoObjectKey: serverPayload.cvPhotoObjectKey ?? prev.cvPhotoObjectKey,
+    }));
+    void refreshPhotoThumb(updated);
   };
 
   // ── Photo Upload & Management ───────────────────────────────────────────────
@@ -608,7 +730,7 @@ export const CvBuilderPage: React.FC = () => {
     setBusy(true);
     try {
       const updated = await careerCenterClient.uploadDraftPhoto(draft.id, file, false);
-      applyDraft(updated, false);
+      applyPhotoDraftPreserveEdits(updated);
       addToast(ja ? '証明写真を設定しました' : 'Photo uploaded for this CV', 'success');
     } catch (err: any) {
       const msg = err instanceof ApiError ? err.detail : err?.message || 'Photo upload failed';
@@ -623,7 +745,7 @@ export const CvBuilderPage: React.FC = () => {
     setBusy(true);
     try {
       const updated = await careerCenterClient.useProfilePhotoForDraft(draft.id);
-      applyDraft(updated, false);
+      applyPhotoDraftPreserveEdits(updated);
       addToast(ja ? '候補者プロフィール写真を設定しました' : 'Using profile photo', 'success');
     } catch (err: any) {
       addToast(err instanceof ApiError ? err.detail : err?.message || 'Failed to use profile photo', 'error');
@@ -637,7 +759,7 @@ export const CvBuilderPage: React.FC = () => {
     setBusy(true);
     try {
       const updated = await careerCenterClient.removeDraftPhoto(draft.id);
-      applyDraft(updated, false);
+      applyPhotoDraftPreserveEdits(updated);
       addToast(ja ? '証明写真を解除しました' : 'Photo removed', 'info');
     } catch (err: any) {
       addToast(err instanceof ApiError ? err.detail : err?.message || 'Failed to remove photo', 'error');
@@ -651,11 +773,34 @@ export const CvBuilderPage: React.FC = () => {
     if (!draft) return;
     setBusy(true);
     try {
-      await careerCenterClient.updateDraft(draft.id, { payload });
+      if (hasUnsavedChanges) {
+        const saved = await careerCenterClient.updateDraft(draft.id, {
+          payload,
+          ...(expectedUpdatedAt ? { expectedUpdatedAt } : {}),
+        });
+        setDraft(saved);
+        setExpectedUpdatedAt(saved.updatedAt || null);
+        setHasUnsavedChanges(false);
+        setSaveStatus('saved');
+      }
       await careerCenterClient.saveVersion(draft.id);
       await loadVersions(draft.id);
+      // Snapshot save may bump updatedAt again — refresh token.
+      const fresh = await careerCenterClient.getDraft(draft.id);
+      applyDraft(fresh, true);
       addToast(ja ? 'バージョン履歴にスナップショットを保存しました' : 'Version snapshot saved', 'success');
     } catch (err: any) {
+      if (err instanceof ApiError && err.status === 409) {
+        setSaveStatus('conflict');
+        setShowConflictModal(true);
+        addToast(
+          ja
+            ? 'スナップショット前の保存で競合が発生しました。'
+            : 'Conflict before snapshot. Resolve concurrent edits first.',
+          'error'
+        );
+        return;
+      }
       addToast(err instanceof ApiError ? err.detail : err?.message || 'Failed to save version', 'error');
     } finally {
       setBusy(false);
@@ -695,11 +840,26 @@ export const CvBuilderPage: React.FC = () => {
 
     setBusy(true);
     try {
-      await careerCenterClient.updateDraft(draft.id, { payload });
+      const saved = await careerCenterClient.updateDraft(draft.id, {
+        payload,
+        ...(expectedUpdatedAt ? { expectedUpdatedAt } : {}),
+      });
+      setExpectedUpdatedAt(saved.updatedAt || null);
       const updated = await careerCenterClient.sanitizeEducation(draft.id);
       applyDraft(updated, true);
       addToast(ja ? '学歴ノイズを整理しました' : 'Education cleaned successfully', 'success');
     } catch (err: any) {
+      if (err instanceof ApiError && err.status === 409) {
+        setSaveStatus('conflict');
+        setShowConflictModal(true);
+        addToast(
+          ja
+            ? '学歴整理前の保存で競合が発生しました。'
+            : 'Conflict before sanitize. Resolve concurrent edits first.',
+          'error'
+        );
+        return;
+      }
       addToast(err instanceof ApiError ? err.detail : err?.message || 'Sanitize failed', 'error');
     } finally {
       setBusy(false);
@@ -722,10 +882,15 @@ export const CvBuilderPage: React.FC = () => {
     setExporting(true);
     setError(null);
     try {
-      // Auto-save before export if unsaved
+      // Auto-save before export if unsaved (concurrency-aware).
       if (hasUnsavedChanges) {
-        await careerCenterClient.updateDraft(draft.id, { payload });
+        const saved = await careerCenterClient.updateDraft(draft.id, {
+          payload,
+          ...(expectedUpdatedAt ? { expectedUpdatedAt } : {}),
+        });
+        setExpectedUpdatedAt(saved.updatedAt || null);
         setHasUnsavedChanges(false);
+        setSaveStatus('saved');
       }
 
       const meta = await careerCenterClient.exportDraft(draft.id, 'pdf');
@@ -736,8 +901,23 @@ export const CvBuilderPage: React.FC = () => {
         'success'
       );
     } catch (err: any) {
+      if (err instanceof ApiError && err.status === 409) {
+        setSaveStatus('conflict');
+        setShowConflictModal(true);
+        addToast(
+          ja
+            ? 'PDF出力前の保存で競合が発生しました。'
+            : 'Conflict before PDF export. Resolve concurrent edits first.',
+          'error'
+        );
+        return;
+      }
       let msg = err instanceof ApiError ? err.detail : err?.message || 'Export failed';
-      if (/Failed to fetch/i.test(String(msg))) {
+      if (err instanceof ApiError && (err.status === 502 || err.status === 503)) {
+        msg = ja
+          ? `PDF生成サービス障害 (${err.status}): Gotenberg/Chromiumを確認し、しばらく経ってから再試行してください。`
+          : `PDF renderer unavailable (${err.status}). Check Gotenberg/Chromium and retry.`;
+      } else if (/Failed to fetch/i.test(String(msg))) {
         msg = ja
           ? 'サーバーに接続できません（ネットワーク / CORS / API停止）'
           : 'Cannot reach API (network/CORS/backend down)';
@@ -765,6 +945,7 @@ export const CvBuilderPage: React.FC = () => {
     <div className="max-w-[1600px] mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-6 animate-in fade-in duration-300">
       {/* 1. Header Toolbar */}
       <CvBuilderHeader
+        hasDraft={!!draft}
         hasUnsavedChanges={hasUnsavedChanges}
         saveStatus={saveStatus}
         lastSavedAt={lastSavedAt}
@@ -972,7 +1153,8 @@ export const CvBuilderPage: React.FC = () => {
         onClose={() =>
           setSingleAiState({ isOpen: false, fieldKey: '', fieldLabel: '', currentValue: '' })
         }
-        onApply={handleApplySingleAi}
+        onApply={(suggestion) => void handleApplySingleAi(suggestion)}
+        onReject={(suggestion) => void handleRejectSingleAi(suggestion)}
         onRequestAssist={handleRequestSingleAi}
         ja={ja}
       />

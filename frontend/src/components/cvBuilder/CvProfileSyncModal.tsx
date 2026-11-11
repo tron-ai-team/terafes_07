@@ -35,8 +35,11 @@ export const CvProfileSyncModal: React.FC<CvProfileSyncModalProps> = ({
 
   if (!isOpen) return null;
 
+  const requiresExplicitConfirm =
+    selectedMode === 'REPLACE_ALL' || selectedMode === 'OVERWRITE_SCALARS';
+
   const handleExecute = async () => {
-    if (selectedMode === 'REPLACE_ALL' && !confirmDestructive) {
+    if (requiresExplicitConfirm && !confirmDestructive) {
       return;
     }
     const report = await onConfirmSync(selectedMode);
@@ -127,6 +130,20 @@ export const CvProfileSyncModal: React.FC<CvProfileSyncModalProps> = ({
               </div>
             )}
 
+            {syncReport.conflicts && syncReport.conflicts.length > 0 && (
+              <div className="rounded-xl bg-amber-50 border border-amber-200 p-3 text-xs space-y-1">
+                <span className="font-bold text-amber-900">{ja ? '競合（手動値を優先）: ' : 'Conflicts (manual kept): '}</span>
+                <span className="text-amber-800 font-mono">{syncReport.conflicts.join(', ')}</span>
+              </div>
+            )}
+
+            {syncReport.missingInProfile && syncReport.missingInProfile.length > 0 && (
+              <div className="rounded-xl bg-slate-50 border border-slate-200 p-3 text-xs space-y-1">
+                <span className="font-bold text-slate-700">{ja ? 'プロフィール未設定: ' : 'Missing in profile: '}</span>
+                <span className="text-slate-600 font-mono">{syncReport.missingInProfile.join(', ')}</span>
+              </div>
+            )}
+
             <div className="flex justify-end pt-2">
               <NeonButton onClick={handleClose}>
                 {ja ? 'エディタに戻る' : 'Return to Editor'}
@@ -154,7 +171,10 @@ export const CvProfileSyncModal: React.FC<CvProfileSyncModalProps> = ({
                   name="syncMode"
                   value="FILL_BLANK"
                   checked={selectedMode === 'FILL_BLANK'}
-                  onChange={() => setSelectedMode('FILL_BLANK')}
+                  onChange={() => {
+                    setSelectedMode('FILL_BLANK');
+                    setConfirmDestructive(false);
+                  }}
                   className="mt-1 text-blue-600 focus:ring-blue-500"
                 />
                 <div className="space-y-1 flex-1">
@@ -187,7 +207,10 @@ export const CvProfileSyncModal: React.FC<CvProfileSyncModalProps> = ({
                   name="syncMode"
                   value="OVERWRITE_SCALARS"
                   checked={selectedMode === 'OVERWRITE_SCALARS'}
-                  onChange={() => setSelectedMode('OVERWRITE_SCALARS')}
+                  onChange={() => {
+                    setSelectedMode('OVERWRITE_SCALARS');
+                    setConfirmDestructive(false);
+                  }}
                   className="mt-1 text-blue-600 focus:ring-blue-500"
                 />
                 <div className="space-y-1 flex-1">
@@ -215,7 +238,10 @@ export const CvProfileSyncModal: React.FC<CvProfileSyncModalProps> = ({
                   name="syncMode"
                   value="REPLACE_ALL"
                   checked={selectedMode === 'REPLACE_ALL'}
-                  onChange={() => setSelectedMode('REPLACE_ALL')}
+                  onChange={() => {
+                    setSelectedMode('REPLACE_ALL');
+                    setConfirmDestructive(false);
+                  }}
                   className="mt-1 text-amber-600 focus:ring-amber-500"
                 />
                 <div className="space-y-1 flex-1">
@@ -236,16 +262,26 @@ export const CvProfileSyncModal: React.FC<CvProfileSyncModalProps> = ({
               </label>
             </div>
 
-            {selectedMode === 'REPLACE_ALL' && (
+            {requiresExplicitConfirm && (
               <div className="rounded-xl bg-amber-50 border border-amber-300 p-3.5 space-y-2">
                 <div className="flex items-center gap-2 text-xs font-bold text-amber-900">
                   <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
-                  {ja ? '破壊的な置き換えの確認' : 'Confirm Complete Replacement'}
+                  {selectedMode === 'REPLACE_ALL'
+                    ? ja
+                      ? '破壊的な置き換えの確認'
+                      : 'Confirm Complete Replacement'
+                    : ja
+                      ? '基本情報上書きの確認'
+                      : 'Confirm Scalar Overwrite'}
                 </div>
                 <p className="text-xs text-amber-800">
-                  {ja
-                    ? 'この操作を行うと、現在この履歴書に手動で入力された学歴・職歴・自己PRなどの変更がプロフィールの内容で上書きされます。'
-                    : 'This action will overwrite any manual custom edits in this CV with data from your master profile.'}
+                  {selectedMode === 'REPLACE_ALL'
+                    ? ja
+                      ? 'この操作を行うと、現在この履歴書に手動で入力された学歴・職歴・自己PRなどの変更がプロフィールの内容で上書きされます。'
+                      : 'This action will overwrite any manual custom edits in this CV with data from your master profile.'
+                    : ja
+                      ? '氏名・連絡先などの基本情報は最新プロフィールで上書きされます。学歴・職歴リストは保護されます。'
+                      : 'Personal/contact scalars will be overwritten from profile. Education and experience lists stay protected.'}
                 </p>
                 <label className="flex items-center gap-2 text-xs font-semibold text-slate-800 cursor-pointer pt-1">
                   <input
@@ -274,7 +310,7 @@ export const CvProfileSyncModal: React.FC<CvProfileSyncModalProps> = ({
               </button>
               <NeonButton
                 isLoading={isBusy}
-                disabled={selectedMode === 'REPLACE_ALL' && !confirmDestructive}
+                disabled={requiresExplicitConfirm && !confirmDestructive}
                 onClick={() => void handleExecute()}
                 icon={<RefreshCw className="w-4 h-4" />}
               >

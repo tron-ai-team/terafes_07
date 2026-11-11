@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Sparkles, Check, X, Info, Zap } from 'lucide-react';
+import { Sparkles, Check, X, Info } from 'lucide-react';
 import { NeonButton } from '../common/NeonButton';
 import type { CvSuggestion } from '../../types/careerCenter';
 
@@ -10,7 +10,8 @@ interface CvSingleFieldAiModalProps {
   currentValue: string;
   isBusy: boolean;
   onClose: () => void;
-  onApply: (proposedText: string) => void;
+  onApply: (suggestion: CvSuggestion) => void;
+  onReject: (suggestion: CvSuggestion) => void;
   onRequestAssist: (fieldKey: string, instruction: string) => Promise<CvSuggestion | null>;
   ja: boolean;
 }
@@ -23,6 +24,7 @@ export const CvSingleFieldAiModal: React.FC<CvSingleFieldAiModalProps> = ({
   isBusy,
   onClose,
   onApply,
+  onReject,
   onRequestAssist,
   ja,
 }) => {
@@ -39,13 +41,27 @@ export const CvSingleFieldAiModal: React.FC<CvSingleFieldAiModalProps> = ({
   };
 
   const handleAccept = () => {
-    if (suggestion?.proposedText) {
-      onApply(suggestion.proposedText);
+    if (suggestion) {
+      onApply(suggestion);
+      setSuggestion(null);
+      setInstruction('');
       onClose();
     }
   };
 
+  const handleReject = () => {
+    if (suggestion) {
+      onReject(suggestion);
+    }
+    setSuggestion(null);
+    setInstruction('');
+    onClose();
+  };
+
   const handleClose = () => {
+    if (suggestion) {
+      onReject(suggestion);
+    }
     setSuggestion(null);
     setInstruction('');
     onClose();
@@ -83,7 +99,6 @@ export const CvSingleFieldAiModal: React.FC<CvSingleFieldAiModalProps> = ({
           </button>
         </div>
 
-        {/* Instruction Input */}
         <div className="space-y-1.5">
           <label className="text-xs font-semibold text-slate-700">
             {ja ? 'AIへの指示・希望するニュアンス（任意）' : 'Instruction or Desired Tone (Optional)'}
@@ -112,7 +127,6 @@ export const CvSingleFieldAiModal: React.FC<CvSingleFieldAiModalProps> = ({
           </div>
         </div>
 
-        {/* Suggestion Result */}
         {suggestion ? (
           <div className="space-y-3 rounded-2xl bg-slate-50 border border-slate-200 p-4 text-xs animate-in fade-in">
             <div className="space-y-1">
@@ -141,16 +155,12 @@ export const CvSingleFieldAiModal: React.FC<CvSingleFieldAiModalProps> = ({
             <div className="flex justify-end items-center gap-2 pt-2">
               <button
                 type="button"
-                onClick={handleClose}
+                onClick={handleReject}
                 className="px-3 py-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-100 transition"
               >
                 {ja ? '却下' : 'Reject'}
               </button>
-              <NeonButton
-                size="sm"
-                onClick={handleAccept}
-                icon={<Check className="w-3.5 h-3.5" />}
-              >
+              <NeonButton size="sm" onClick={handleAccept} icon={<Check className="w-3.5 h-3.5" />}>
                 {ja ? '反映する' : 'Accept & Apply'}
               </NeonButton>
             </div>
@@ -166,4 +176,3 @@ export const CvSingleFieldAiModal: React.FC<CvSingleFieldAiModalProps> = ({
     </div>
   );
 };
-

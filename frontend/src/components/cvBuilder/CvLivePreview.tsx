@@ -50,12 +50,35 @@ export const CvLivePreview: React.FC<CvLivePreviewProps> = ({
   };
 
   const handleBrowserPrint = () => {
-    if (iframeRef.current?.contentWindow) {
-      iframeRef.current.contentWindow.focus();
-      iframeRef.current.contentWindow.print();
-    } else {
-      window.print();
+    // Prefer a dedicated print window so we never fall through to printing the
+    // whole CV Builder chrome when the sandboxed iframe cannot print.
+    if (previewHtmlUrl) {
+      const printWindow = window.open(previewHtmlUrl, '_blank', 'noopener,noreferrer');
+      if (printWindow) {
+        const triggerPrint = () => {
+          try {
+            printWindow.focus();
+            printWindow.print();
+          } catch {
+            // User can still print manually from the opened preview tab.
+          }
+        };
+        // Blob HTML may already be loaded; schedule print after paint.
+        window.setTimeout(triggerPrint, 400);
+        return;
+      }
     }
+    try {
+      iframeRef.current?.contentWindow?.focus();
+      iframeRef.current?.contentWindow?.print();
+    } catch {
+      addToastSafe();
+    }
+  };
+
+  const addToastSafe = () => {
+    // CvLivePreview has no toast channel — surface a lightweight alert.
+    window.alert(ja ? 'プレビューの印刷ウィンドウを開けませんでした。' : 'Unable to open the preview print window.');
   };
 
   return (

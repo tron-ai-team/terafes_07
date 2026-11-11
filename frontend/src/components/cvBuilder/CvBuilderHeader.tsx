@@ -17,6 +17,7 @@ import { NeonButton } from '../common/NeonButton';
 import type { CvBuilderTab } from './types';
 
 interface CvBuilderHeaderProps {
+  hasDraft: boolean;
   hasUnsavedChanges: boolean;
   saveStatus: 'idle' | 'saving' | 'saved' | 'conflict' | 'error';
   lastSavedAt: Date | null;
@@ -33,6 +34,7 @@ interface CvBuilderHeaderProps {
 }
 
 export const CvBuilderHeader: React.FC<CvBuilderHeaderProps> = ({
+  hasDraft,
   hasUnsavedChanges,
   saveStatus,
   lastSavedAt,
@@ -116,8 +118,8 @@ export const CvBuilderHeader: React.FC<CvBuilderHeaderProps> = ({
           <button
             type="button"
             onClick={onOpenProfileSync}
-            disabled={isBusy}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-2xl text-xs font-bold bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 hover:border-blue-300 transition shadow-sm"
+            disabled={isBusy || !hasDraft}
+            className="inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-2xl text-xs font-bold bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 hover:border-blue-300 transition shadow-sm disabled:opacity-40 disabled:pointer-events-none"
           >
             <RefreshCw className="w-3.5 h-3.5 text-blue-600" />
             <span>{ja ? 'プロフィール同期' : 'Profile Sync'}</span>
@@ -127,8 +129,8 @@ export const CvBuilderHeader: React.FC<CvBuilderHeaderProps> = ({
           <button
             type="button"
             onClick={onOpenMagicFill}
-            disabled={isBusy}
-            className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-2xl text-xs font-bold bg-gradient-to-r from-indigo-600 to-blue-600 text-white shadow-md shadow-blue-500/20 hover:brightness-105 transition"
+            disabled={isBusy || !hasDraft}
+            className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-2xl text-xs font-bold bg-gradient-to-r from-indigo-600 to-blue-600 text-white shadow-md shadow-blue-500/20 hover:brightness-105 transition disabled:opacity-40 disabled:pointer-events-none"
           >
             <Sparkles className="w-4 h-4" />
             <span>✨ Magic Fill</span>
@@ -138,7 +140,7 @@ export const CvBuilderHeader: React.FC<CvBuilderHeaderProps> = ({
           <NeonButton
             onClick={onSave}
             isLoading={saveStatus === 'saving'}
-            disabled={isBusy || !hasUnsavedChanges}
+            disabled={isBusy || !hasDraft || !hasUnsavedChanges}
             icon={<Save className="w-4 h-4" />}
             size="md"
           >
@@ -149,7 +151,7 @@ export const CvBuilderHeader: React.FC<CvBuilderHeaderProps> = ({
           <NeonButton
             onClick={onExportPdf}
             isLoading={isExporting}
-            disabled={isBusy || hasErrors}
+            disabled={isBusy || !hasDraft || hasErrors}
             icon={<Download className="w-4 h-4" />}
             size="md"
           >

@@ -280,6 +280,15 @@ export interface CvPhotoMeta {
   available?: boolean;
 }
 
+export interface CvSyncReport {
+  mode: 'FILL_BLANK' | 'OVERWRITE_SCALARS' | 'REPLACE_ALL' | string;
+  filled: string[];
+  preserved: string[];
+  conflicts: string[];
+  missingInProfile: string[];
+  draftOnlyPreserved: string[];
+}
+
 export interface CvDraft {
   id: string;
   templateCode: string;
@@ -293,6 +302,9 @@ export interface CvDraft {
   refreshedFromProfile?: boolean;
   sanitizedEducation?: boolean;
   photo?: CvPhotoMeta;
+  syncReport?: CvSyncReport;
+  syncMode?: string;
+  replaceAll?: boolean;
 }
 
 export interface CvSuggestion {

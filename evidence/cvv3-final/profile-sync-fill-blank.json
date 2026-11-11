@@ -1,0 +1,39 @@
+﻿{
+    "mode":  "FILL_BLANK",
+    "filled":  [
+
+               ],
+    "preserved":  [
+                      "fullName",
+                      "nameJa",
+                      "furigana",
+                      "dateOfBirth",
+                      "addressText",
+                      "postalCode",
+                      "email",
+                      "phone",
+                      "selfPr",
+                      "education",
+                      "noWorkExperience",
+                      "skills",
+                      "certifications"
+                  ],
+    "conflicts":  [
+                      "nameJa",
+                      "furigana",
+                      "addressText",
+                      "selfPr",
+                      "education",
+                      "certifications"
+                  ],
+    "missingInProfile":  [
+                             "nationality",
+                             "gender",
+                             "careerGoals",
+                             "motivationGeneral"
+                         ],
+    "draftOnlyPreserved":  [
+                               "hobbies",
+                               "educationSanitized"
+                           ]
+}

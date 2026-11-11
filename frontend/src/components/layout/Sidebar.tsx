@@ -462,8 +462,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     icon: <Bot className="w-4 h-4 text-indigo-500" />,
                   },
                   {
-                    title: uiLanguage === 'ja' ? '履歴書管理' : 'CV Manager',
-                    path: '/career/cv',
+                    title: uiLanguage === 'ja' ? '履歴書ビルダー' : 'CV Builder',
+                    path: '/career/cv-builder',
                     icon: <FileText className="w-4 h-4 text-purple-500" />,
                   },
                   {

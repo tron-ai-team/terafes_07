@@ -140,14 +140,17 @@ export const careerCenterClient = {
     return jsonOrThrow(res);
   },
 
-  async createDraft(body: {
-    templateCode: string;
+  async createDraft(body?: {
+    templateCode?: string;
     payload?: Record<string, unknown>;
     versionLabel?: string;
   }): Promise<CvDraft> {
     const res = await apiFetch('/api/v1/career/cv-builder/drafts', {
       method: 'POST',
-      body: JSON.stringify(body),
+      body: JSON.stringify({
+        templateCode: 'RIREKISHO_JA',
+        ...body,
+      }),
     });
     return jsonOrThrow(res);
   },
@@ -159,7 +162,12 @@ export const careerCenterClient = {
 
   async updateDraft(
     id: string,
-    body: { payload?: Record<string, unknown>; versionLabel?: string; templateCode?: string }
+    body: {
+      payload?: Record<string, unknown>;
+      versionLabel?: string;
+      templateCode?: string;
+      expectedUpdatedAt?: string;
+    }
   ): Promise<CvDraft> {
     const res = await apiFetch(`/api/v1/career/cv-builder/drafts/${encodeURIComponent(id)}`, {
       method: 'PUT',
@@ -224,21 +232,31 @@ export const careerCenterClient = {
       language?: string;
       companyContext?: string;
       allowCloud?: boolean;
+      localOnly?: boolean;
     }
   ): Promise<{
     draftId: string;
+    templateCode?: string;
+    documentLanguage?: string;
     suggestions: CvSuggestion[];
     missingRequired?: string[];
     warnings?: string[];
     engine?: string;
     ollamaUsed?: boolean;
     cloudUsed?: boolean;
+    cloudAllowed?: boolean;
     applied?: boolean;
     message?: string;
   }> {
     const res = await apiFetch(
       `/api/v1/career/cv-builder/drafts/${encodeURIComponent(draftId)}/magic-fill`,
-      { method: 'POST', body: JSON.stringify(body || {}) }
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          allowCloud: true,
+          ...body,
+        }),
+      }
     );
     return jsonOrThrow(res);
   },
@@ -285,10 +303,25 @@ export const careerCenterClient = {
     return URL.createObjectURL(blob);
   },
 
-  async refreshFromProfile(draftId: string, replaceAll = false): Promise<CvDraft> {
+  async refreshFromProfile(
+    draftId: string,
+    options?:
+      | {
+          mode?: 'FILL_BLANK' | 'OVERWRITE_SCALARS' | 'REPLACE_ALL';
+          replaceAll?: boolean;
+        }
+      | boolean
+  ): Promise<CvDraft> {
+    const requestBody =
+      typeof options === 'boolean'
+        ? { replaceAll: options, mode: options ? 'REPLACE_ALL' : 'FILL_BLANK' }
+        : {
+            mode: options?.mode || (options?.replaceAll ? 'REPLACE_ALL' : 'FILL_BLANK'),
+            replaceAll: options?.replaceAll ?? options?.mode === 'REPLACE_ALL',
+          };
     const res = await apiFetch(
       `/api/v1/career/cv-builder/drafts/${encodeURIComponent(draftId)}/refresh-from-profile`,
-      { method: 'POST', body: JSON.stringify({ replaceAll }) }
+      { method: 'POST', body: JSON.stringify(requestBody) }
     );
     return jsonOrThrow(res);
   },
@@ -325,11 +358,17 @@ export const careerCenterClient = {
 
   async aiAssist(
     draftId: string,
-    body: { fieldKey: string; instruction?: string; language?: string }
+    body: { fieldKey: string; instruction?: string; language?: string; allowCloud?: boolean }
   ): Promise<CvSuggestion> {
     const res = await apiFetch(
       `/api/v1/career/cv-builder/drafts/${encodeURIComponent(draftId)}/ai-assist`,
-      { method: 'POST', body: JSON.stringify(body) }
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          allowCloud: true,
+          ...body,
+        }),
+      }
     );
     const data = await jsonOrThrow<CvSuggestion>(res);
     if (!data.suggestionId && data.id) data.suggestionId = data.id;

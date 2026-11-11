@@ -5,6 +5,7 @@ import jakarta.persistence.*;
 import lombok.*;
 
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 
 @Entity
 @Table(name = "cv_builder_drafts")
@@ -53,13 +54,22 @@ public class CvBuilderDraftEntity {
 
     @PrePersist
     void onCreate() {
-        Instant now = Instant.now();
+        // Truncate to seconds to match MySQL TIMESTAMP (no fractional seconds)
+        // and keep optimistic-concurrency tokens stable across JSON round-trips.
+        Instant now = Instant.now().truncatedTo(ChronoUnit.SECONDS);
         if (createdAt == null) createdAt = now;
         if (updatedAt == null) updatedAt = now;
     }
 
     @PreUpdate
     void onUpdate() {
-        updatedAt = Instant.now();
+        Instant now = Instant.now().truncatedTo(ChronoUnit.SECONDS);
+        // Guarantee the concurrency token advances even when two saves land
+        // within the same wall-clock second (MySQL TIMESTAMP has no fractions).
+        if (updatedAt != null && !now.isAfter(updatedAt)) {
+            updatedAt = updatedAt.plusSeconds(1);
+        } else {
+            updatedAt = now;
+        }
     }
 }

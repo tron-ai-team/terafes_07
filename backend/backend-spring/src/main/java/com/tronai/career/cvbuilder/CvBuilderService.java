@@ -19,6 +19,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.security.MessageDigest;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.*;
 
 @Service
@@ -101,6 +102,7 @@ public class CvBuilderService {
         Map<String, Object> payload = body.containsKey("payload")
                 ? preparePayload(castMap(body.get("payload")), false)
                 : payloadFromProfile(userId);
+        Instant now = Instant.now().truncatedTo(ChronoUnit.SECONDS);
         CvBuilderDraftEntity draft = CvBuilderDraftEntity.builder()
                 .id(UUID.randomUUID().toString())
                 .user(user)
@@ -109,8 +111,10 @@ public class CvBuilderService {
                 .versionLabel(String.valueOf(body.getOrDefault("versionLabel", "draft-1")))
                 .status("DRAFT")
                 .payloadJson(write(payload))
+                .createdAt(now)
+                .updatedAt(now)
                 .build();
-        draftRepository.save(draft);
+        draftRepository.saveAndFlush(draft);
         return toDraftDto(draft);
     }
 
@@ -132,7 +136,7 @@ public class CvBuilderService {
             }
             draft.setTemplateCode(next);
         }
-        draftRepository.save(draft);
+        draftRepository.saveAndFlush(draft);
         return toDraftDto(draft);
     }
 
@@ -152,7 +156,7 @@ public class CvBuilderService {
         CvProfileSyncMerger.MergeResult merged = CvProfileSyncMerger.merge(current, fromProfile, mode);
         draft.setPayloadJson(write(preparePayload(merged.payload(), true)));
         draft.setProfileId(profileRepository.findByUser_Id(userId).map(CandidateProfileEntity::getId).orElse(draft.getProfileId()));
-        draftRepository.save(draft);
+        draftRepository.saveAndFlush(draft);
         Map<String, Object> dto = toDraftDto(draft);
         dto.put("refreshedFromProfile", true);
         dto.put("replaceAll", mode == CvProfileSyncMerger.Mode.REPLACE_ALL);
@@ -194,7 +198,7 @@ public class CvBuilderService {
         payload.remove("educationExportIds");
         payload.remove("educationExportSelection");
         draft.setPayloadJson(write(payload));
-        draftRepository.save(draft);
+        draftRepository.saveAndFlush(draft);
         Map<String, Object> dto = toDraftDto(draft);
         dto.put("sanitizedEducation", true);
         return dto;
@@ -230,7 +234,7 @@ public class CvBuilderService {
         String restoredTemplate = normalizeTemplateCode(version.getTemplateCode());
         draft.setTemplateCode("RIREKISHO_JA".equals(restoredTemplate) ? restoredTemplate : "RIREKISHO_JA");
         draft.setVersionLabel(version.getVersionLabel());
-        draftRepository.save(draft);
+        draftRepository.saveAndFlush(draft);
         Map<String, Object> dto = toDraftDto(draft);
         dto.put("restoredFromVersionId", versionId);
         dto.put("restoredVersionNumber", version.getVersionNumber());
@@ -257,7 +261,7 @@ public class CvBuilderService {
         CvBuilderDraftEntity draft = requireDraft(userId, draftId);
         draft.setDeletedAt(Instant.now());
         draft.setStatus("DELETED");
-        draftRepository.save(draft);
+        draftRepository.saveAndFlush(draft);
         return Map.of(
                 "id", draftId,
                 "deleted", true,
@@ -277,7 +281,7 @@ public class CvBuilderService {
         Map<String, Object> req = body == null ? Map.of() : body;
         if (req.get("payload") != null) {
             draft.setPayloadJson(write(preparePayload(castMap(req.get("payload")), false)));
-            draftRepository.save(draft);
+            draftRepository.saveAndFlush(draft);
         }
         Map<String, Object> payload = readMap(draft.getPayloadJson());
         String templateCode = normalizeTemplateCode(draft.getTemplateCode());
@@ -442,7 +446,7 @@ public class CvBuilderService {
             Map<String, Object> payload = readMap(draft.getPayloadJson());
             applySuggestionValue(payload, sugg.getFieldKey(), sugg.getProposedText());
             draft.setPayloadJson(write(payload));
-            draftRepository.save(draft);
+            draftRepository.saveAndFlush(draft);
             sugg.setStatus("ACCEPTED");
         } else {
             sugg.setStatus("REJECTED");
@@ -779,12 +783,16 @@ public class CvBuilderService {
         if (expected.isBlank() || "null".equalsIgnoreCase(expected)) return;
         Instant expectedInstant;
         try {
-            expectedInstant = Instant.parse(expected);
+            // Compare at second precision — MySQL TIMESTAMP has no fractional seconds,
+            // and Jackson may omit nanos on the wire.
+            expectedInstant = Instant.parse(expected).truncatedTo(ChronoUnit.SECONDS);
         } catch (Exception e) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                     "expectedUpdatedAt must be ISO-8601 instant");
         }
-        Instant actual = draft.getUpdatedAt();
+        Instant actual = draft.getUpdatedAt() == null
+                ? null
+                : draft.getUpdatedAt().truncatedTo(ChronoUnit.SECONDS);
         if (actual != null && !actual.equals(expectedInstant)) {
             throw new ResponseStatusException(HttpStatus.CONFLICT,
                     "Draft was modified concurrently. Reload and retry. expectedUpdatedAt="
@@ -848,7 +856,10 @@ public class CvBuilderService {
         m.put("status", d.getStatus());
         m.put("primary", d.isPrimary());
         m.put("payload", payload);
-        m.put("updatedAt", d.getUpdatedAt());
+        // Always emit a stable ISO-8601 string (second precision) so FE concurrency
+        // tokens survive JSON round-trips and MySQL TIMESTAMP truncation.
+        Instant updatedAt = d.getUpdatedAt();
+        m.put("updatedAt", updatedAt == null ? null : updatedAt.truncatedTo(ChronoUnit.SECONDS).toString());
         // Capacity hint for FE (does not mutate payload).
         if ("RIREKISHO_JA".equals(template)) {
             m.put("educationPreview", CvEducationSanitizer.preview(payload, RirekishoExcelFiller.MAX_EDUCATION_ROWS));
@@ -872,7 +883,7 @@ public class CvBuilderService {
         payload.put("photoIncluded", true);
         payload.put("photoSource", "DRAFT");
         draft.setPayloadJson(write(payload));
-        draftRepository.save(draft);
+        draftRepository.saveAndFlush(draft);
         if (alsoUpdateProfile) {
             profileRepository.findByUser_Id(userId).ifPresent(profile -> {
                 profile.setPhotoObjectKey(key);
@@ -891,7 +902,7 @@ public class CvBuilderService {
         payload.put("photoIncluded", true);
         payload.put("photoSource", "PROFILE");
         draft.setPayloadJson(write(payload));
-        draftRepository.save(draft);
+        draftRepository.saveAndFlush(draft);
         return toDraftDto(draft);
     }
 
@@ -904,7 +915,7 @@ public class CvBuilderService {
         payload.put("photoSource", "NONE");
         // Keep key for potential restore but mark excluded
         draft.setPayloadJson(write(payload));
-        draftRepository.save(draft);
+        draftRepository.saveAndFlush(draft);
         return toDraftDto(draft);
     }
 

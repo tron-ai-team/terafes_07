@@ -175,8 +175,9 @@ Focused CV + career + interview + gateway router suites: **PASS** (executed loca
 
 ## 14. CI status
 
-- PR checks monitored after push. Fix-forward if red. **No deploy.**
-- See GitHub Checks on PR #20 for live status.
+- **CI green** on PR #20 (Backend Maven tests, Frontend build, Security checks, Deployment recovery tests, Docker image build no-push, Vercel).
+- Workflow run: https://github.com/tron-ai-team/terafes_07/actions/runs/43028506027
+- **No merge. No production deploy.**
 
 ---
 

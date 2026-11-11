@@ -52,6 +52,8 @@ Exit code **0** for both focused CV suite and career+interview+gateway regressio
 | Unexpected AI field keys ignored | `ignoresUnexpectedAiFields` | PASS |
 | Wrong language rejected | `japaneseTemplateRejectsPersistentEnglishAiOutput` | PASS |
 
+**CI (GitHub Actions PR #20):** Backend Maven tests **pass** (run `43028506027`).
+
 **Not executed live:** real Groq/OpenRouter quota calls for Magic Fill. Production model selection is inferred from gateway config (`prefer-groq-for-smart`, SMART catalog) and verified via mocked `AiRequestContext.allowCloud=true`.
 
 **AI timeout:** covered indirectly via provider failure / gateway exception paths; no dedicated long-sleep timeout IT in this run.

@@ -6,7 +6,9 @@ import com.tronai.ai.ChatGenerationResult;
 import com.tronai.hybrid.HybridRoutingService;
 import com.tronai.stt.SpeechToTextProvider;
 import com.tronai.stt.SttTranscriptionResult;
+import com.tronai.language.ExperienceLanguage;
 import com.tronai.tts.AudioStoreService;
+import com.tronai.tts.GeminiTextToSpeechProvider;
 import com.tronai.tts.TextToSpeechProvider;
 import com.tronai.voice.dto.SpeakRequest;
 import org.junit.jupiter.api.DisplayName;
@@ -56,6 +58,13 @@ class VoiceEndpointTest {
     @MockitoBean
     private TextToSpeechProvider textToSpeechProvider;
 
+    /**
+     * When local Gemini secrets are present, SpeechSynthesisRouter prefers Gemini.
+     * Mock it so endpoint tests stay deterministic and do not call the live API.
+     */
+    @MockitoBean
+    private GeminiTextToSpeechProvider geminiTextToSpeechProvider;
+
     @MockitoBean
     private AiProvider aiProvider;
 
@@ -71,6 +80,9 @@ class VoiceEndpointTest {
         org.mockito.Mockito.lenient().when(aiProvider.getProviderName()).thenReturn("ollama");
         org.mockito.Mockito.lenient().when(aiProvider.isAvailable()).thenReturn(true);
         org.mockito.Mockito.lenient().when(textToSpeechProvider.isAvailable()).thenReturn(true);
+        org.mockito.Mockito.lenient().when(geminiTextToSpeechProvider.supports(any(ExperienceLanguage.class))).thenReturn(true);
+        org.mockito.Mockito.lenient().when(geminiTextToSpeechProvider.synthesize(anyString(), any(ExperienceLanguage.class)))
+                .thenReturn(FAKE_WAV);
         org.mockito.Mockito.lenient().when(hybridRoutingService.selectInferenceRoute()).thenReturn("LOCAL_OLLAMA");
         org.mockito.Mockito.lenient().when(hybridRoutingService.allowsCloudInference()).thenReturn(true);
         org.mockito.Mockito.lenient().when(hybridRoutingService.tryAcquireAiSlot()).thenReturn(true);

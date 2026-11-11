@@ -4,6 +4,7 @@ import {
   InterviewAnalysisResult,
   TranscriptMessage,
   InterviewHistoryItem,
+  InterviewAnswerSubmissionResult,
 } from '../types/interview';
 
 import { LEGACY_API_URL, CORE_API_URL } from '../config/api';
@@ -94,9 +95,9 @@ export const tronApi = {
       type: config.type || 'technical',
       difficulty: config.difficulty || 'intermediate',
       mode: config.mode || 'manual',
-      questionCount: Math.min(8, Math.max(1, config.questionCount || 5)),
+      questionCount: Math.min(15, Math.max(1, config.questionCount || 5)),
       cvFileName: config.cvFileName,
-      aiProfile: config.aiProfile || 'FAST',
+      aiProfile: config.aiProfile || 'SMART',
       cvDocumentId: config.cvDocumentId,
       companyAnalysisId: config.companyAnalysisId,
       jobId: config.jobId,
@@ -129,12 +130,7 @@ export const tronApi = {
     _totalQuestions: number,
     answerText: string,
     _audioBlob?: Blob
-  ): Promise<{
-    userMessage: TranscriptMessage;
-    aiFollowUpMessage: TranscriptMessage;
-    nextQuestionIndex: number;
-    isFinished: boolean;
-  }> {
+  ): Promise<InterviewAnswerSubmissionResult> {
     const res = await apiFetch(`/api/v1/interviews/${interviewId}/answers`, {
       method: 'POST',
       body: JSON.stringify({ questionIndex, answerText }),
@@ -145,6 +141,36 @@ export const tronApi = {
       throw new Error(detail || `Answer submission failed with status ${res.status}`);
     }
 
+    return await res.json();
+  },
+
+  /**
+   * Download interview PDF report (/api/v1/interviews/{interviewId}/report.pdf)
+   */
+  async downloadInterviewReport(interviewId: string): Promise<Blob> {
+    const res = await apiFetch(`/api/v1/interviews/${interviewId}/report.pdf`);
+    if (!res.ok) {
+      const detail = await parseErrorDetail(res);
+      throw new Error(detail || `Report download failed with status ${res.status}`);
+    }
+    return await res.blob();
+  },
+
+  /**
+   * Fetch interview session detail from server (/api/v1/interviews/{interviewId})
+   */
+  async getInterviewDetail(interviewId: string): Promise<{
+    id: string;
+    config?: InterviewConfig;
+    transcript?: TranscriptMessage[];
+    analysis?: InterviewAnalysisResult;
+    finished?: boolean;
+  }> {
+    const res = await apiFetch(`/api/v1/interviews/${interviewId}`);
+    if (!res.ok) {
+      const detail = await parseErrorDetail(res);
+      throw new Error(detail || `Interview detail failed with status ${res.status}`);
+    }
     return await res.json();
   },
 
@@ -248,13 +274,18 @@ export const tronApi = {
   },
 
   /**
-   * Synthesize Japanese speech using backend VOICEVOX (/demo/voice/speak)
+   * Synthesize speech via shared SpeechSynthesisRouter (Gemini Algenib primary).
+   * POST /demo/voice/speak — same router as interview voice-answer TTS.
    */
-  async synthesizeSpeech(text: string): Promise<string> {
+  async synthesizeSpeech(text: string, language?: string): Promise<string> {
     const cleanText = text.trim().slice(0, 399);
+    const body: { text: string; language?: string } = { text: cleanText };
+    if (language && language.trim()) {
+      body.language = language.trim();
+    }
     const res = await apiFetch('/demo/voice/speak', {
       method: 'POST',
-      body: JSON.stringify({ text: cleanText }),
+      body: JSON.stringify(body),
     });
 
     if (!res.ok) {

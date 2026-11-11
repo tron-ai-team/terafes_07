@@ -26,6 +26,7 @@ public class InterviewAnalysisResultDto {
     private int durationMinutes;
     private String completionDate;
     private List<TranscriptMessageDto> transcript;
+    private List<CategoryAssessmentDto> categoryAssessments;
 
     public InterviewAnalysisResultDto() {
         this.radarData = new ArrayList<>();
@@ -33,6 +34,7 @@ public class InterviewAnalysisResultDto {
         this.weakPoints = new ArrayList<>();
         this.transcript = new ArrayList<>();
         this.starSuggestion = new StarSuggestionDto();
+        this.categoryAssessments = new ArrayList<>();
     }
 
     public String getInterviewId() {
@@ -177,5 +179,13 @@ public class InterviewAnalysisResultDto {
 
     public void setTranscript(List<TranscriptMessageDto> transcript) {
         this.transcript = transcript;
+    }
+
+    public List<CategoryAssessmentDto> getCategoryAssessments() {
+        return categoryAssessments;
+    }
+
+    public void setCategoryAssessments(List<CategoryAssessmentDto> categoryAssessments) {
+        this.categoryAssessments = categoryAssessments;
     }
 }

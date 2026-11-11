@@ -1,8 +1,9 @@
 package com.tronai.interview;
 
-import com.tronai.ai.AiProvider;
-import com.tronai.ai.ChatGenerationRequest;
-import com.tronai.ai.ChatGenerationResult;
+import com.tronai.ai.gateway.AiGateway;
+import com.tronai.ai.gateway.AiGenerationResult;
+import com.tronai.ai.gateway.AiRequestContext;
+import com.tronai.ai.gateway.GatewayProviderId;
 import com.tronai.ai.model.ModelManager;
 import com.tronai.interview.dto.InterviewAnalysisResultDto;
 import com.tronai.interview.dto.InterviewConfigDto;
@@ -19,24 +20,14 @@ import static org.mockito.Mockito.when;
 
 class InterviewAnalysisServiceTest {
 
-    private ModelManager modelManager;
-    private AiProvider aiProvider;
+    private AiGateway aiGateway;
     private InterviewAnalysisService analysisService;
 
     @BeforeEach
     void setUp() {
-        modelManager = Mockito.mock(ModelManager.class);
-        aiProvider = Mockito.mock(AiProvider.class);
-        com.tronai.ai.model.ModelProfile profile = com.tronai.ai.model.ModelProfile.builder()
-                .id("qwen3-8b")
-                .provider(com.tronai.ai.model.ModelProviderType.OLLAMA)
-                .providerModelName("qwen3:8b")
-                .enabled(true)
-                .build();
-        when(modelManager.getDefaultModel()).thenReturn(profile);
-        when(modelManager.getProvider(com.tronai.ai.model.ModelProviderType.OLLAMA)).thenReturn(aiProvider);
-        when(aiProvider.isAvailable()).thenReturn(true);
-        analysisService = new InterviewAnalysisService(modelManager);
+        aiGateway = Mockito.mock(AiGateway.class);
+        ModelManager modelManager = Mockito.mock(ModelManager.class);
+        analysisService = new InterviewAnalysisService(modelManager, null, aiGateway);
     }
 
     @Test
@@ -77,12 +68,15 @@ class InterviewAnalysisServiceTest {
                   }
                 }
                 """;
-        when(aiProvider.generate(any(ChatGenerationRequest.class))).thenReturn(
-                ChatGenerationResult.builder().text(json).build()
-        );
+        when(aiGateway.generate(any(AiRequestContext.class))).thenReturn(AiGenerationResult.builder()
+                .text(json)
+                .provider(GatewayProviderId.GROQ)
+                .modelId("openai/gpt-oss-120b")
+                .build());
 
         InterviewConfigDto config = new InterviewConfigDto();
-        InterviewSession session = new InterviewSession("sess-valid", config, 5);
+        config.setAiProfile("SMART");
+        InterviewSession session = new InterviewSession("sess-valid", config, 5, "SMART", "gateway-smart");
         session.addTurn("interviewer", "自己紹介をお願いします。");
         session.addTurn("candidate", "Javaエンジニアの山田です。API開発を行ってきました。");
 
@@ -95,14 +89,39 @@ class InterviewAnalysisServiceTest {
     }
 
     @Test
-    @DisplayName("Malformed AI output falls back to deterministic analysis without throwing error")
-    void malformedAiOutputFallback() {
-        when(aiProvider.generate(any(ChatGenerationRequest.class))).thenReturn(
-                ChatGenerationResult.builder().text("THIS IS NOT JSON").build()
-        );
+    @DisplayName("Per-turn assessments are folded into category assessments when AI omits categories")
+    void assessmentsFoldedIntoCategories() {
+        analysisService = new InterviewAnalysisService(Mockito.mock(ModelManager.class), null, null);
 
         InterviewConfigDto config = new InterviewConfigDto();
-        InterviewSession session = new InterviewSession("sess-bad", config, 5);
+        InterviewSession session = new InterviewSession("sess-assess", config, 5, "SMART", "gateway-smart");
+        session.addTurn("interviewer", "自己紹介をお願いします。");
+        session.addTurn("candidate", "Spring BootでAPIを開発しました。");
+        session.addAssessment(java.util.Map.of(
+                "quality", "ADEQUATE",
+                "action", "FOLLOW_UP",
+                "topic", "self_intro",
+                "scores", java.util.Map.of("relevance", 80, "clarity", 75, "technicalAccuracy", 82, "specificity", 70, "consistency", 78)
+        ));
+
+        InterviewAnalysisResultDto result = analysisService.analyze(session);
+
+        assertThat(result.getCategoryAssessments()).isNotEmpty();
+        assertThat(result.getCategoryAssessments().stream().map(c -> c.getCategory()))
+                .contains("Answer Relevance", "Technical Understanding");
+        assertThat(result.getCategoryAssessments().stream()
+                .anyMatch(c -> "not_assessed".equals(c.getLevel()) && c.getScore() == null)).isFalse();
+    }
+
+    @Test
+    @DisplayName("Malformed AI output falls back to deterministic analysis without throwing error")
+    void malformedAiOutputFallback() {
+        when(aiGateway.generate(any(AiRequestContext.class))).thenReturn(AiGenerationResult.builder()
+                .text("THIS IS NOT JSON")
+                .build());
+
+        InterviewConfigDto config = new InterviewConfigDto();
+        InterviewSession session = new InterviewSession("sess-bad", config, 5, "SMART", "gateway-smart");
         session.addTurn("interviewer", "自己紹介をお願いします。");
         session.addTurn("candidate", "Spring BootでRESTful APIを設計・構築し、MySQLのクエリチューニングを実施しました。");
 
@@ -116,9 +135,9 @@ class InterviewAnalysisServiceTest {
     }
 
     @Test
-    @DisplayName("Ollama unavailable falls back smoothly to deterministic analysis")
-    void ollamaUnavailableFallback() {
-        when(aiProvider.isAvailable()).thenReturn(false);
+    @DisplayName("Gateway unavailable falls back smoothly to deterministic analysis")
+    void gatewayUnavailableFallback() {
+        analysisService = new InterviewAnalysisService(Mockito.mock(ModelManager.class), null, null);
 
         InterviewConfigDto config = new InterviewConfigDto();
         InterviewSession session = new InterviewSession("sess-unavail", config, 5);

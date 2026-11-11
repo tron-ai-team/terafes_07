@@ -92,6 +92,15 @@ export interface InterviewAnalysisResult {
   durationMinutes: number;
   completionDate: string;
   transcript: TranscriptMessage[];
+  categoryAssessments?: CategoryAssessment[];
+}
+
+export interface CategoryAssessment {
+  category: string;
+  categoryJa: string;
+  level: string;
+  score?: number | null;
+  evidence?: string;
 }
 
 export interface InterviewHistoryItem {
@@ -105,3 +114,32 @@ export interface InterviewHistoryItem {
   durationMinutes: number;
   status: 'completed' | 'in-progress' | 'cancelled';
 }
+
+export type InterviewTurnAction =
+  | 'FOLLOW_UP'
+  | 'CLARIFY'
+  | 'NEXT_TOPIC'
+  | 'REDIRECT'
+  | 'CLOSE'
+  | string;
+
+export type InterviewAnswerQuality =
+  | 'STRONG'
+  | 'ADEQUATE'
+  | 'VAGUE'
+  | 'INCORRECT'
+  | 'IRRELEVANT'
+  | string;
+
+export interface InterviewAnswerSubmissionResult {
+  userMessage: TranscriptMessage;
+  aiFollowUpMessage: TranscriptMessage;
+  nextQuestionIndex: number;
+  isFinished: boolean;
+  nextAction?: InterviewTurnAction;
+  answerQuality?: InterviewAnswerQuality;
+  aiUnavailable?: boolean;
+  provider?: string;
+  modelId?: string;
+}
+

@@ -5,8 +5,7 @@ import { GlassCard } from '../components/common/GlassCard';
 import { NeonButton } from '../components/common/NeonButton';
 import { careerCenterClient } from '../services/careerCenterClient';
 import type { CvDraft, CvEducationPreview, CvSuggestion, CvTemplateSummary, CvVersionSummary } from '../types/careerCenter';
-import { ApiError, getAccessToken } from '../services/httpClient';
-import { CORE_API_URL } from '../config/api';
+import { ApiError, apiFetch } from '../services/httpClient';
 import {
   FileText,
   Sparkles,
@@ -351,10 +350,7 @@ export const CvBuilderPage: React.FC = () => {
       const meta = await careerCenterClient.previewDraft(draft.id, 'pdf');
       if (!meta?.documentId) throw new Error('Preview did not return documentId');
       const path = `/api/v1/career/cv-builder/documents/${encodeURIComponent(meta.documentId)}/download`;
-      const headers = new Headers();
-      const token = getAccessToken();
-      if (token) headers.set('Authorization', `Bearer ${token}`);
-      const res = await fetch(`${CORE_API_URL}${path}`, { headers, credentials: 'include' });
+      const res = await apiFetch(path, { method: 'GET' });
       if (!res.ok) throw new Error('Failed to load preview PDF');
       const blob = await res.blob();
       if (!blob.size) throw new Error('Preview PDF empty');

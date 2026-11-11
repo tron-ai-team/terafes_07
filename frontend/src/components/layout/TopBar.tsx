@@ -186,20 +186,31 @@ export const TopBar: React.FC<TopBarProps> = ({ onToggleMobileSidebar }) => {
           </Link>
         </div>
 
-        {/* Desktop status pill */}
+        {/* Desktop status pill — checking ≠ offline (avoids false OFFLINE after login) */}
         <div
-          className={`hidden lg:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-semibold border transition-all ${backendStatus === 'connected'
+          className={`hidden lg:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-semibold border transition-all ${
+            backendStatus === 'connected'
               ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-              : 'bg-amber-50/80 text-amber-700 border-amber-200/80'
-            }`}
+              : backendStatus === 'checking'
+                ? 'bg-slate-50 text-slate-600 border-slate-200'
+                : 'bg-amber-50/80 text-amber-700 border-amber-200/80'
+          }`}
           title={backendMessage}
         >
           {backendStatus === 'connected' ? (
             <Wifi className="w-3 h-3 text-emerald-500" />
+          ) : backendStatus === 'checking' ? (
+            <Wifi className="w-3 h-3 text-slate-400 animate-pulse" />
           ) : (
             <WifiOff className="w-3 h-3 text-amber-500" />
           )}
-          <span>{backendStatus === 'connected' ? 'TRON Core Online' : 'TRON Core Offline (Client Mode)'}</span>
+          <span>
+            {backendStatus === 'connected'
+              ? 'TRON Core Online'
+              : backendStatus === 'checking'
+                ? 'Connecting…'
+                : 'TRON Core Offline (Client Mode)'}
+          </span>
         </div>
       </div>
 

@@ -1,5 +1,4 @@
-import { apiFetch, ApiError, parseErrorDetail, getAccessToken } from './httpClient';
-import { CORE_API_URL } from '../config/api';
+import { apiFetch, ApiError, parseErrorDetail } from './httpClient';
 import type {
   CandidateProfile,
   CandidateProfileRequest,
@@ -71,14 +70,7 @@ export const careerCenterClient = {
 
   /** Fetch authorized profile photo as an object URL (caller must revoke). */
   async getProfilePhotoObjectUrl(): Promise<string | null> {
-    const headers = new Headers();
-    const token = getAccessToken();
-    if (token) headers.set('Authorization', `Bearer ${token}`);
-    const res = await fetch(`${CORE_API_URL}/api/v1/career/profile/photo`, {
-      method: 'GET',
-      credentials: 'include',
-      headers,
-    });
+    const res = await apiFetch('/api/v1/career/profile/photo', { method: 'GET' });
     if (res.status === 404) return null;
     if (!res.ok) {
       const detail = await parseErrorDetail(res);
@@ -211,12 +203,9 @@ export const careerCenterClient = {
   },
 
   async getDraftPhotoObjectUrl(draftId: string): Promise<string | null> {
-    const headers = new Headers();
-    const token = getAccessToken();
-    if (token) headers.set('Authorization', `Bearer ${token}`);
-    const res = await fetch(
-      `${CORE_API_URL}/api/v1/career/cv-builder/drafts/${encodeURIComponent(draftId)}/photo`,
-      { method: 'GET', credentials: 'include', headers }
+    const res = await apiFetch(
+      `/api/v1/career/cv-builder/drafts/${encodeURIComponent(draftId)}/photo`,
+      { method: 'GET' }
     );
     if (res.status === 404) return null;
     if (!res.ok) {
@@ -362,14 +351,7 @@ export const careerCenterClient = {
    */
   async downloadDocument(documentId: string, filenameHint?: string): Promise<{ bytes: number; filename: string }> {
     const path = `/api/v1/career/cv-builder/documents/${encodeURIComponent(documentId)}/download`;
-    const headers = new Headers();
-    const token = getAccessToken();
-    if (token) headers.set('Authorization', `Bearer ${token}`);
-    const res = await fetch(`${CORE_API_URL}${path}`, {
-      method: 'GET',
-      credentials: 'include',
-      headers,
-    });
+    const res = await apiFetch(path, { method: 'GET' });
     if (!res.ok) {
       const detail = await parseErrorDetail(res);
       throw new ApiError(res.status, detail);

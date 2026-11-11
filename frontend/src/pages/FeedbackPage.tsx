@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
+import { tronApi } from '../services/api';
 import { GlassCard } from '../components/common/GlassCard';
 import { ScoreGauge } from '../components/common/ScoreGauge';
 import { NeonButton } from '../components/common/NeonButton';
@@ -31,9 +32,37 @@ import {
 
 export const FeedbackPage: React.FC = () => {
   const navigate = useNavigate();
-  const { lastAnalysis, interviewConfig, uiLanguage, addToast, setInterviewConfig } = useApp();
+  const [searchParams] = useSearchParams();
+  const { lastAnalysis, interviewConfig, uiLanguage, addToast, setInterviewConfig, setLastAnalysis } = useApp();
 
   const [showFullTranscript, setShowFullTranscript] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
+
+  useEffect(() => {
+    const interviewId = searchParams.get('interviewId');
+    if (!interviewId) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const result = await tronApi.getInterviewAnalysis(interviewId, interviewConfig);
+        if (!cancelled) {
+          setLastAnalysis(result);
+        }
+      } catch {
+        if (!cancelled) {
+          addToast(
+            uiLanguage === 'ja'
+              ? 'サーバーから面接詳細を読み込めませんでした。'
+              : 'Could not load interview detail from server.',
+            'warning'
+          );
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [searchParams, interviewConfig, setLastAnalysis, addToast, uiLanguage]);
 
   // Question retry state
   const [retryModalOpen, setRetryModalOpen] = useState(false);
@@ -77,8 +106,36 @@ export const FeedbackPage: React.FC = () => {
     analysis.radarData.length > 0 &&
     analysis.radarData.some((r) => r.score > 0);
 
-  const handleExport = () => {
-    addToast('Interview Performance Report prepared for download.', 'success');
+  const handleExport = async () => {
+    const interviewId = analysis.interviewId;
+    if (!interviewId || interviewId === 'tron-inv-none') {
+      addToast(
+        uiLanguage === 'ja' ? 'ダウンロード可能な面接セッションがありません。' : 'No completed interview session to export.',
+        'warning'
+      );
+      return;
+    }
+    setIsExporting(true);
+    try {
+      const blob = await tronApi.downloadInterviewReport(interviewId);
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = `interview-report-${interviewId}.pdf`;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      URL.revokeObjectURL(url);
+      addToast(
+        uiLanguage === 'ja' ? '面接レポートPDFをダウンロードしました。' : 'Interview report PDF downloaded.',
+        'success'
+      );
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Export failed';
+      addToast(message, 'error');
+    } finally {
+      setIsExporting(false);
+    }
   };
 
   const handleOpenRetry = (questionText: string, previousAnswerText: string = '') => {
@@ -138,10 +195,11 @@ export const FeedbackPage: React.FC = () => {
           <NeonButton
             variant="secondary"
             size="sm"
-            onClick={handleExport}
+            onClick={() => void handleExport()}
+            disabled={isExporting}
             icon={<Download className="w-4 h-4" />}
           >
-            Export Report
+            {isExporting ? 'Exporting…' : 'Export Report'}
           </NeonButton>
           <NeonButton
             size="sm"

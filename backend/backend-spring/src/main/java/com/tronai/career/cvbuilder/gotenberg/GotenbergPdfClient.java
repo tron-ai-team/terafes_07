@@ -90,6 +90,31 @@ public class GotenbergPdfClient {
         return convertWithRetries("/forms/chromium/convert/html", htmlBytes, "index.html", extras);
     }
 
+    /**
+     * Convert HTML to PDF using a production-safe path.
+     * <p>
+     * Production Gotenberg runs with {@code --chromium-disable-routes=true} (LibreOffice only).
+     * Prefer LibreOffice HTML conversion first so interview reports work without enabling Chromium.
+     * If LibreOffice fails and Chromium is available (local/dev), fall back to Chromium.
+     * Does not change CV Builder's Chromium-only {@link #convertHtml} contract.
+     */
+    public byte[] convertHtmlProductionSafe(byte[] htmlBytes) {
+        if (htmlBytes == null || htmlBytes.length == 0) {
+            throw new GotenbergException(GotenbergException.Kind.CONVERSION_FAILED, "HTML document is empty");
+        }
+        try {
+            return convertLibreOffice(htmlBytes, "interview-report.html");
+        } catch (GotenbergException libreOfficeError) {
+            log.warn("LibreOffice HTML→PDF failed ({}), trying Chromium if available", libreOfficeError.getMessage());
+            try {
+                return convertHtml(htmlBytes);
+            } catch (GotenbergException chromiumError) {
+                log.error("Chromium HTML→PDF also failed: {}", chromiumError.getMessage());
+                throw libreOfficeError;
+            }
+        }
+    }
+
     private byte[] convertWithRetries(String path, byte[] bytes, String filename) {
         return convertWithRetries(path, bytes, filename, null);
     }

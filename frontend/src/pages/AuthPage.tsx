@@ -26,15 +26,20 @@ export const AuthPage: React.FC = () => {
   const [agreedToTerms, setAgreedToTerms] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [sessionNotice, setSessionNotice] = useState('');
 
   // Provider states: LOADING, AVAILABLE, UNAVAILABLE, ERROR
   const [googleState, setGoogleState] = useState<GoogleProviderState>('LOADING');
 
   // Preserve redirect parameter if present (e.g. from /connect-device)
   useEffect(() => {
-    const redirect = searchParams.get('redirect');
+    const redirect = searchParams.get('redirect') || searchParams.get('returnTo');
     if (redirect) {
       sessionStorage.setItem('tron_auth_return_url', redirect);
+    }
+    if (searchParams.get('session') === 'expired') {
+      setSessionNotice('Your session expired. Please sign in again to continue.');
+      setMode('signin');
     }
   }, [searchParams]);
 
@@ -329,6 +334,11 @@ export const AuthPage: React.FC = () => {
             </div>
           )}
 
+          {sessionNotice && !error && (
+            <p className="text-xs text-amber-600 text-left font-medium bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+              {sessionNotice}
+            </p>
+          )}
           {error && <p className="text-xs text-rose-500 text-left font-medium">{error}</p>}
 
           <NeonButton

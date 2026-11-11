@@ -176,6 +176,17 @@ public class InterviewController {
         return ResponseEntity.ok(response);
     }
 
+    @GetMapping("/{interviewId}/report.pdf")
+    @Operation(summary = "Download interview PDF report", description = "Returns a PDF performance report for the authenticated owner")
+    public ResponseEntity<byte[]> downloadReport(@PathVariable("interviewId") String interviewId) {
+        Long userId = SecurityUtils.getRequiredUserId();
+        byte[] pdf = interviewService.generateInterviewReportPdf(userId, interviewId);
+        return ResponseEntity.ok()
+                .contentType(MediaType.APPLICATION_PDF)
+                .header("Content-Disposition", "attachment; filename=\"interview-report-" + interviewId + ".pdf\"")
+                .body(pdf);
+    }
+
     @GetMapping
     @Operation(summary = "List user interviews", description = "Retrieves all interview sessions belonging to the authenticated user")
     public ResponseEntity<List<InterviewSummaryDto>> listInterviews() {

@@ -1,10 +1,13 @@
 package com.tronai.interview;
 
-import com.tronai.ai.AiProvider;
-import com.tronai.ai.ChatGenerationRequest;
-import com.tronai.ai.ChatGenerationResult;
-import com.tronai.ai.model.ModelManager;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.tronai.ai.gateway.AiGateway;
+import com.tronai.ai.gateway.AiGatewayProperties;
+import com.tronai.ai.gateway.AiGenerationResult;
+import com.tronai.ai.gateway.AiRequestContext;
+import com.tronai.ai.gateway.GatewayProviderId;
 import com.tronai.interview.dto.InterviewConfigDto;
+import com.tronai.interview.engine.InterviewTurnEngine;
 import com.tronai.interview.generator.InterviewQuestionGenerator;
 import com.tronai.interview.session.InterviewSession;
 import org.junit.jupiter.api.BeforeEach;
@@ -18,24 +21,16 @@ import static org.mockito.Mockito.when;
 
 class InterviewQuestionGeneratorTest {
 
-    private ModelManager modelManager;
-    private AiProvider aiProvider;
     private InterviewQuestionGenerator generator;
+    private AiGateway aiGateway;
 
     @BeforeEach
     void setUp() {
-        modelManager = Mockito.mock(ModelManager.class);
-        aiProvider = Mockito.mock(AiProvider.class);
-        com.tronai.ai.model.ModelProfile profile = com.tronai.ai.model.ModelProfile.builder()
-                .id("qwen3-8b")
-                .provider(com.tronai.ai.model.ModelProviderType.OLLAMA)
-                .providerModelName("qwen3:8b")
-                .enabled(true)
-                .build();
-        when(modelManager.getDefaultModel()).thenReturn(profile);
-        when(modelManager.getProvider(com.tronai.ai.model.ModelProviderType.OLLAMA)).thenReturn(aiProvider);
-        when(aiProvider.isAvailable()).thenReturn(true);
-        generator = new InterviewQuestionGenerator(modelManager);
+        aiGateway = Mockito.mock(AiGateway.class);
+        AiGatewayProperties properties = new AiGatewayProperties();
+        properties.setInterviewCloudEnabled(true);
+        InterviewTurnEngine engine = new InterviewTurnEngine(aiGateway, properties, new ObjectMapper());
+        generator = new InterviewQuestionGenerator(engine);
     }
 
     @Test
@@ -65,51 +60,65 @@ class InterviewQuestionGeneratorTest {
     }
 
     @Test
-    @DisplayName("Prevents Q1 repetition and advances topic")
-    void preventsRepetitionAndAdvances() {
+    @DisplayName("Next question uses turn engine and avoids repeating Q1")
+    void nextQuestionUsesTurnEngine() {
+        when(aiGateway.generate(any(AiRequestContext.class))).thenReturn(AiGenerationResult.builder()
+                .text("""
+                        {
+                          "answerQuality": "ADEQUATE",
+                          "nextAction": "FOLLOW_UP",
+                          "spokenReply": "ありがとうございます。",
+                          "nextQuestion": "Javaを使って、どのようなシステムを開発しましたか？",
+                          "currentTopic": "project_experience",
+                          "coverage": ["self_intro"],
+                          "internalScores": {"relevance":80,"clarity":70,"specificity":60,"technicalAccuracy":70,"consistency":70},
+                          "assessmentNotes": "ok"
+                        }
+                        """)
+                .provider(GatewayProviderId.GROQ)
+                .modelId("openai/gpt-oss-120b")
+                .build());
+
         InterviewConfigDto config = new InterviewConfigDto();
         config.setLanguage("japanese");
-        InterviewSession session = new InterviewSession("sess-1", config, 5);
-        session.recordAskedQuestion("1分程度で自己紹介をお願いできますか？", "自己紹介");
-
-        // When LLM generates identical question to Q1
-        when(aiProvider.generate(any(ChatGenerationRequest.class))).thenReturn(
-                ChatGenerationResult.builder().text("{\"question\": \"1分程度で自己紹介をお願いできますか？\"}").build()
-        );
+        InterviewSession session = new InterviewSession("sess-1", config, 5, "SMART", "gateway-smart");
+        session.recordAskedQuestion("1分程度で自己紹介をお願いできますか？", "self_intro");
 
         String nextQ = generator.generateNextQuestion(session, "私は大学でJavaとSpring Bootを学んだ山田です。");
 
-        // Should reject duplicate and pick another topic fallback
         assertThat(nextQ).isNotEqualTo("1分程度で自己紹介をお願いできますか？");
+        assertThat(nextQ).contains("Java");
+    }
+
+    @Test
+    @DisplayName("Vague answer no longer uses length-only 具体的な場面 template")
+    void vagueAnswerDoesNotUseLegacyTemplate() {
+        when(aiGateway.generate(any(AiRequestContext.class))).thenThrow(new IllegalStateException("offline"));
+
+        InterviewConfigDto config = new InterviewConfigDto();
+        config.setLanguage("japanese");
+        InterviewSession session = new InterviewSession("sess-2", config, 5, "SMART", "gateway-smart");
+        session.setActiveTopic("project_experience");
+        session.recordAskedQuestion("プロジェクト経験を教えてください。", "project_experience");
+
+        String nextQ = generator.generateNextQuestion(session, "はい。");
+
+        assertThat(nextQ).doesNotContain("具体的な場面を一つ教えてください");
         assertThat(nextQ).isNotEmpty();
     }
 
     @Test
-    @DisplayName("Vague candidate answer triggers clarification fallback")
-    void vagueAnswerTriggersClarification() {
-        when(aiProvider.isAvailable()).thenReturn(false); // test deterministic fallback
-
-        InterviewConfigDto config = new InterviewConfigDto();
-        config.setLanguage("japanese");
-        InterviewSession session = new InterviewSession("sess-2", config, 5);
-
-        String nextQ = generator.generateNextQuestion(session, "はい。");
-
-        assertThat(nextQ).contains("具体的な場面");
-    }
-
-    @Test
-    @DisplayName("Offline or failing LLM gracefully falls back to deterministic question")
+    @DisplayName("Offline AI falls back transparently without crashing")
     void offlineLlmFallback() {
-        when(aiProvider.isAvailable()).thenReturn(false);
+        when(aiGateway.generate(any(AiRequestContext.class))).thenThrow(new IllegalStateException("offline"));
 
         InterviewConfigDto config = new InterviewConfigDto();
         config.setLanguage("japanese");
-        InterviewSession session = new InterviewSession("sess-3", config, 5);
+        InterviewSession session = new InterviewSession("sess-3", config, 5, "SMART", "gateway-smart");
 
         String nextQ = generator.generateNextQuestion(session, "バックエンドAPIのマイクロサービス開発を担当しました。");
 
         assertThat(nextQ).isNotEmpty();
-        assertThat(nextQ).matches(".*(？|\\?|か。|ください。|でしょうか。)$");
+        assertThat(nextQ).containsAnyOf("不安定", "API", "開発", "経験", "教えて");
     }
 }

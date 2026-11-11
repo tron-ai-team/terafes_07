@@ -63,7 +63,9 @@ export const InterviewSetupPage: React.FC = () => {
     interviewConfig.language || resolveInterviewLanguage(selectedLanguage)
   );
   const [questionCount, setQuestionCount] = useState<number>(interviewConfig.questionCount || 5);
-  const [selectedProfile, setSelectedProfile] = useState<AiProfile>(interviewConfig.aiProfile || preferredAiProfile);
+  const [selectedProfile, setSelectedProfile] = useState<AiProfile>(
+    interviewConfig.aiProfile || 'SMART'
+  );
 
   // CV Documents state
   const [userCvs, setUserCvs] = useState<any[]>([]);

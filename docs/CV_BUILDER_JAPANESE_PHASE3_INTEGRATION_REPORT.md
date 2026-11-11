@@ -78,7 +78,9 @@ TS template file retained for **validation + offline evidence tools only**.
 
 ## 9. GitHub
 
-PR opened against `main` (no merge).
+- Antigravity commit preserved: `bbc2e2ab1afef25eece659bddd376bbaf2404d95`
+- Integration commit: `df52388`
+- PR (not merged): https://github.com/tron-ai-team/terafes_07/pull/18
 
 ## 10. Remaining production requirements
 

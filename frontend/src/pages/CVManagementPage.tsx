@@ -254,15 +254,15 @@ export const CVManagementPage: React.FC = () => {
   // No hardcoded ATS scores — only show guidance when real parse data exists.
   const suggestions = parsedData
     ? [
-        {
-          title: uiLanguage === 'ja' ? '抽出結果の確認' : 'Review extracted fields',
-          before: uiLanguage === 'ja' ? '自動抽出は参考情報です' : 'Auto-extract is advisory only',
-          after: uiLanguage === 'ja'
-            ? `スキル ${parsedData.skills?.length || 0} 件 / 実務経験 ${parsedData.experienceYears || 0} 年を確認してください。`
-            : `Confirm ${parsedData.skills?.length || 0} skills and ~${parsedData.experienceYears || 0} years experience.`,
-          impact: uiLanguage === 'ja' ? '実データ' : 'Real parse data',
-        },
-      ]
+      {
+        title: uiLanguage === 'ja' ? '抽出結果の確認' : 'Review extracted fields',
+        before: uiLanguage === 'ja' ? '自動抽出は参考情報です' : 'Auto-extract is advisory only',
+        after: uiLanguage === 'ja'
+          ? `スキル ${parsedData.skills?.length || 0} 件 / 実務経験 ${parsedData.experienceYears || 0} 年を確認してください。`
+          : `Confirm ${parsedData.skills?.length || 0} skills and ~${parsedData.experienceYears || 0} years experience.`,
+        impact: uiLanguage === 'ja' ? '実データ' : 'Real parse data',
+      },
+    ]
     : [];
 
   return (
@@ -296,6 +296,38 @@ export const CVManagementPage: React.FC = () => {
             {uiLanguage === 'ja' ? '志望企業と面接練習' : 'Practice Interview'}
           </NeonButton>
         </div>
+      </div>
+
+      {/* Banner for Japanese CV Builder V3 */}
+      <div className="rounded-2xl border border-blue-200 bg-gradient-to-r from-blue-50/80 to-indigo-50/80 p-4 sm:p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-xs">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center shrink-0 shadow-md shadow-blue-500/20">
+            <FileText className="w-5 h-5" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <h3 className="text-sm font-bold text-slate-900">
+                {uiLanguage === 'ja' ? '日本標準 履歴書ビルダー (JIS規格・A4 2枚組)' : 'Japanese 履歴書 Builder (JIS Standard)'}
+              </h3>
+              <span className="text-[10px] bg-blue-100 text-blue-800 font-bold px-2 py-0.5 rounded-full">
+                V3
+              </span>
+            </div>
+            <p className="text-xs text-slate-600 mt-0.5">
+              {uiLanguage === 'ja'
+                ? '候補者プロフィール連携、Cloud AI Magic Fill、A4リアルタイムプレビュー、PDFダウンロードに対応'
+                : 'Create canonical Japanese 履歴書 with Candidate Profile sync, AI Magic Fill, live preview & PDF download'}
+            </p>
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={() => navigate('/career/cv-builder')}
+          className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white shadow-sm transition shrink-0"
+        >
+          <span>{uiLanguage === 'ja' ? '履歴書ビルダーを開く' : 'Open CV Builder'}</span>
+          <ArrowRight className="w-3.5 h-3.5" />
+        </button>
       </div>
 
       {/* Main Upload Zone */}
@@ -388,11 +420,10 @@ export const CVManagementPage: React.FC = () => {
                   key={tab.id}
                   type="button"
                   onClick={() => setActiveStep(tab.id as any)}
-                  className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
-                    activeStep === tab.id
+                  className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${activeStep === tab.id
                       ? 'bg-blue-600 text-white shadow-xs'
                       : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
-                  }`}
+                    }`}
                 >
                   {tab.label}
                 </button>
@@ -612,22 +643,20 @@ export const CVManagementPage: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => setPreviewMode('revised')}
-                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
-                      previewMode === 'revised'
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${previewMode === 'revised'
                         ? 'bg-blue-600 text-white shadow-2xs'
                         : 'bg-white text-slate-600 border border-slate-200'
-                    }`}
+                      }`}
                   >
                     ✨ AI Revised CV (Optimized)
                   </button>
                   <button
                     type="button"
                     onClick={() => setPreviewMode('original')}
-                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
-                      previewMode === 'original'
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${previewMode === 'original'
                         ? 'bg-blue-600 text-white shadow-2xs'
                         : 'bg-white text-slate-600 border border-slate-200'
-                    }`}
+                      }`}
                   >
                     Original Extracted
                   </button>

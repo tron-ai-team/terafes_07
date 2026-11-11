@@ -209,10 +209,10 @@ https://github.com/tron-ai-team/terafes_07/pull/21
 
 | Check | Status |
 |-------|--------|
-| Vercel Preview Comments | PASS |
-| Vercel (preview deploy) | See latest `gh pr checks 21` (was pending at first open) |
+| Vercel Preview Comments | **PASS** |
+| Vercel (preview deploy) | **PASS** — Deployment has completed |
 
-Re-check before merge. Do not merge until green. No separate GitHub Actions backend workflow observed on this PR rollup beyond Vercel.
+Checked via `gh pr checks 21`. No separate GitHub Actions backend workflow observed on this PR rollup beyond Vercel. Do not merge without owner approval.
 
 ---
 

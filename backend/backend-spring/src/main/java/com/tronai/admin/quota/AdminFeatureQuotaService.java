@@ -252,7 +252,7 @@ public class AdminFeatureQuotaService {
             counterRepository.save(counter);
         });
         auditService.log(actorUserId, "QUOTA_RESET_USER_DAY", "user", String.valueOf(targetUserId),
-                meter.name() + " day=" + day, "SUCCESS", null);
+                meter.name() + " day=" + day, "SUCCESS", null, null);
         Map<String, Object> out = new LinkedHashMap<>();
         out.put("userId", targetUserId);
         out.put("meter", meter.name());

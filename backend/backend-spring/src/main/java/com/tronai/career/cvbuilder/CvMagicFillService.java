@@ -341,6 +341,7 @@ public class CvMagicFillService {
         AiRequestContext ctx = AiRequestContext.builder()
                 .userId(userId)
                 .feature(AiFeature.CV_GENERATION)
+                .quotaMeterHint("CV_MAGIC_FILL")
                 .mode(AiMode.SMART)
                 .allowCloud(allowCloud)
                 .jsonMode(true)

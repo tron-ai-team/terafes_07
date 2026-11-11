@@ -1,5 +1,7 @@
 package com.tronai.ai.gateway;
 
+import com.tronai.admin.quota.AiFeatureQuotaReservationEntity;
+import com.tronai.admin.quota.AdminFeatureQuotaService;
 import com.tronai.ai.gateway.provider.GatewayProvider;
 import com.tronai.ai.gateway.provider.GatewayProviderException;
 import com.tronai.ai.gateway.usage.AiQuotaReservationEntity;
@@ -14,6 +16,7 @@ public class AiGateway {
     private final AiModelRouter modelRouter;
     private final AiProviderRegistry providerRegistry;
     private final AiQuotaService quotaService;
+    private final AdminFeatureQuotaService featureQuotaService;
     private final AiUsageService usageService;
     private final AiGatewayProperties properties;
 
@@ -21,11 +24,13 @@ public class AiGateway {
             AiModelRouter modelRouter,
             AiProviderRegistry providerRegistry,
             AiQuotaService quotaService,
+            AdminFeatureQuotaService featureQuotaService,
             AiUsageService usageService,
             AiGatewayProperties properties) {
         this.modelRouter = modelRouter;
         this.providerRegistry = providerRegistry;
         this.quotaService = quotaService;
+        this.featureQuotaService = featureQuotaService;
         this.usageService = usageService;
         this.properties = properties;
     }
@@ -46,6 +51,17 @@ public class AiGateway {
                     context.getRequestId());
         }
 
+        AiFeatureQuotaReservationEntity featureReservation = null;
+        if (context.getUserId() != null) {
+            featureReservation = featureQuotaService.reserve(
+                    context.getUserId(),
+                    context.getFeature(),
+                    context.getQuotaMeterHint(),
+                    context.getIdempotencyKey(),
+                    context.getRequestId(),
+                    1);
+        }
+
         AiModelRouter.Route route = modelRouter.resolveRoute(context, effectiveMode);
         List<AiModelRouter.Route> attempts = new ArrayList<>();
         attempts.add(route);
@@ -62,6 +78,9 @@ public class AiGateway {
                 if (reservation != null) {
                     quotaService.settle(reservation.getId());
                 }
+                if (featureReservation != null) {
+                    featureQuotaService.settle(featureReservation.getId());
+                }
                 int ultraCredits = reservation != null ? reservation.getCredits() : 0;
                 usageService.recordSuccess(context, result, ultraCredits);
                 return result;
@@ -75,6 +94,9 @@ public class AiGateway {
 
         if (reservation != null) {
             quotaService.release(reservation.getId());
+        }
+        if (featureReservation != null) {
+            featureQuotaService.release(featureReservation.getId());
         }
         int ultraCredits = reservation != null ? reservation.getCredits() : 0;
         usageService.recordFailure(

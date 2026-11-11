@@ -54,6 +54,12 @@ public class User {
     @Column(name = "suspend_reason", length = 500)
     private String suspendReason;
 
+    @Column(name = "deleted_at")
+    private Instant deletedAt;
+
+    @Column(name = "delete_reason", length = 500)
+    private String deleteReason;
+
     @OneToOne(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     private UserSettings settings;
 

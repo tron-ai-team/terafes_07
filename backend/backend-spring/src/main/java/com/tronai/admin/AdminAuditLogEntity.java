@@ -36,6 +36,15 @@ public class AdminAuditLogEntity {
     @Column(columnDefinition = "LONGTEXT")
     private String detail;
 
+    @Column(name = "result_status", length = 32)
+    private String resultStatus;
+
+    @Column(name = "request_id", length = 64)
+    private String requestId;
+
+    @Column(name = "actor_role", length = 30)
+    private String actorRole;
+
     @Column(name = "created_at", nullable = false)
     private Instant createdAt = Instant.now();
 }

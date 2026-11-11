@@ -29,7 +29,7 @@ public class AdminControlService {
 
     private final UserRepository users;
     private final HybridRoutingService hybrid;
-    private final AdminAuditLogRepository audits;
+    private final AdminAuditService auditService;
     private final DesktopDeviceRepository devices;
     private final AgentEngineRegistry engines;
     private final AiUsageEventRepository usageEvents;
@@ -37,14 +37,14 @@ public class AdminControlService {
 
     public AdminControlService(UserRepository users,
                                HybridRoutingService hybrid,
-                               AdminAuditLogRepository audits,
+                               AdminAuditService auditService,
                                DesktopDeviceRepository devices,
                                AgentEngineRegistry engines,
                                AiUsageEventRepository usageEvents,
                                RefreshTokenRepository refreshTokens) {
         this.users = users;
         this.hybrid = hybrid;
-        this.audits = audits;
+        this.auditService = auditService;
         this.devices = devices;
         this.engines = engines;
         this.usageEvents = usageEvents;
@@ -191,29 +191,10 @@ public class AdminControlService {
 
     @Transactional(readOnly = true)
     public List<Map<String, Object>> recentAudits() {
-        List<Map<String, Object>> out = new ArrayList<>();
-        for (AdminAuditLogEntity a : audits.findAllByOrderByCreatedAtDesc(PageRequest.of(0, 100))) {
-            Map<String, Object> row = new LinkedHashMap<>();
-            row.put("id", a.getId());
-            row.put("actorUserId", a.getActorUserId());
-            row.put("action", a.getAction());
-            row.put("targetType", a.getTargetType());
-            row.put("targetId", a.getTargetId());
-            row.put("detail", a.getDetail());
-            row.put("createdAt", a.getCreatedAt());
-            out.add(row);
-        }
-        return out;
+        return auditService.recentAudits(100);
     }
 
     private void audit(Long actorId, String action, String targetType, String targetId, String detail) {
-        AdminAuditLogEntity a = new AdminAuditLogEntity();
-        a.setActorUserId(actorId);
-        a.setAction(action);
-        a.setTargetType(targetType);
-        a.setTargetId(targetId);
-        a.setDetail(detail);
-        a.setCreatedAt(Instant.now());
-        audits.save(a);
+        auditService.log(actorId, action, targetType, targetId, detail, "SUCCESS", null, null);
     }
 }

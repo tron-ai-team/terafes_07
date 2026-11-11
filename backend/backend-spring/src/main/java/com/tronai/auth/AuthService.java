@@ -107,7 +107,7 @@ public class AuthService {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid email or password");
         }
 
-        if (!user.isEnabled() || user.getSuspendedAt() != null) {
+        if (!user.isEnabled() || user.getSuspendedAt() != null || user.getDeletedAt() != null) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Account is disabled");
         }
 
@@ -136,7 +136,7 @@ public class AuthService {
         refreshTokenRepository.save(token);
 
         User user = token.getUser();
-        if (!user.isEnabled() || user.getSuspendedAt() != null) {
+        if (!user.isEnabled() || user.getSuspendedAt() != null || user.getDeletedAt() != null) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Account is disabled");
         }
 

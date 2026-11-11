@@ -23,6 +23,7 @@ public class AiGatewayController {
     private final AiGatewayProperties properties;
     private final AiModelCatalog modelCatalog;
     private final AiQuotaService quotaService;
+    private final com.tronai.admin.quota.AdminFeatureQuotaService featureQuotaService;
     private final AiProviderHealthService providerHealthService;
     private final AiModelRouter modelRouter;
     private final WebResearchService webResearchService;
@@ -32,6 +33,7 @@ public class AiGatewayController {
             AiGatewayProperties properties,
             AiModelCatalog modelCatalog,
             AiQuotaService quotaService,
+            com.tronai.admin.quota.AdminFeatureQuotaService featureQuotaService,
             AiProviderHealthService providerHealthService,
             AiModelRouter modelRouter,
             WebResearchService webResearchService,
@@ -39,6 +41,7 @@ public class AiGatewayController {
         this.properties = properties;
         this.modelCatalog = modelCatalog;
         this.quotaService = quotaService;
+        this.featureQuotaService = featureQuotaService;
         this.providerHealthService = providerHealthService;
         this.modelRouter = modelRouter;
         this.webResearchService = webResearchService;
@@ -112,6 +115,13 @@ public class AiGatewayController {
     public ResponseEntity<Map<String, Object>> usage() {
         Long userId = SecurityUtils.getRequiredUserId();
         return ResponseEntity.ok(quotaService.usageSummary(userId));
+    }
+
+    @GetMapping("/quotas")
+    @Operation(summary = "Authenticated user's JST feature quota summary")
+    public ResponseEntity<Map<String, Object>> featureQuotas() {
+        Long userId = SecurityUtils.getRequiredUserId();
+        return ResponseEntity.ok(featureQuotaService.usageSummary(userId));
     }
 
     @GetMapping("/providers")

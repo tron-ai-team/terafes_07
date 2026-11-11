@@ -181,6 +181,26 @@ public class GlobalExceptionHandler {
                 .body(new ErrorResponse(ex.getMessage()));
     }
 
+    @ExceptionHandler(com.tronai.admin.quota.FeatureQuotaExceededException.class)
+    public ResponseEntity<java.util.Map<String, Object>> handleFeatureQuotaExceeded(
+            com.tronai.admin.quota.FeatureQuotaExceededException ex) {
+        log.warn("Feature quota exceeded [{}]: {}", ex.getMeter(), ex.getMessage());
+        long retryAfterSec = Math.max(1,
+                ex.getResetAt().getEpochSecond() - java.time.Instant.now().getEpochSecond());
+        java.util.Map<String, Object> body = new java.util.LinkedHashMap<>();
+        body.put("detail", ex.getMessage());
+        body.put("code", ex.getCode());
+        body.put("feature", ex.getFeature() != null ? ex.getFeature().name() : null);
+        body.put("meter", ex.getMeter().name());
+        body.put("limit", ex.getLimit());
+        body.put("used", ex.getUsed());
+        body.put("remaining", ex.getRemaining());
+        body.put("resetAt", ex.getResetAt().toString());
+        return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                .header("Retry-After", String.valueOf(retryAfterSec))
+                .body(body);
+    }
+
     @ExceptionHandler(com.tronai.ai.gateway.provider.GatewayProviderException.class)
     public ResponseEntity<ErrorResponse> handleGatewayProvider(com.tronai.ai.gateway.provider.GatewayProviderException ex) {
         log.error("AI gateway provider error [{}]: {}", ex.getCategory(), ex.getMessage());
@@ -210,6 +230,16 @@ public class GlobalExceptionHandler {
         log.warn("Bad request argument: {}", ex.getMessage());
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                 .body(new ErrorResponse(ex.getMessage()));
+    }
+
+    @ExceptionHandler({
+            org.springframework.security.access.AccessDeniedException.class,
+            org.springframework.security.authorization.AuthorizationDeniedException.class
+    })
+    public ResponseEntity<ErrorResponse> handleAccessDenied(Exception ex) {
+        log.warn("Access denied: {}", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                .body(new ErrorResponse("Forbidden"));
     }
 
     @ExceptionHandler(ResponseStatusException.class)

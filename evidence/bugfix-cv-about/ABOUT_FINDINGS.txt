@@ -1,0 +1,5 @@
+﻿PROD About status before fix:
+- /about serves professional hero + 4 team members (JA verified in browser)
+- /images/about-hero-art.webp = 32172 bytes (deployed)
+- /images/about/tron-about-hero-cinematic.webp returned SPA HTML (1426) — asset never committed/deployed
+- Team photos at /images/team/* return 200

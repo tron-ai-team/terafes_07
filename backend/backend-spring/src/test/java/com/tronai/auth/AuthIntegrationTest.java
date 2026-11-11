@@ -50,6 +50,18 @@ class AuthIntegrationTest {
     private com.tronai.ai.gateway.usage.AiQuotaReservationRepository aiQuotaReservationRepository;
 
     @Autowired
+    private com.tronai.admin.quota.AiFeatureQuotaReservationRepository featureQuotaReservationRepository;
+
+    @Autowired
+    private com.tronai.admin.quota.AiFeatureDailyCounterRepository featureDailyCounterRepository;
+
+    @Autowired
+    private com.tronai.admin.quota.AdminUserQuotaOverrideRepository userQuotaOverrideRepository;
+
+    @Autowired
+    private com.tronai.admin.quota.AdminQuotaAdjustmentRepository quotaAdjustmentRepository;
+
+    @Autowired
     private PasswordEncoder passwordEncoder;
 
     private final ObjectMapper objectMapper = new ObjectMapper();
@@ -57,6 +69,10 @@ class AuthIntegrationTest {
     @BeforeEach
     void cleanUp() {
         // Child tables without ON DELETE CASCADE must be cleared before users.
+        featureQuotaReservationRepository.deleteAll();
+        featureDailyCounterRepository.deleteAll();
+        userQuotaOverrideRepository.deleteAll();
+        quotaAdjustmentRepository.deleteAll();
         aiQuotaReservationRepository.deleteAll();
         aiUsageEventRepository.deleteAll();
         refreshTokenRepository.deleteAll();

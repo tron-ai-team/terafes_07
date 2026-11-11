@@ -46,7 +46,7 @@ CREATE TABLE IF NOT EXISTS admin_user_quota_overrides (
     updated_at      TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
     created_at      TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
     UNIQUE KEY uq_admin_user_quota (user_id, meter),
-    CONSTRAINT fk_admin_user_quota_user FOREIGN KEY (user_id) REFERENCES users (id)
+    CONSTRAINT fk_admin_user_quota_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS ai_feature_daily_counters (
@@ -63,7 +63,7 @@ CREATE TABLE IF NOT EXISTS ai_feature_daily_counters (
     updated_at      TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
     UNIQUE KEY uq_ai_feature_day (user_id, meter, quota_day),
     KEY idx_ai_feature_day_lookup (quota_day, meter),
-    CONSTRAINT fk_ai_feature_counter_user FOREIGN KEY (user_id) REFERENCES users (id)
+    CONSTRAINT fk_ai_feature_counter_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS ai_feature_quota_reservations (
@@ -83,7 +83,7 @@ CREATE TABLE IF NOT EXISTS ai_feature_quota_reservations (
     settled_at      TIMESTAMP    NULL,
     UNIQUE KEY uq_ai_feature_quota_idem (user_id, idempotency_key),
     KEY idx_ai_feature_quota_day (user_id, meter, quota_day, status),
-    CONSTRAINT fk_ai_feature_quota_user FOREIGN KEY (user_id) REFERENCES users (id)
+    CONSTRAINT fk_ai_feature_quota_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS admin_quota_adjustments (
@@ -96,7 +96,7 @@ CREATE TABLE IF NOT EXISTS admin_quota_adjustments (
     request_id      VARCHAR(64)  NULL,
     actor_user_id   BIGINT       NULL,
     created_at      TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT fk_admin_quota_adj_user FOREIGN KEY (user_id) REFERENCES users (id)
+    CONSTRAINT fk_admin_quota_adj_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS admin_announcements (

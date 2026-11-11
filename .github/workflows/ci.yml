@@ -122,8 +122,8 @@ jobs:
           tags: tron-ai-backend:ci
           cache-from: type=gha
           cache-to: type=gha,mode=max
-      - name: Install PDF inspection utility on disposable runner
-        run: sudo apt-get update -qq && sudo apt-get install -y -qq poppler-utils
+      # Avoid host apt: Azure runners intermittently fail DNS to azure.archive.ubuntu.com.
+      # smoke_compose.py extracts PDF text via a pinned poppler container instead.
       - name: Disposable Compose / MySQL / PDF runtime smoke
         run: python3 deploy/tests/smoke_compose.py
       - name: Disposable backend production topology smoke

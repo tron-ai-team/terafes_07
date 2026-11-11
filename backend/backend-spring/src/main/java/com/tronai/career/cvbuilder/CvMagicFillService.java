@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.tronai.ai.ChatMessage;
 import com.tronai.ai.gateway.AiFeature;
 import com.tronai.ai.gateway.AiGateway;
+import com.tronai.ai.gateway.AiGatewayProperties;
 import com.tronai.ai.gateway.AiGenerationResult;
 import com.tronai.ai.gateway.AiMode;
 import com.tronai.ai.gateway.AiRequestContext;
@@ -18,14 +19,16 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
 /**
- * Magic Fill: local-AI (Ollama via gateway) grammar/professional polish + profile-backed
+ * Magic Fill: cloud-first SMART rewrite via existing {@link AiGateway}, plus profile-backed
  * missing-field suggestions. Never invents factual credentials. Never auto-applies.
  */
 @Service
@@ -33,9 +36,10 @@ public class CvMagicFillService {
 
     private static final Logger log = LoggerFactory.getLogger(CvMagicFillService.class);
 
-    /** Descriptive fields eligible for AI wording improvement. */
+    /** Descriptive fields eligible for AI wording improvement (Japanese 履歴書 narrative). */
     public static final List<String> AI_TEXT_FIELDS = List.of(
-            "selfPr", "careerGoals", "careerSummary", "motivationCompany", "motivationGeneral"
+            "selfPr", "careerGoals", "careerSummary", "motivationCompany", "motivationGeneral",
+            "favoriteSubjects", "hobbies", "extracurricular", "sports", "healthStatus"
     );
 
     /** Factual scalars that may be filled from Candidate Profile when draft blank. */
@@ -44,11 +48,23 @@ public class CvMagicFillService {
             "addressText", "postalCode", "email", "phone", "gender"
     );
 
+    private static final int MAX_PROPOSED_CHARS = 2000;
+    private static final int LANGUAGE_RETRY_LIMIT = 2;
+
+    private static final List<String> CREDENTIAL_MARKERS = List.of(
+            "jlpt n1", "jlpt n2", "jlpt n3", "jlpt", "toefl", "ielts", "toeic",
+            "phd", "mba", "博士", "修士", "学士取得", "基本情報技術者", "応用情報技術者",
+            "情報処理安全確保支援士", "oracle certified", "aws certified", "azure certified",
+            "google cloud professional", "pmp", "cissp"
+    );
+
     private final AiGateway aiGateway;
+    private final AiGatewayProperties gatewayProperties;
     private final ObjectMapper objectMapper;
 
-    public CvMagicFillService(AiGateway aiGateway, ObjectMapper objectMapper) {
+    public CvMagicFillService(AiGateway aiGateway, AiGatewayProperties gatewayProperties, ObjectMapper objectMapper) {
         this.aiGateway = aiGateway;
+        this.gatewayProperties = gatewayProperties;
         this.objectMapper = objectMapper;
     }
 
@@ -68,15 +84,14 @@ public class CvMagicFillService {
             List<String> warnings,
             String engine,
             boolean ollamaUsed,
+            boolean cloudUsed,
             String templateCode
     ) {}
 
     /**
-     * @param allowCloud must stay false for production Magic Fill privacy (default).
-     *                   Cloud is never used silently; only if caller explicitly opts in.
+     * @param allowCloud when true (production default), routes through cloud SMART providers
+     *                   via existing AiGateway fallback chain. When false, local Ollama only.
      */
-    private static final int LANGUAGE_RETRY_LIMIT = 2;
-
     public MagicFillResult magicFill(
             Long userId,
             String templateCode,
@@ -86,12 +101,12 @@ public class CvMagicFillService {
             String companyContext,
             boolean allowCloud) {
 
-        // Document language is ALWAYS from template — never UI / browser locale.
         String language = CvDocumentLanguage.requiredLanguage(templateCode);
         List<FieldSuggestion> suggestions = new ArrayList<>();
         List<String> missing = new ArrayList<>();
         List<String> warnings = new ArrayList<>();
         Map<String, Object> payload = draftPayload == null ? Map.of() : draftPayload;
+        Set<String> suggestedKeys = new LinkedHashSet<>();
 
         // 1) Fill blank factual fields from Candidate Profile (not AI invention).
         if (profile != null) {
@@ -105,17 +120,17 @@ public class CvMagicFillService {
                                     ? "候補者プロフィールの確認済み情報から補完（AIによる創作ではありません）。"
                                     : "Filled from verified Candidate Profile (not AI invention).",
                             "PROFILE_FACT", true, false));
+                    suggestedKeys.add(key);
                 }
             }
-            // Structured lists: only suggest when draft empty and profile has data.
-            suggestListIfEmpty(payload, "education", readJsonList(profile.getEducationJson()), suggestions, language);
+            suggestListIfEmpty(payload, "education", readJsonList(profile.getEducationJson()), suggestions, language, suggestedKeys);
             if (!profile.isNoWorkExperience()) {
-                suggestListIfEmpty(payload, "workExperience", readJsonList(profile.getCareerJson()), suggestions, language);
+                suggestListIfEmpty(payload, "workExperience", readJsonList(profile.getCareerJson()), suggestions, language, suggestedKeys);
             }
-            suggestListIfEmpty(payload, "skills", readJsonList(profile.getSkillsJson()), suggestions, language);
-            suggestListIfEmpty(payload, "certifications", readJsonList(profile.getCertificationsJson()), suggestions, language);
-            suggestListIfEmpty(payload, "projects", readJsonList(profile.getProjectsJson()), suggestions, language);
-            suggestListIfEmpty(payload, "languages", readJsonList(profile.getLanguagesJson()), suggestions, language);
+            suggestListIfEmpty(payload, "skills", readJsonList(profile.getSkillsJson()), suggestions, language, suggestedKeys);
+            suggestListIfEmpty(payload, "certifications", readJsonList(profile.getCertificationsJson()), suggestions, language, suggestedKeys);
+            suggestListIfEmpty(payload, "projects", readJsonList(profile.getProjectsJson()), suggestions, language, suggestedKeys);
+            suggestListIfEmpty(payload, "languages", readJsonList(profile.getLanguagesJson()), suggestions, language, suggestedKeys);
         }
 
         // 2) Capacity warnings (no silent truncate).
@@ -140,9 +155,10 @@ public class CvMagicFillService {
             }
         }
 
-        // 4) AI rewrite for descriptive fields — local Ollama only unless allowCloud explicitly true.
+        // 4) AI rewrite for descriptive fields — cloud SMART by default (same gateway as Chat/Interview).
         String engine = "none";
         boolean ollamaUsed = false;
+        boolean cloudUsed = false;
         List<String> textTargets = new ArrayList<>();
         for (String field : AI_TEXT_FIELDS) {
             String original = str(payload.get(field));
@@ -151,6 +167,9 @@ public class CvMagicFillService {
             }
             if (original.isBlank() && "careerGoals".equals(field) && profile != null && notBlank(profile.getCareerGoals())) {
                 original = profile.getCareerGoals().trim();
+            }
+            if (original.isBlank() && "motivationGeneral".equals(field) && profile != null && notBlank(profile.getMotivation())) {
+                original = profile.getMotivation().trim();
             }
             if (original.isBlank()) continue;
             textTargets.add(field);
@@ -162,13 +181,15 @@ public class CvMagicFillService {
                         userId, templateCode, language, companyContext, payload, profile, textTargets, allowCloud);
                 engine = batch.engine();
                 ollamaUsed = batch.ollamaUsed();
+                cloudUsed = batch.cloudUsed();
                 for (FieldSuggestion s : batch.suggestions()) {
-                    if (!s.proposedText().isBlank() && !s.proposedText().equals(s.originalText())) {
-                        suggestions.add(s);
-                    }
+                    if ("UNCHANGED".equals(s.category())) continue;
+                    if (s.proposedText().isBlank() || s.proposedText().equals(s.originalText())) continue;
+                    if (suggestedKeys.contains(s.fieldKey())) continue;
+                    suggestions.add(s);
+                    suggestedKeys.add(s.fieldKey());
                 }
             } catch (ResponseStatusException e) {
-                // If we already have profile-fact suggestions, surface them with a warning instead of failing hard.
                 if (!suggestions.isEmpty()) {
                     warnings.add(e.getReason() == null ? e.getMessage() : e.getReason());
                     engine = "profile_facts_only";
@@ -176,7 +197,16 @@ public class CvMagicFillService {
                     throw e;
                 }
             } catch (GatewayProviderException e) {
-                String msg = "Magic Fill AI unavailable (local Ollama). You can keep editing manually. " + e.getMessage();
+                String msg = cloudProviderMessage(allowCloud, e.getMessage());
+                if (!suggestions.isEmpty()) {
+                    warnings.add(msg);
+                    engine = "profile_facts_only";
+                } else {
+                    throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, msg, e);
+                }
+            } catch (IllegalStateException e) {
+                String msg = cloudProviderMessage(allowCloud, e.getMessage());
+                log.info("Magic Fill routing failed: {}", e.getMessage());
                 if (!suggestions.isEmpty()) {
                     warnings.add(msg);
                     engine = "profile_facts_only";
@@ -185,7 +215,8 @@ public class CvMagicFillService {
                 }
             } catch (Exception e) {
                 log.info("Magic Fill AI failed: {}", e.getClass().getSimpleName());
-                String msg = "Magic Fill AI failed. Edit manually or retry when Ollama is ready. " + e.getMessage();
+                String msg = "Magic Fill AI failed. Edit manually or retry. "
+                        + (e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage());
                 if (!suggestions.isEmpty()) {
                     warnings.add(msg);
                     engine = "profile_facts_only";
@@ -195,14 +226,40 @@ public class CvMagicFillService {
             }
         } else if (suggestions.isEmpty()) {
             warnings.add(language.startsWith("ja")
-                    ? "改善対象の記述欄が空です。自己PRなどを入力するか、プロフィールを充実させてください。"
+                    ? "改善対象の記述欄が空です。自己PR・志望動機などを入力するか、プロフィールを充実させてください。"
                     : "No descriptive text to improve. Add Self PR / goals or enrich Candidate Profile.");
         }
 
-        return new MagicFillResult(suggestions, missing, warnings, engine, ollamaUsed, templateCode);
+        return new MagicFillResult(suggestions, missing, warnings, engine, ollamaUsed, cloudUsed, templateCode);
     }
 
-    private record AiRewriteBatch(List<FieldSuggestion> suggestions, String engine, boolean ollamaUsed) {}
+    /** Resolve cloud permission: production defaults to cloud SMART via gateway property. */
+    public boolean resolveAllowCloud(Map<String, Object> body) {
+        if (body != null) {
+            if (Boolean.TRUE.equals(body.get("localOnly"))
+                    || "true".equalsIgnoreCase(String.valueOf(body.getOrDefault("localOnly", "false")))) {
+                return false;
+            }
+            if (body.containsKey("allowCloud")) {
+                Object v = body.get("allowCloud");
+                if (Boolean.FALSE.equals(v) || "false".equalsIgnoreCase(String.valueOf(v))) return false;
+                if (Boolean.TRUE.equals(v) || "true".equalsIgnoreCase(String.valueOf(v))) return true;
+            }
+        }
+        // Cloud-first: same production posture as Interview / Chat (AiGateway SMART).
+        return gatewayProperties.isCvAssistCloudEnabled();
+    }
+
+    private static String cloudProviderMessage(boolean allowCloud, String detail) {
+        if (!allowCloud) {
+            return "Magic Fill AI unavailable (local-only mode). Start Ollama or set allowCloud=true. "
+                    + (detail == null ? "" : detail);
+        }
+        return "Magic Fill cloud AI unavailable. Check Groq/OpenRouter gateway configuration. "
+                + (detail == null ? "" : detail);
+    }
+
+    private record AiRewriteBatch(List<FieldSuggestion> suggestions, String engine, boolean ollamaUsed, boolean cloudUsed) {}
 
     private AiRewriteBatch rewriteBatchWithLanguageGuard(
             Long userId,
@@ -220,6 +277,7 @@ public class CvMagicFillService {
             if (v.isBlank() && profile != null) {
                 if ("selfPr".equals(f)) v = str(profile.getSelfPr());
                 if ("careerGoals".equals(f)) v = str(profile.getCareerGoals());
+                if ("motivationGeneral".equals(f)) v = str(profile.getMotivation());
             }
             originals.put(f, v);
         }
@@ -228,6 +286,7 @@ public class CvMagicFillService {
         List<FieldSuggestion> accepted = new ArrayList<>();
         String engine = "none";
         boolean ollama = false;
+        boolean cloud = false;
 
         for (int attempt = 0; attempt <= LANGUAGE_RETRY_LIMIT && !remaining.isEmpty(); attempt++) {
             boolean strict = attempt > 0;
@@ -235,6 +294,7 @@ public class CvMagicFillService {
                     userId, templateCode, language, companyContext, remaining, payload, profile, allowCloud, strict);
             engine = batch.engine();
             ollama = batch.ollamaUsed();
+            cloud = batch.cloudUsed();
 
             Map<String, String> failed = new LinkedHashMap<>();
             for (Map.Entry<String, String> e : remaining.entrySet()) {
@@ -264,7 +324,7 @@ public class CvMagicFillService {
                                 + ". Please retry Magic Fill.");
             }
         }
-        return new AiRewriteBatch(accepted, engine, ollama);
+        return new AiRewriteBatch(accepted, engine, ollama, cloud);
     }
 
     private AiRewriteBatch rewriteBatchOnce(
@@ -282,7 +342,7 @@ public class CvMagicFillService {
                 .userId(userId)
                 .feature(AiFeature.CV_GENERATION)
                 .mode(AiMode.SMART)
-                .allowCloud(allowCloud) // default false from caller — no silent cloud
+                .allowCloud(allowCloud)
                 .jsonMode(true)
                 .temperature(strictLanguage ? 0.05 : 0.25)
                 .maxTokens(2500)
@@ -294,16 +354,20 @@ public class CvMagicFillService {
 
         AiGenerationResult result = aiGateway.generate(ctx);
         boolean ollama = result.getProvider() == GatewayProviderId.OLLAMA;
+        boolean cloud = result.getProvider() != null && result.getProvider() != GatewayProviderId.OLLAMA;
         if (!allowCloud && !ollama && result.getProvider() != null) {
-            // Privacy: reject non-local when cloud not opted-in.
             throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
-                    "Magic Fill requires local Ollama. Cloud AI was not enabled for this request.");
+                    "Magic Fill is in local-only mode. Cloud AI was not enabled for this request.");
         }
+        // Safe diagnostic metadata only — never log prompt content or API keys.
+        log.info("Magic Fill provider={} model={} feature=CV_GENERATION cloudAllowed={}",
+                result.getProvider(), result.getModelId(), allowCloud);
+
         String engine = (result.getProvider() == null ? "gateway" : result.getProvider().name())
                 + "/" + (result.getModelId() == null ? "?" : result.getModelId());
 
         List<FieldSuggestion> parsed = parseBatch(result.getText(), originals, language);
-        return new AiRewriteBatch(parsed, engine, ollama);
+        return new AiRewriteBatch(parsed, engine, ollama, cloud);
     }
 
     private FieldSuggestion validateRewrite(FieldSuggestion s, CandidateProfileEntity profile, String language) {
@@ -312,10 +376,16 @@ public class CvMagicFillService {
             return new FieldSuggestion(s.fieldKey(), s.originalText(), s.originalText(),
                     "Empty AI proposal discarded.", "UNCHANGED", false, true);
         }
-        // Block obvious fabricated credential patterns that were not in the original.
+        if (proposed.length() > MAX_PROPOSED_CHARS) {
+            return new FieldSuggestion(s.fieldKey(), s.originalText(), s.originalText(),
+                    language.startsWith("ja")
+                            ? "AI提案が長すぎるため却下しました。"
+                            : "Rejected oversized AI proposal.",
+                    "UNCHANGED", false, true);
+        }
         String lowerOrig = s.originalText().toLowerCase(Locale.ROOT);
         String lowerProp = proposed.toLowerCase(Locale.ROOT);
-        for (String marker : List.of("jlpt n1", "jlpt n2", "toefl", "phd", "博士", "修士課程修了")) {
+        for (String marker : CREDENTIAL_MARKERS) {
             if (lowerProp.contains(marker) && !lowerOrig.contains(marker)) {
                 boolean profileHas = profileEvidenceContains(profile, marker);
                 if (!profileHas) {
@@ -334,7 +404,8 @@ public class CvMagicFillService {
         if (profile == null) return false;
         String blob = (str(profile.getSelfPr()) + " " + str(profile.getCareerGoals()) + " "
                 + str(profile.getCertificationsJson()) + " " + str(profile.getEducationJson())
-                + " " + str(profile.getLanguagesJson())).toLowerCase(Locale.ROOT);
+                + " " + str(profile.getLanguagesJson()) + " " + str(profile.getMotivation()))
+                .toLowerCase(Locale.ROOT);
         return blob.contains(marker.toLowerCase(Locale.ROOT));
     }
 
@@ -347,7 +418,6 @@ public class CvMagicFillService {
             JsonNode root = objectMapper.readTree(extractJson(raw));
             JsonNode fields = root.path("fields");
             if (!fields.isObject()) {
-                // single-field fallback
                 String proposed = root.path("proposedText").asText("").trim();
                 if (!proposed.isBlank() && originals.size() == 1) {
                     String key = originals.keySet().iterator().next();
@@ -357,6 +427,14 @@ public class CvMagicFillService {
                     return out;
                 }
                 throw new IllegalArgumentException("Missing fields object");
+            }
+            // Reject unexpected field keys silently (do not apply unauthorized modifications).
+            Iterator<String> it = fields.fieldNames();
+            while (it.hasNext()) {
+                String key = it.next();
+                if (!originals.containsKey(key)) {
+                    log.info("Magic Fill ignored unexpected field key={}", key);
+                }
             }
             for (Map.Entry<String, String> e : originals.entrySet()) {
                 JsonNode node = fields.path(e.getKey());
@@ -383,7 +461,9 @@ public class CvMagicFillService {
             String key,
             List<Map<String, Object>> fromProfile,
             List<FieldSuggestion> suggestions,
-            String language) {
+            String language,
+            Set<String> suggestedKeys) {
+        if (suggestedKeys.contains(key)) return;
         Object cur = payload.get(key);
         boolean empty = cur == null || (cur instanceof List<?> l && l.isEmpty()) || str(cur).equals("[]");
         if (!empty || fromProfile == null || fromProfile.isEmpty()) return;
@@ -397,12 +477,14 @@ public class CvMagicFillService {
                             ? "候補者プロフィールの構造化データから補完。"
                             : "Copied structured list from Candidate Profile.",
                     "PROFILE_FACT", true, false));
+            suggestedKeys.add(key);
         } catch (Exception ignored) {
             // skip list suggestion on serialize failure
         }
     }
 
     private List<String> requiredFields(String templateCode) {
+        // User-facing product is Japanese 履歴書 only.
         if ("RESUME_EN".equalsIgnoreCase(templateCode)) {
             return List.of("fullName", "email");
         }
@@ -420,9 +502,9 @@ public class CvMagicFillService {
             case "dateOfBirth" -> p.getDateOfBirth() == null ? "" : p.getDateOfBirth().toString();
             case "nationality" -> str(p.getNationality());
             case "addressText" -> str(p.getAddressText());
-            case "postalCode" -> str(p.getPostalCode());
+            case "postalCode" -> CvProfileSyncMerger.normalizePostal(str(p.getPostalCode()));
             case "email" -> str(p.getEmail());
-            case "phone" -> str(p.getPhone());
+            case "phone" -> CvProfileSyncMerger.normalizePhone(str(p.getPhone()));
             case "gender" -> str(p.getGender());
             default -> "";
         };
@@ -449,16 +531,17 @@ public class CvMagicFillService {
         boolean ja = language != null && language.toLowerCase(Locale.ROOT).startsWith("ja");
         if (ja) {
             String base = """
-                    あなたは日本の就職活動向け履歴書の校正アシスタントです。
+                    あなたは日本のIT就職活動向け履歴書（JIS）の文章校正アシスタントです。
+                    対象欄: 自己PR・志望動機・学習/開発経験の記述・スキル説明・趣味・課外活動など。
                     厳守:
-                    - proposedText は必ず日本語（ひらがな・カタカナ・漢字）で書く。英語の文章は禁止。
+                    - proposedText は必ず自然なビジネス日本語で書く。過度に堅い文語や不自然な敬語は避ける。
                     - 技術固有名詞（Java, Spring Boot, AWS, MySQL 等）と会社名のみ英語のままでよい。
-                    - 文法・表記・ビジネス文書としての丁寧さのみ改善する。
-                    - 学歴・職歴・資格・JLPT・企業名・日付・実績を新たに作ってはならない。
-                    - 原文にない事実を追加しない。
+                    - 文法・表記・分かりやすさ・構成・専門性の伝わりやすさのみ改善する。
+                    - 学歴・職歴・資格・JLPT・企業名・日付・実績・連絡先を新たに作ってはならない。
+                    - 原文および確認済みプロフィールにない事実を追加しない。不足なら clarificationNeeded=true。
                     - 必ず JSON のみ:
                     {"fields":{"selfPr":{"proposedText":"...","reason":"...","clarificationNeeded":false}}}
-                    - fields のキーは依頼された欄のみ。
+                    - fields のキーは依頼された欄のみ。余分なキー禁止。
                     Template=%s は日本語文書です。
                     """.formatted(templateCode);
             if (strict) {
@@ -498,6 +581,7 @@ public class CvMagicFillService {
             confirmed.put("skillsJson", abbreviate(profile.getSkillsJson(), 400));
             confirmed.put("educationJson", abbreviate(profile.getEducationJson(), 400));
             confirmed.put("certificationsJson", abbreviate(profile.getCertificationsJson(), 300));
+            confirmed.put("projectsJson", abbreviate(profile.getProjectsJson(), 300));
         }
         Set<String> ctxKeys = Set.of("education", "workExperience", "skills", "certifications", "projects");
         Map<String, Object> draftSlice = new LinkedHashMap<>();
@@ -512,6 +596,7 @@ public class CvMagicFillService {
                 Draft structured excerpt: %s
                 Fields to improve (JSON object fieldKey -> originalText): %s
                 Return improved wording for each field under "fields".
+                If facts are insufficient for a field, set clarificationNeeded=true and keep close to original.
                 """.formatted(
                 templateCode,
                 CvDocumentLanguage.languageLabel(language),

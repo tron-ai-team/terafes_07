@@ -156,7 +156,7 @@ public class CvBuilderController {
     private static ResponseEntity<byte[]> htmlPreviewResponse(byte[] html) {
         return ResponseEntity.ok()
                 .contentType(new MediaType("text", "html", java.nio.charset.StandardCharsets.UTF_8))
-                .header(HttpHeaders.CONTENT_SECURITY_POLICY, PREVIEW_CSP)
+                .header("Content-Security-Policy", PREVIEW_CSP)
                 .header(HttpHeaders.CACHE_CONTROL, "no-store")
                 .header("X-Content-Type-Options", "nosniff")
                 .body(html);

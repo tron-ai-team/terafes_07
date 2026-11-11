@@ -132,12 +132,19 @@ export const AboutHero: React.FC = () => {
             <div className="relative rounded-2xl overflow-hidden aspect-[16/10] sm:aspect-[16/9] lg:aspect-[4/3] flex items-center justify-center bg-gradient-to-br from-[#0c1f42] via-[#09224c] to-[#04112c]">
               {/* Background Mt Fuji & Chamber Art */}
               <img
-                src="/images/about-hero-art.webp"
-                alt="TRON AI Robot with Holographic Earth and Mount Fuji"
+                src="/images/about/tron-about-hero-cinematic.webp"
+                alt="TRON AI Robot — professional About hero"
                 className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-700"
                 onError={(e) => {
-                  // Fallback to existing high-res asset if webp is missing
-                  (e.currentTarget as HTMLImageElement).src = '/images/assets/tron-hero-bg.jpg';
+                  // Prefer the prepared cinematic About hero; fall back to committed art, then HQ still.
+                  const img = e.currentTarget as HTMLImageElement;
+                  if (img.src.includes('tron-about-hero-cinematic')) {
+                    img.src = '/images/about-hero-art.webp';
+                    return;
+                  }
+                  if (img.src.includes('about-hero-art')) {
+                    img.src = '/images/assets/tron-hero-bg.jpg';
+                  }
                 }}
               />
 

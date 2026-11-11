@@ -67,6 +67,10 @@ export const CvBuilderPage: React.FC = () => {
   // ── Versions & Photo ────────────────────────────────────────────────────────
   const [versions, setVersions] = useState<CvVersionSummary[]>([]);
   const [photoThumbUrl, setPhotoThumbUrl] = useState<string | null>(null);
+  // Keep object URL in a ref so revoke/refresh callbacks stay identity-stable.
+  // Depending on photoThumbUrl state previously recreated clearPhotoThumb →
+  // refreshPhotoThumb → applyDraft → loadBootstrap and re-ran bootstrap forever.
+  const photoThumbUrlRef = useRef<string | null>(null);
 
   // ── Canonical Preview State ─────────────────────────────────────────────────
   const [previewHtmlUrl, setPreviewHtmlUrl] = useState<string | null>(null);
@@ -113,16 +117,22 @@ export const CvBuilderPage: React.FC = () => {
 
   // ── Photo Object URL Management ─────────────────────────────────────────────
   const clearPhotoThumb = useCallback(() => {
-    if (photoThumbUrl) URL.revokeObjectURL(photoThumbUrl);
+    if (photoThumbUrlRef.current) {
+      URL.revokeObjectURL(photoThumbUrlRef.current);
+      photoThumbUrlRef.current = null;
+    }
     setPhotoThumbUrl(null);
-  }, [photoThumbUrl]);
+  }, []);
 
   const refreshPhotoThumb = useCallback(async (currentDraft: CvDraft) => {
     clearPhotoThumb();
     if (!currentDraft.photo?.available) return;
     try {
       const url = await careerCenterClient.getDraftPhotoObjectUrl(currentDraft.id);
-      if (url) setPhotoThumbUrl(url);
+      if (url) {
+        photoThumbUrlRef.current = url;
+        setPhotoThumbUrl(url);
+      }
     } catch {
       // Photo unavailable
     }
@@ -130,9 +140,12 @@ export const CvBuilderPage: React.FC = () => {
 
   useEffect(() => {
     return () => {
-      if (photoThumbUrl) URL.revokeObjectURL(photoThumbUrl);
+      if (photoThumbUrlRef.current) {
+        URL.revokeObjectURL(photoThumbUrlRef.current);
+        photoThumbUrlRef.current = null;
+      }
     };
-  }, [photoThumbUrl]);
+  }, []);
 
   // ── Apply Draft to State ────────────────────────────────────────────────────
   const applyDraft = useCallback((full: CvDraft, resetUnsaved = true) => {
@@ -154,6 +167,14 @@ export const CvBuilderPage: React.FC = () => {
       setVersions([]);
     }
   }, []);
+
+  // Keep latest function identities for a mount-once bootstrap effect.
+  const applyDraftRef = useRef(applyDraft);
+  const loadVersionsRef = useRef(loadVersions);
+  const checkBackendHealthRef = useRef(checkBackendHealth);
+  applyDraftRef.current = applyDraft;
+  loadVersionsRef.current = loadVersions;
+  checkBackendHealthRef.current = checkBackendHealth;
 
   // ── Unsaved Changes Guard ───────────────────────────────────────────────────
   useEffect(() => {
@@ -225,25 +246,25 @@ export const CvBuilderPage: React.FC = () => {
     };
   }, []);
 
-  // ── Initial Bootstrap Loader ────────────────────────────────────────────────
+  // ── Initial Bootstrap Loader (mount once) ───────────────────────────────────
   const loadBootstrap = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      void checkBackendHealth();
+      void checkBackendHealthRef.current();
       const list = await careerCenterClient.listDrafts();
       setDrafts(list);
       if (list.length > 0) {
         const full = await careerCenterClient.getDraft(list[0].id);
-        applyDraft(full, true);
-        await loadVersions(full.id);
+        applyDraftRef.current(full, true);
+        await loadVersionsRef.current(full.id);
       }
     } catch (err: any) {
       setError(err instanceof ApiError ? err.detail : err?.message || 'Failed to load CV Builder');
     } finally {
       setLoading(false);
     }
-  }, [checkBackendHealth, applyDraft, loadVersions]);
+  }, []);
 
   useEffect(() => {
     void loadBootstrap();

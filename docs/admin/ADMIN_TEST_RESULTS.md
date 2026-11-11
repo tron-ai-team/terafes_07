@@ -32,15 +32,25 @@
 - Announcement publish / active feed path
 - Flyway V1–V23 migrate on H2
 
+## CI (PR #23)
+
+| Check | Status |
+|---|---|
+| Backend Maven tests | PASS (after FK cascade + auth cleanup fix) |
+| Frontend build | PASS |
+| Security checks | PASS |
+| Deployment recovery tests | PASS |
+| Docker image build | may still be pending / optional |
+
+Head SHA at report time: see PR `feature/tron-admin-backend-v1-v3`.
+
 ## Not run / blocked
 
 | Item | Status | Reason |
 |---|---|---|
 | Live Google OAuth against real accounts | NOT RUN | Safety — no production user writes |
 | Multi-node quota race across processes | NOT RUN | Single JVM IT; DB locks intended for multi-node |
-| CvBuilderV2BackendIT / full regression suite | NOT RUN | Timeboxed; gateway wiring is additive OBSERVE |
 | Production `api.tronai.tech` smoke | NOT RUN | Forbidden by mission rules |
-| Frontend build | NOT RUN | Backend-only branch |
 
 ## Evidence notes
 

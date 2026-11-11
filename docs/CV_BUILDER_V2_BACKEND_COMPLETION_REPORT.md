@@ -163,13 +163,20 @@ Focused CV + career + interview + gateway router suites: **PASS** (executed loca
 
 - Target: `main`
 - Status: opened, **not merged**
-- Link: *(filled after `gh pr create`)*
+- Link: https://github.com/tron-ai-team/terafes_07/pull/20
+
+### Commits on branch
+
+1. `25222db5` — fix(cv-builder): route Magic Fill through cloud AiGateway SMART by default
+2. `ceae69e9` — fix(cv-builder): non-destructive profile sync and draft concurrency guard
+3. `ce587112` — test(cv-builder): cover Magic Fill, profile sync, history and document APIs
 
 ---
 
 ## 14. CI status
 
-- Checked after push; results recorded in PR checks. Fix-forward if red. **No deploy.**
+- PR checks monitored after push. Fix-forward if red. **No deploy.**
+- See GitHub Checks on PR #20 for live status.
 
 ---
 

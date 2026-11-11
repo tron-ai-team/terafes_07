@@ -63,6 +63,13 @@ public class CvBuilderDraftEntity {
 
     @PreUpdate
     void onUpdate() {
-        updatedAt = Instant.now().truncatedTo(ChronoUnit.SECONDS);
+        Instant now = Instant.now().truncatedTo(ChronoUnit.SECONDS);
+        // Guarantee the concurrency token advances even when two saves land
+        // within the same wall-clock second (MySQL TIMESTAMP has no fractions).
+        if (updatedAt != null && !now.isAfter(updatedAt)) {
+            updatedAt = updatedAt.plusSeconds(1);
+        } else {
+            updatedAt = now;
+        }
     }
 }

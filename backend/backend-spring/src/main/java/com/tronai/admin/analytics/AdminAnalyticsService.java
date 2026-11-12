@@ -46,14 +46,59 @@ public class AdminAnalyticsService {
             out.put("aiUsageEventsLast24h", null);
             out.put("aiUsageNote", ex.getMessage());
         }
-        out.put("dailyActiveUsers", Map.of(
-                "value", null,
-                "measurement", "unavailable",
-                "reason", "No dedicated DAU signal table; do not treat enabledUsers as DAU"));
-        out.put("estimatedSpend", Map.of(
-                "value", null,
-                "measurement", "unavailable",
-                "reason", "Pricing catalog empty or unmatched"));
+        Map<String, Object> dau = new LinkedHashMap<>();
+        dau.put("value", null);
+        dau.put("measurement", "unavailable");
+        dau.put("reason", "No dedicated DAU signal table; do not treat enabledUsers as DAU");
+        out.put("dailyActiveUsers", dau);
+        Map<String, Object> spend = new LinkedHashMap<>();
+        spend.put("value", null);
+        spend.put("measurement", "unavailable");
+        spend.put("reason", "Pricing catalog empty or unmatched");
+        out.put("estimatedSpend", spend);
+        out.put("generatedAt", Instant.now());
+        return out;
+    }
+
+    /**
+     * Frontend-shaped analytics payload. Measured fields are filled; chart series that are not
+     * materialized remain empty with explicit measurement markers (never fabricated demo values).
+     */
+    @Transactional(readOnly = true)
+    public Map<String, Object> frontendAggregate(String range) {
+        String resolvedRange = range == null || range.isBlank() ? "7d" : range.trim().toLowerCase();
+        Map<String, Object> base = overview();
+        Map<String, Object> usage = usage(resolvedRange);
+
+        Map<String, Object> overviewCard = new LinkedHashMap<>();
+        overviewCard.put("totalUsers", base.get("registeredUsers"));
+        overviewCard.put("activeUsers", base.get("enabledUsers"));
+        overviewCard.put("activeUsersMeasurement", "enabledUsersProxy");
+        overviewCard.put("aiRequestsToday", base.get("aiUsageEventsLast24h"));
+        overviewCard.put("aiRequestsTodayMeasurement",
+                base.get("aiUsageEventsLast24h") == null ? "unavailable" : "measured_last_24h");
+        overviewCard.put("monthlyRequests", usage.get("aiUsageEvents"));
+        overviewCard.put("monthlyRequestsMeasurement", usage.get("measurement"));
+        overviewCard.put("tokenTotals", "UNAVAILABLE");
+        overviewCard.put("tokenTotalsMeasurement", "unavailable");
+        overviewCard.put("estimatedSpend", "UNAVAILABLE");
+        overviewCard.put("estimatedSpendMeasurement", "unavailable");
+        overviewCard.put("errorRate", "UNAVAILABLE");
+        overviewCard.put("errorRateMeasurement", "unavailable");
+
+        Map<String, Object> out = new LinkedHashMap<>();
+        out.put("range", resolvedRange);
+        out.put("overview", overviewCard);
+        out.put("dailyRequests", java.util.List.of());
+        out.put("userGrowth", java.util.List.of());
+        out.put("tokenConsumption", java.util.List.of());
+        out.put("featureDistribution", java.util.List.of());
+        out.put("providerUsage", java.util.List.of());
+        out.put("dailyCost", java.util.List.of());
+        out.put("latencyTrend", java.util.List.of());
+        out.put("seriesMeasurement", "unavailable");
+        out.put("seriesNote",
+                "Time-series / distribution charts are not materialized yet. Do not overlay demo fixtures as live data.");
         out.put("generatedAt", Instant.now());
         return out;
     }

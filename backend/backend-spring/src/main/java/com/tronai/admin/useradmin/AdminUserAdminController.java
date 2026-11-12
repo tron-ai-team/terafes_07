@@ -18,6 +18,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 @RestController
@@ -46,12 +47,31 @@ public class AdminUserAdminController {
             @RequestParam(required = false) Boolean deleted,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "25") int size) {
-        return ResponseEntity.ok(users.search(q, role, enabled, deleted, PageRequest.of(page, size)));
+        int bounded = Math.min(Math.max(size, 1), 100);
+        return ResponseEntity.ok(users.search(q, role, enabled, deleted, PageRequest.of(Math.max(page, 0), bounded)));
+    }
+
+    @PostMapping
+    @PreAuthorize("hasRole('OWNER')")
+    public ResponseEntity<?> create(@RequestBody Map<String, Object> body) {
+        // Intentionally rejects plaintext temporaryPassword creates from frontend contract.
+        return ResponseEntity.unprocessableEntity().body(users.rejectInsecurePasswordCreate(body));
     }
 
     @GetMapping("/{id}")
     public ResponseEntity<?> detail(@PathVariable Long id) {
         return ResponseEntity.ok(users.detail(id));
+    }
+
+    @DeleteMapping("/{id}")
+    @PreAuthorize("hasRole('OWNER')")
+    public ResponseEntity<?> delete(@PathVariable Long id, @RequestBody(required = false) Map<String, String> body) {
+        UserPrincipal actor = SecurityUtils.getRequiredCurrentUser();
+        String reason = body == null ? null : body.get("reason");
+        Map<String, Object> deleted = users.softDelete(actor.getId(), actor.getRole(), id, reason);
+        Map<String, Object> out = new LinkedHashMap<>(deleted);
+        out.put("deleted", true);
+        return ResponseEntity.ok(out);
     }
 
     @PostMapping("/{id}/soft-delete")
@@ -79,12 +99,33 @@ public class AdminUserAdminController {
     @PreAuthorize("hasRole('OWNER')")
     public ResponseEntity<?> invite(@RequestBody Map<String, String> body) {
         UserPrincipal actor = SecurityUtils.getRequiredCurrentUser();
-        return ResponseEntity.ok(users.invite(
-                actor.getId(), actor.getRole(), body.get("email"), body.get("role"), body.get("note")));
+        String note = body.get("note");
+        if ((note == null || note.isBlank()) && body.get("personalNote") != null) {
+            note = body.get("personalNote");
+        }
+        Map<String, Object> invited = users.invite(
+                actor.getId(), actor.getRole(), body.get("email"), body.get("role"), note);
+        Map<String, Object> out = new LinkedHashMap<>(invited);
+        out.put("success", true);
+        if (invited.get("setupToken") != null) {
+            out.put("inviteToken", invited.get("setupToken"));
+        }
+        return ResponseEntity.ok(out);
     }
 
     @PostMapping("/{id}/password-reset")
     public ResponseEntity<?> passwordReset(@PathVariable Long id) {
+        UserPrincipal actor = SecurityUtils.getRequiredCurrentUser();
+        return ResponseEntity.ok(users.passwordResetInitiate(actor.getId(), actor.getRole(), id));
+    }
+
+    @PostMapping("/{id}/reset-password")
+    public ResponseEntity<?> resetPasswordAlias(
+            @PathVariable Long id,
+            @RequestBody(required = false) Map<String, Object> body) {
+        if (body != null && body.get("temporaryPassword") != null) {
+            users.rejectInsecurePasswordAssign(body);
+        }
         UserPrincipal actor = SecurityUtils.getRequiredCurrentUser();
         return ResponseEntity.ok(users.passwordResetInitiate(actor.getId(), actor.getRole(), id));
     }

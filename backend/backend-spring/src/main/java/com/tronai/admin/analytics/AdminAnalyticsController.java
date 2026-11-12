@@ -18,6 +18,11 @@ public class AdminAnalyticsController {
         this.analytics = analytics;
     }
 
+    @GetMapping
+    public ResponseEntity<?> aggregate(@RequestParam(required = false, defaultValue = "7d") String range) {
+        return ResponseEntity.ok(analytics.frontendAggregate(range));
+    }
+
     @GetMapping("/overview")
     public ResponseEntity<?> overview() {
         return ResponseEntity.ok(analytics.overview());

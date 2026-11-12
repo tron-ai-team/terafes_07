@@ -56,6 +56,10 @@
 | Security events table | DONE | |
 | Full MFA | DEFERRED | |
 
+## Frontend contract reconciliation (2026-11-13)
+
+After Antigravity frontend push (`4bd3e00d`), backend added compatibility facades for global quotas, analytics aggregate, security overview/emergency revoke, announcement unpublish/archive, provider ping (cached), and secure rejection of plaintext password create/reset. See `ADMIN_FRONTEND_API_MAPPING.md`.
+
 ## Regression
 
 - Existing Chat/Voice/CV/Interview gateway paths still call `AiGateway`

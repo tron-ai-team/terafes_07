@@ -79,16 +79,48 @@ public class AdminAnnouncementService {
         return toMap(a);
     }
 
+    @Transactional
+    public Map<String, Object> unpublish(Long actorId, Long id) {
+        AdminAnnouncementEntity a = repository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Announcement not found"));
+        a.setStatus("UNPUBLISHED");
+        a.setUpdatedBy(actorId);
+        a.setUpdatedAt(Instant.now());
+        repository.save(a);
+        auditService.log(actorId, "ANNOUNCEMENT_UNPUBLISH", "announcement", String.valueOf(id), null, "SUCCESS", null, null);
+        return toMap(a);
+    }
+
+    @Transactional
+    public Map<String, Object> archive(Long actorId, Long id) {
+        AdminAnnouncementEntity a = repository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Announcement not found"));
+        a.setStatus("ARCHIVED");
+        a.setUpdatedBy(actorId);
+        a.setUpdatedAt(Instant.now());
+        repository.save(a);
+        auditService.log(actorId, "ANNOUNCEMENT_ARCHIVE", "announcement", String.valueOf(id), null, "SUCCESS", null, null);
+        return toMap(a);
+    }
+
     private void apply(AdminAnnouncementEntity a, Map<String, Object> body) {
         if (body.get("titleEn") != null) a.setTitleEn(String.valueOf(body.get("titleEn")));
         if (body.get("titleJa") != null) a.setTitleJa(String.valueOf(body.get("titleJa")));
+        // Frontend uses messageEn/messageJa; backend stores bodyEn/bodyJa.
         if (body.get("bodyEn") != null) a.setBodyEn(String.valueOf(body.get("bodyEn")));
         if (body.get("bodyJa") != null) a.setBodyJa(String.valueOf(body.get("bodyJa")));
+        if (body.get("messageEn") != null) a.setBodyEn(String.valueOf(body.get("messageEn")));
+        if (body.get("messageJa") != null) a.setBodyJa(String.valueOf(body.get("messageJa")));
         if (body.get("severity") != null) a.setSeverity(String.valueOf(body.get("severity")));
+        if (body.get("priority") != null) a.setSeverity(String.valueOf(body.get("priority")));
         if (body.get("audience") != null) a.setAudience(String.valueOf(body.get("audience")));
         if (body.get("status") != null) a.setStatus(String.valueOf(body.get("status")));
         if (body.containsKey("startAt")) a.setStartAt(parseInstant(body.get("startAt")));
         if (body.containsKey("endAt")) a.setEndAt(parseInstant(body.get("endAt")));
+        if (a.getTitleEn() == null || a.getTitleEn().isBlank()) a.setTitleEn("Untitled");
+        if (a.getTitleJa() == null || a.getTitleJa().isBlank()) a.setTitleJa(a.getTitleEn());
+        if (a.getBodyEn() == null) a.setBodyEn("");
+        if (a.getBodyJa() == null) a.setBodyJa(a.getBodyEn());
     }
 
     private Instant parseInstant(Object v) {
@@ -103,7 +135,10 @@ public class AdminAnnouncementService {
         row.put("titleJa", a.getTitleJa());
         row.put("bodyEn", a.getBodyEn());
         row.put("bodyJa", a.getBodyJa());
+        row.put("messageEn", a.getBodyEn());
+        row.put("messageJa", a.getBodyJa());
         row.put("severity", a.getSeverity());
+        row.put("priority", a.getSeverity());
         row.put("audience", a.getAudience());
         row.put("status", a.getStatus());
         row.put("startAt", a.getStartAt());
@@ -121,7 +156,10 @@ public class AdminAnnouncementService {
         row.put("titleJa", a.getTitleJa());
         row.put("bodyEn", a.getBodyEn());
         row.put("bodyJa", a.getBodyJa());
+        row.put("messageEn", a.getBodyEn());
+        row.put("messageJa", a.getBodyJa());
         row.put("severity", a.getSeverity());
+        row.put("priority", a.getSeverity());
         row.put("audience", a.getAudience());
         row.put("publishedAt", a.getPublishedAt());
         return row;

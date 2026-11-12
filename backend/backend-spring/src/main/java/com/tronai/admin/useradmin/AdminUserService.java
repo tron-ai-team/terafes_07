@@ -230,6 +230,11 @@ public class AdminUserService {
     public Map<String, Object> passwordResetInitiate(Long actorId, String actorRole, Long targetId) {
         User u = users.findById(targetId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+        List<String> methods = resolveLoginMethods(u);
+        if (methods.contains("GOOGLE") && !methods.contains("LOCAL")) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Cannot reset password for Google OAuth accounts. Credentials managed by Google.");
+        }
         String requestId = UUID.randomUUID().toString();
         auditService.log(actorId, "USER_PASSWORD_RESET_INIT", "user", String.valueOf(targetId),
                 "requestId=" + requestId, "SUCCESS", requestId, actorRole);
@@ -238,7 +243,31 @@ public class AdminUserService {
                 "email", u.getEmail(),
                 "status", "INITIATED",
                 "requestId", requestId,
-                "note", "No password or reset token is exposed via admin API");
+                "success", true,
+                "requirePasswordChange", true,
+                "note", "No password or reset token is exposed via admin API. Email delivery is not configured.");
+    }
+
+    /**
+     * Frontend asked for plaintext temporaryPassword assignment. That is intentionally rejected.
+     * Use invite / password-reset initiate instead.
+     */
+    public Map<String, Object> rejectInsecurePasswordCreate(Map<String, Object> body) {
+        Map<String, Object> out = new LinkedHashMap<>();
+        out.put("success", false);
+        out.put("code", "INSECURE_PASSWORD_CREATE_DISABLED");
+        out.put("detail", "Creating accounts with temporaryPassword is disabled. Use POST /api/v1/admin/users/invite.");
+        out.put("acceptedFields", List.of("email", "role", "personalNote"));
+        out.put("alternateEndpoint", "/api/v1/admin/users/invite");
+        if (body != null && body.get("email") != null) {
+            out.put("email", String.valueOf(body.get("email")));
+        }
+        return out;
+    }
+
+    public Map<String, Object> rejectInsecurePasswordAssign(Map<String, Object> body) {
+        throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY,
+                "Assigning temporaryPassword via admin API is disabled. Use POST /api/v1/admin/users/{id}/password-reset.");
     }
 
     private void requireOwner(String actorRole) {

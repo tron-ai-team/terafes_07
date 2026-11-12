@@ -99,6 +99,9 @@ public class AdminControlService {
         if ("OWNER".equalsIgnoreCase(u.getRole())) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Cannot suspend OWNER");
         }
+        if (actorId != null && actorId.equals(targetId)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Cannot suspend yourself");
+        }
         u.setEnabled(false);
         u.setSuspendedAt(Instant.now());
         u.setSuspendReason(reason == null ? "Suspended by admin" : reason);

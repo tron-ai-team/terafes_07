@@ -153,6 +153,24 @@ Header: `Retry-After` (seconds).
 }
 ```
 
+## Frontend-compatible facades (Antigravity @ 4bd3e00d)
+
+| Method | Path | Notes |
+|---|---|---|
+| GET/PUT | `/api/v1/admin/quotas/global` | Flat GlobalQuotaConfig facade |
+| PUT/DELETE | `/api/v1/admin/quotas/users/{userId}` | Bulk overrides / inherit |
+| POST | `/api/v1/admin/quotas/users/{userId}/reset-today` | All meters, JST day |
+| GET | `/api/v1/admin/analytics` | Aggregate + empty honest series |
+| GET | `/api/v1/admin/security/overview` | Alias of `/summary` |
+| POST | `/api/v1/admin/security/emergency-revoke-all` | OWNER-only |
+| POST | `/api/v1/admin/providers/{id}/ping` | Cached health; no paid call |
+| PUT | `/api/v1/admin/providers/{id}` | 409 NOT_ACTIVATED |
+| POST | `/api/v1/admin/users` | 422 if temporaryPassword create |
+| DELETE | `/api/v1/admin/users/{id}` | Soft-delete |
+| DELETE | `/api/v1/admin/announcements/{id}` | Archive |
+
+See also: `docs/admin/ADMIN_FRONTEND_API_MAPPING.md`.
+
 ## Antigravity mapping notes
 
 | Frontend expectation | Backend reality |
@@ -160,5 +178,6 @@ Header: `Retry-After` (seconds).
 | Paginated `GetUsersResponse` | Spring `Page` (`content`, `totalElements`, `number`, `size`) |
 | Fake demo usage overlays | Prefer `/users/{id}/quotas` + analytics measured fields |
 | GlobalQuotaConfig flat fields | Map to `admin_quota_policies` meters |
-| Provider credentialMasked | Boolean `configured` only; never return key fragments |
+| Provider credentialMasked | Boolean `configured` only / `••••configured`; never raw keys |
 | MFA toggle | Must not claim enabled while `NOT_IMPLEMENTED` |
+| temporaryPassword create/reset | Rejected — invite / initiate-only reset |

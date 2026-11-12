@@ -3,6 +3,7 @@ package com.tronai.admin.announcement;
 import com.tronai.auth.SecurityUtils;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -42,5 +43,15 @@ public class AdminAnnouncementController {
     @PostMapping("/{id}/publish")
     public ResponseEntity<?> publish(@PathVariable Long id) {
         return ResponseEntity.ok(announcements.publish(SecurityUtils.getRequiredUserId(), id));
+    }
+
+    @PostMapping("/{id}/unpublish")
+    public ResponseEntity<?> unpublish(@PathVariable Long id) {
+        return ResponseEntity.ok(announcements.unpublish(SecurityUtils.getRequiredUserId(), id));
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<?> delete(@PathVariable Long id) {
+        return ResponseEntity.ok(announcements.archive(SecurityUtils.getRequiredUserId(), id));
     }
 }

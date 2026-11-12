@@ -31,16 +31,34 @@ public class AdminCostService {
     public Map<String, Object> costs() {
         Map<String, Object> out = new LinkedHashMap<>();
         long pricingRows = pricingRepository.count();
+        Map<String, Object> overview = new LinkedHashMap<>();
+        overview.put("todayEstimatedCostUsd", null);
+        overview.put("monthlyEstimatedCostUsd", null);
+        overview.put("monthlyBudgetCapUsd", null);
+        overview.put("budgetUsagePct", null);
+        overview.put("projectedMonthEndCostUsd", null);
+        overview.put("measurement", "unavailable");
+
         if (pricingRows == 0) {
             out.put("status", "UNAVAILABLE");
             out.put("reason", "No admin_cost_pricing rows configured");
             out.put("usageEventsLast24h", safeUsageCount());
+            out.put("overview", overview);
+            out.put("byProvider", java.util.List.of());
+            out.put("byFeature", java.util.List.of());
+            out.put("topUsers", java.util.List.of());
+            out.put("note", "Do not treat null costs as $0.00");
             return out;
         }
         out.put("status", "PARTIAL");
         out.put("pricingRowCount", pricingRows);
         out.put("note", "Cost estimates require pricing rows matched to usage events; not computed in V1");
         out.put("usageEventsLast24h", safeUsageCount());
+        overview.put("measurement", "partial");
+        out.put("overview", overview);
+        out.put("byProvider", java.util.List.of());
+        out.put("byFeature", java.util.List.of());
+        out.put("topUsers", java.util.List.of());
         return out;
     }
 

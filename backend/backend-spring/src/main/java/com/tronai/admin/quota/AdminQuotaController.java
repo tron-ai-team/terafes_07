@@ -28,6 +28,38 @@ public class AdminQuotaController {
         this.featureQuotaService = featureQuotaService;
     }
 
+    @GetMapping("/global")
+    public ResponseEntity<?> globalQuotas() {
+        return ResponseEntity.ok(adminQuota.getGlobalQuotaFacade());
+    }
+
+    @PutMapping("/global")
+    public ResponseEntity<?> updateGlobalQuotas(@RequestBody Map<String, Object> body) {
+        Long actorId = SecurityUtils.getRequiredUserId();
+        return ResponseEntity.ok(adminQuota.putGlobalQuotaFacade(actorId, body));
+    }
+
+    @PutMapping("/users/{userId}")
+    public ResponseEntity<?> putUserOverrides(@PathVariable Long userId, @RequestBody Map<String, Object> body) {
+        Long actorId = SecurityUtils.getRequiredUserId();
+        return ResponseEntity.ok(adminQuota.putUserOverridesBulk(actorId, userId, body));
+    }
+
+    @DeleteMapping("/users/{userId}")
+    public ResponseEntity<?> deleteUserOverrides(@PathVariable Long userId) {
+        Long actorId = SecurityUtils.getRequiredUserId();
+        return ResponseEntity.ok(adminQuota.deleteAllUserOverrides(actorId, userId));
+    }
+
+    @PostMapping("/users/{userId}/reset-today")
+    public ResponseEntity<?> resetToday(
+            @PathVariable Long userId,
+            @RequestBody(required = false) Map<String, String> body) {
+        Long actorId = SecurityUtils.getRequiredUserId();
+        String reason = body == null ? null : body.get("reason");
+        return ResponseEntity.ok(adminQuota.resetAllMetersToday(actorId, userId, reason));
+    }
+
     @GetMapping("/policies")
     public ResponseEntity<?> policies() {
         return ResponseEntity.ok(adminQuota.listPolicies());

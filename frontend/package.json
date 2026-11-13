@@ -4,9 +4,9 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "node init && vite",
     "test:ai-mode": "node ./scripts/verify-ai-mode-selection.mjs",
-    "build": "node ./scripts/verify-ai-mode-selection.mjs && tsc -b && vite build",
+    "build": "node init && node ./scripts/verify-ai-mode-selection.mjs && tsc -b && vite build",
     "preview": "vite preview"
   },
   "dependencies": {

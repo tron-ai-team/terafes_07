@@ -72,19 +72,94 @@ public class OllamaClient {
      * Check whether the configured Ollama instance is healthy and responding.
      */
     public boolean checkHealth() {
+        return fetchTagsJson().isPresent();
+    }
+
+    /**
+     * Lightweight availability check: Ollama is reachable and {@code modelId} appears in {@code /api/tags}.
+     * Does not run inference.
+     */
+    public boolean isModelAvailable(String modelId) {
+        if (modelId == null || modelId.isBlank()) {
+            return checkHealth();
+        }
+        Optional<String> tagsJson = fetchTagsJson();
+        if (tagsJson.isEmpty()) {
+            return false;
+        }
+        boolean present = tagsListContainsModel(tagsJson.get(), modelId.trim(), objectMapper);
+        if (!present) {
+            log.debug("{} model not present in /api/tags: {}", clientLabel, modelId);
+        }
+        return present;
+    }
+
+    private Optional<String> fetchTagsJson() {
         try {
             Duration connectTimeout = Duration.ofSeconds(2);
             Duration readTimeout = Duration.ofSeconds(2);
             RestClient quickClient = OllamaHttpSupport.createRestClient(properties, connectTimeout, readTimeout);
-            quickClient.get()
+            String body = quickClient.get()
                     .uri("/api/tags")
                     .retrieve()
-                    .toBodilessEntity();
-            return true;
+                    .body(String.class);
+            if (body == null || body.isBlank()) {
+                return Optional.empty();
+            }
+            return Optional.of(body);
         } catch (Exception e) {
             log.debug("{} health check failed: {}", clientLabel, e.getMessage());
+            return Optional.empty();
+        }
+    }
+
+    /**
+     * Parses Ollama {@code /api/tags} JSON and checks for an installed model name.
+     * Matches exact {@code name}/{@code model} values; also accepts {@code name@digest} forms.
+     */
+    static boolean tagsListContainsModel(String tagsJson, String modelId, ObjectMapper mapper) {
+        if (tagsJson == null || tagsJson.isBlank() || modelId == null || modelId.isBlank()) {
             return false;
         }
+        try {
+            ObjectMapper om = mapper != null ? mapper : new ObjectMapper();
+            Map<?, ?> root = om.readValue(tagsJson, Map.class);
+            Object modelsObj = root.get("models");
+            if (!(modelsObj instanceof List<?> models)) {
+                return false;
+            }
+            String wanted = modelId.trim();
+            for (Object entry : models) {
+                if (!(entry instanceof Map<?, ?> model)) {
+                    continue;
+                }
+                if (modelNameMatches(model.get("name"), wanted) || modelNameMatches(model.get("model"), wanted)) {
+                    return true;
+                }
+            }
+            return false;
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    private static boolean modelNameMatches(Object rawName, String wanted) {
+        if (rawName == null) {
+            return false;
+        }
+        String name = rawName.toString().trim();
+        if (name.isEmpty()) {
+            return false;
+        }
+        if (name.equalsIgnoreCase(wanted)) {
+            return true;
+        }
+        // Ollama may append @digest to the installed tag name.
+        int at = name.indexOf('@');
+        if (at > 0 && name.substring(0, at).equalsIgnoreCase(wanted)) {
+            return true;
+        }
+        return false;
     }
 
     /**

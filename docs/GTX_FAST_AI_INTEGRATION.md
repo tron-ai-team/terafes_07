@@ -13,7 +13,12 @@ Dedicated **FAST → GTX Ollama → Qwen3 8B** provider for TRON AI, without cha
 When `TRON_AI_GTX_FAST_MODE=true`:
 
 - FAST uses **only** GTX. Offline GTX → FAST unavailable.
+- FAST health requires Tailscale Serve reachability **and** the configured model
+  (default `qwen3:8b`) to appear in Ollama `/api/tags` (no inference probe).
+- Provider/model overrides cannot escape FAST→GTX or SMART→RTX locks.
 - No silent fallback to RTX or paid CLOUD for FAST.
+- The UI keeps an actively selected FAST mode when GTX goes offline (shows Offline;
+  user must choose Smart/Cloud explicitly).
 - SMART continues exclusively to RTX when `TRON_AI_RTX_SMART_MODE=true`.
 - CLOUD is unchanged.
 

@@ -223,6 +223,91 @@ class AiModelRouterTest {
     }
 
     @Test
+    @DisplayName("GTX Fast Mode blocks cloud/RTX provider overrides on FAST")
+    void gtxFastModeBlocksNonGtxOverrides() {
+        properties.setGtxFastModeEnabled(true);
+        properties.setGtxFastModel("qwen3:8b");
+        AiRequestContext groqOverride = AiRequestContext.builder()
+                .feature(AiFeature.CHAT)
+                .mode(AiMode.FAST)
+                .providerOverride("GROQ")
+                .modelOverride("groq-fast")
+                .build();
+        assertThatThrownBy(() -> router.resolveRoute(groqOverride, AiMode.FAST))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("locked to GTX");
+
+        AiRequestContext rtxOverride = AiRequestContext.builder()
+                .feature(AiFeature.CHAT)
+                .mode(AiMode.FAST)
+                .providerOverride("OLLAMA")
+                .modelOverride("ollama-fast")
+                .build();
+        assertThatThrownBy(() -> router.resolveRoute(rtxOverride, AiMode.FAST))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("locked to GTX");
+    }
+
+    @Test
+    @DisplayName("GTX Fast Mode still allows explicit GTX overrides on FAST")
+    void gtxFastModeAllowsGtxOverride() {
+        properties.setGtxFastModeEnabled(true);
+        properties.setGtxFastModel("qwen3:8b");
+        AiRequestContext context = AiRequestContext.builder()
+                .feature(AiFeature.CHAT)
+                .mode(AiMode.FAST)
+                .providerOverride("OLLAMA_GTX")
+                .modelOverride("qwen3:8b")
+                .build();
+        AiModelRouter.Route route = router.resolveRoute(context, AiMode.FAST);
+        assertThat(route.provider()).isEqualTo(GatewayProviderId.OLLAMA_GTX);
+        assertThat(route.modelId()).isEqualTo("qwen3:8b");
+    }
+
+    @Test
+    @DisplayName("RTX Smart Mode blocks cloud/GTX provider overrides on SMART")
+    void rtxSmartModeBlocksNonRtxOverrides() {
+        properties.setRtxSmartModeEnabled(true);
+        properties.setRtxSmartModel("qwen3.5:9b-q4_K_M");
+        properties.setGtxFastModeEnabled(true);
+        AiRequestContext cloudOverride = AiRequestContext.builder()
+                .feature(AiFeature.CHAT)
+                .mode(AiMode.SMART)
+                .providerOverride("GROQ")
+                .modelOverride("groq-smart")
+                .build();
+        assertThatThrownBy(() -> router.resolveRoute(cloudOverride, AiMode.SMART))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("locked to RTX");
+
+        AiRequestContext gtxOverride = AiRequestContext.builder()
+                .feature(AiFeature.CHAT)
+                .mode(AiMode.SMART)
+                .providerOverride("OLLAMA_GTX")
+                .modelOverride("qwen3:8b")
+                .build();
+        assertThatThrownBy(() -> router.resolveRoute(gtxOverride, AiMode.SMART))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("locked to RTX");
+    }
+
+    @Test
+    @DisplayName("CLOUD mode still allows cloud provider overrides when GTX/RTX locks are on")
+    void cloudOverridesRemainAllowed() {
+        properties.setRtxSmartModeEnabled(true);
+        properties.setGtxFastModeEnabled(true);
+        AiRequestContext context = AiRequestContext.builder()
+                .feature(AiFeature.CHAT)
+                .mode(AiMode.CLOUD)
+                .providerOverride("GROQ")
+                .modelOverride("groq-smart")
+                .build();
+        AiModelRouter.Route route = router.resolveRoute(context, AiMode.CLOUD);
+        assertThat(route.provider()).isEqualTo(GatewayProviderId.GROQ);
+        assertThat(route.modelId()).isEqualTo("groq-smart");
+    }
+
+    @Test
     @DisplayName("SMART prefers OpenRouter when preferGroqForSmart=false")
     void smartPrefersOpenRouterWhenConfigured() {
         properties.setPreferGroqForSmart(false);

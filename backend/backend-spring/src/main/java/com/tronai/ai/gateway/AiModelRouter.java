@@ -45,12 +45,13 @@ public class AiModelRouter {
     public Route resolveRoute(AiRequestContext context, AiMode effectiveMode) {
         AiMode mode = effectiveMode != null ? effectiveMode.routingMode() : AiMode.SMART;
 
-        Route overrideRoute = resolveOverrides(context);
+        Route overrideRoute = resolveOverrides(context, mode);
         if (overrideRoute != null) {
             if (!context.isAllowCloud() && !overrideRoute.provider().isLocalOllama()) {
                 throw new IllegalArgumentException(
                         "Cloud provider override blocked by privacy policy (local-only request)");
             }
+            enforceExclusiveModeIsolation(mode, overrideRoute);
             return overrideRoute;
         }
 
@@ -101,7 +102,7 @@ public class AiModelRouter {
         return fallbackCandidates(AiRequestContext.builder().allowCloud(true).build(), effectiveMode);
     }
 
-    private Route resolveOverrides(AiRequestContext context) {
+    private Route resolveOverrides(AiRequestContext context, AiMode mode) {
         String modelOverride = context.getModelOverride();
         String providerOverride = context.getProviderOverride();
         if ((modelOverride == null || modelOverride.isBlank())
@@ -111,8 +112,10 @@ public class AiModelRouter {
 
         GatewayProviderId providerId = parseProviderOverride(providerOverride);
         String modelId = modelOverride != null ? modelOverride.trim() : "";
+        Set<GatewayProviderId> allowedProviders = exclusiveProvidersForMode(mode);
 
         if (providerId != null && !modelId.isBlank()) {
+            assertProviderAllowedForMode(mode, providerId, allowedProviders);
             if (!modelCatalog.isAllowed(providerId, modelId)) {
                 throw new IllegalArgumentException(
                         "Model override is not allowed for provider " + providerId + ": " + modelId);
@@ -125,6 +128,7 @@ public class AiModelRouter {
         }
 
         if (providerId != null && modelId.isBlank()) {
+            assertProviderAllowedForMode(mode, providerId, allowedProviders);
             Optional<Route> defaultForProvider = defaultModelForProvider(providerId);
             if (defaultForProvider.isEmpty()) {
                 throw new IllegalArgumentException("No default model for provider override: " + providerId);
@@ -138,11 +142,55 @@ public class AiModelRouter {
 
         if (!modelId.isBlank()) {
             for (GatewayProviderId candidate : GatewayProviderId.values()) {
+                if (allowedProviders != null && !allowedProviders.contains(candidate)) {
+                    continue;
+                }
                 if (modelCatalog.isAllowed(candidate, modelId) && isUsable(candidate, modelId)) {
                     return new Route(candidate, modelId);
                 }
             }
             throw new IllegalArgumentException("Unsupported model override: " + modelId);
+        }
+        return null;
+    }
+
+    /**
+     * When exhibition locks are active, overrides cannot escape FAST→GTX or SMART→RTX.
+     * CLOUD / ULTRA / unlocked modes keep normal override behavior.
+     */
+    private void enforceExclusiveModeIsolation(AiMode mode, Route route) {
+        Set<GatewayProviderId> allowed = exclusiveProvidersForMode(mode);
+        if (allowed == null) {
+            return;
+        }
+        if (!allowed.contains(route.provider())) {
+            if (mode == AiMode.FAST) {
+                throw new IllegalArgumentException(
+                        "Provider override blocked: Fast mode is locked to GTX Ollama.");
+            }
+            if (mode == AiMode.SMART) {
+                throw new IllegalArgumentException(
+                        "Provider override blocked: Smart mode is locked to RTX Ollama.");
+            }
+            throw new IllegalArgumentException(
+                    "Provider override blocked for mode " + mode + ": " + route.provider());
+        }
+    }
+
+    private void assertProviderAllowedForMode(
+            AiMode mode, GatewayProviderId providerId, Set<GatewayProviderId> allowedProviders) {
+        if (allowedProviders != null && !allowedProviders.contains(providerId)) {
+            enforceExclusiveModeIsolation(mode, new Route(providerId, "override"));
+        }
+    }
+
+    /** @return locked provider set, or {@code null} when the mode is not exclusively locked */
+    private Set<GatewayProviderId> exclusiveProvidersForMode(AiMode mode) {
+        if (mode == AiMode.FAST && properties.isGtxFastModeEnabled()) {
+            return Set.of(GatewayProviderId.OLLAMA_GTX);
+        }
+        if (mode == AiMode.SMART && properties.isRtxSmartModeEnabled()) {
+            return Set.of(GatewayProviderId.OLLAMA);
         }
         return null;
     }

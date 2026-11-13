@@ -20,6 +20,11 @@ public class GtxOllamaClient {
         return delegate.checkHealth();
     }
 
+    /** Reachable Ollama + configured model present in {@code /api/tags} (no inference). */
+    public boolean isModelAvailable(String modelId) {
+        return delegate.isModelAvailable(modelId);
+    }
+
     public ChatGenerationResult chat(ChatGenerationRequest request) {
         return delegate.chat(request);
     }

@@ -44,7 +44,8 @@ public class GtxOllamaGatewayProvider implements GatewayProvider {
         if (!isConfigured()) {
             return ProviderHealthStatus.UNAVAILABLE;
         }
-        return gtxOllamaClient.checkHealth()
+        String model = gatewayProperties.getGtxFastModel();
+        return gtxOllamaClient.isModelAvailable(model)
                 ? ProviderHealthStatus.CONFIGURED
                 : ProviderHealthStatus.UNAVAILABLE;
     }
@@ -54,7 +55,14 @@ public class GtxOllamaGatewayProvider implements GatewayProvider {
         if (!isConfigured()) {
             return "GTX Fast Mode disabled";
         }
-        return gtxOllamaClient.checkHealth() ? "GTX Ollama reachable" : "GTX Ollama offline";
+        String model = gatewayProperties.getGtxFastModel();
+        if (gtxOllamaClient.isModelAvailable(model)) {
+            return "GTX Ollama reachable; model " + model + " available";
+        }
+        if (gtxOllamaClient.checkHealth()) {
+            return "GTX Ollama reachable but model " + model + " is not installed";
+        }
+        return "GTX Ollama offline";
     }
 
     @Override

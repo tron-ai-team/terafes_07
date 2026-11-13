@@ -9,6 +9,15 @@ import {
 export const AI_MODE_STORAGE_KEY = 'tron_selected_ai_mode';
 export const ULTRA_CREDITS_STORAGE_KEY = 'tron_ultra_credits';
 
+/**
+ * When GTX Fast Mode is enabled but offline, keep the user's FAST selection so the UI
+ * can show an explicit unavailable state. Auto-migrate only when Fast is not yet a
+ * real enabled product mode (feature flag off / not configured).
+ */
+export function shouldAutoMigrateAwayFromFast(gtxFastModeEnabled: boolean | null | undefined): boolean {
+  return gtxFastModeEnabled !== true;
+}
+
 export const DEFAULT_ULTRA_CREDITS: UltraCreditsInfo = {
   remaining: 5,
   total: 5,

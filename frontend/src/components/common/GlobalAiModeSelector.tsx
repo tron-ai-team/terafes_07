@@ -126,6 +126,12 @@ export const GlobalAiModeSelector: React.FC<GlobalAiModeSelectorProps> = ({
         <span className="shrink-0">{getModeIcon(selectedAiMode, 'w-3.5 h-3.5')}</span>
         <span className={`truncate tracking-tight font-display ${compact ? 'hidden md:inline' : ''}`}>{activeDef.displayName}</span>
 
+        {!activeDef.available && (
+          <span className="ml-0.5 px-1.5 py-0.2 rounded-full text-[10px] font-mono font-extrabold bg-amber-100 text-amber-900 border border-amber-300 shrink-0">
+            Offline
+          </span>
+        )}
+
         {/* Display credits badge if in ULTRA mode */}
         {selectedAiMode === 'ULTRA' && (
           <span className="ml-0.5 px-1.5 py-0.2 rounded-full text-[10px] font-mono font-extrabold bg-purple-200/80 text-purple-900 border border-purple-300 shrink-0">

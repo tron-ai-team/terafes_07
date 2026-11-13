@@ -1,5 +1,6 @@
 package com.tronai.hybrid;
 
+import com.tronai.ai.OllamaClient;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -18,17 +19,19 @@ class HybridRoutingServiceTest {
 
     @Mock
     PlatformControlRepository controls;
+    @Mock
+    OllamaClient ollamaClient;
 
     HybridRoutingService hybrid;
 
     @BeforeEach
     void setUp() {
-        hybrid = new HybridRoutingService(controls);
-        ReflectionTestUtils.setField(hybrid, "ollamaHealthUrl", "http://127.0.0.1:9/api/tags");
-        ReflectionTestUtils.setField(hybrid, "rtxProbeTimeoutMs", 200);
+        hybrid = new HybridRoutingService(controls, ollamaClient);
+        ReflectionTestUtils.setField(hybrid, "assumeLocalHealthy", true);
         PlatformControlEntity state = new PlatformControlEntity();
         when(controls.findById(1)).thenReturn(Optional.of(state));
         lenient().when(controls.save(org.mockito.ArgumentMatchers.any())).thenAnswer(inv -> inv.getArgument(0));
+        lenient().when(ollamaClient.checkHealth()).thenReturn(true);
     }
 
     @Test

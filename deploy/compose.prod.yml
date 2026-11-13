@@ -105,10 +105,22 @@ services:
       TRON_RABBITMQ_ENABLED: ${TRON_RABBITMQ_ENABLED:-false}
       RABBITMQ_LISTENER_ENABLED: "false"
       JAVA_OPTS: ${JAVA_OPTS:--Xms256m -Xmx768m -XX:+UseG1GC -XX:+ExitOnOutOfMemoryError}
+      # RTX Tailscale Serve (optional). App also supports OLLAMA_CONNECT_IP without extra_hosts.
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://127.0.0.1:11434}
+      OLLAMA_CONNECT_IP: ${OLLAMA_CONNECT_IP:-}
+      OLLAMA_TLS_SERVER_NAME: ${OLLAMA_TLS_SERVER_NAME:-}
+      OLLAMA_OVERRIDE_HOST: ${OLLAMA_OVERRIDE_HOST:-}
+      TRON_AI_RTX_SMART_MODE: ${TRON_AI_RTX_SMART_MODE:-false}
+      TRON_AI_RTX_SMART_MODEL: ${TRON_AI_RTX_SMART_MODEL:-qwen3.5:9b-q4_K_M}
+      TRON_AI_GTX_FAST_MODE: ${TRON_AI_GTX_FAST_MODE:-false}
     ports:
       # Loopback only — Nginx on the host is the public entry.
       # Conflicts avoided with nijotours:8080, techtitans:8081, ttcomputers:8082.
       - "127.0.0.1:${TRON_BACKEND_HOST_PORT:-18080}:8080"
+    # Belt-and-suspenders DNS for MagicDNS inside the bridge network.
+    # Empty OLLAMA_TLS_SERVER_NAME / OLLAMA_CONNECT_IP skips useful mapping — set both for RTX.
+    extra_hosts:
+      - "${OLLAMA_TLS_SERVER_NAME:-rtx-ollama.invalid}:${OLLAMA_CONNECT_IP:-127.0.0.1}"
     volumes:
       - tron_ai_object_storage:/var/lib/tron-ai/object-storage
       - tron_ai_uploads:/var/lib/tron-ai/uploads

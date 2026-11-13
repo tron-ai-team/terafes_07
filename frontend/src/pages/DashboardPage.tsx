@@ -114,10 +114,10 @@ export const DashboardPage: React.FC = () => {
             <ArrowRight className="w-4 h-4 text-slate-400 group-hover:text-blue-600 group-hover:translate-x-1 transition-all shrink-0 ml-2" />
           </GlassCard>
 
-          {/* Card 2: Upload Your CV */}
+          {/* Card 2: AI CV Builder (primary CV surface) */}
           <GlassCard
             hoverEffect
-            onClick={() => navigate('/career/cv')}
+            onClick={() => navigate('/career/cv-builder')}
             className="p-4 flex items-center justify-between text-left group"
           >
             <div className="flex items-center gap-3.5">
@@ -126,12 +126,12 @@ export const DashboardPage: React.FC = () => {
               </div>
               <div>
                 <h3 className="font-bold text-sm text-slate-800 group-hover:text-cyan-600 transition-colors">
-                  {uiLanguage === 'ja' ? '履歴書・職務経歴書' : 'Upload Your CV'}
+                  {uiLanguage === 'ja' ? 'AI履歴書ビルダー' : 'AI CV Builder'}
                 </h3>
                 <p className="text-xs text-slate-500 mt-0.5 line-clamp-1">
                   {uiLanguage === 'ja'
-                    ? '経歴に合わせて質問を個別最適化'
-                    : 'Personalize questions using resume.'}
+                    ? '履歴書を作成・編集して面接に備える'
+                    : 'Create or edit your résumé for interviews.'}
                 </p>
               </div>
             </div>

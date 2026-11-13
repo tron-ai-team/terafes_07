@@ -194,7 +194,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Backend Health Status
   const [backendStatus, setBackendStatus] = useState<'checking' | 'connected' | 'offline'>('checking');
-  const [backendMessage, setBackendMessage] = useState('Connecting to TRON Core backend at localhost:8080...');
+  const [backendMessage, setBackendMessage] = useState('Connecting to TRON AI…');
 
   // Centralized AI Mode State (FAST | SMART | CLOUD | ULTRA | AUTO)
   const [selectedAiMode, setSelectedAiModeState] = useState<AiMode>(() => {
@@ -595,7 +595,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         path.startsWith('/login') ||
         path.startsWith('/register');
       if (!isPublic) {
-        const returnTo = encodeURIComponent(path + (window.location.search || ''));
+        // Soft open-redirect guard: only encode root-relative paths from this origin.
+        const candidate = path + (window.location.search || '');
+        const safe =
+          candidate.startsWith('/') &&
+          !candidate.startsWith('//') &&
+          !candidate.toLowerCase().includes('javascript:')
+            ? candidate
+            : '/chat';
+        const returnTo = encodeURIComponent(safe);
         window.location.href = `/auth?session=expired&returnTo=${returnTo}`;
       }
     }

@@ -6,7 +6,10 @@
   "scripts": {
     "dev": "vite",
     "test:ai-mode": "node ./scripts/verify-ai-mode-selection.mjs",
-    "build": "node ./scripts/verify-ai-mode-selection.mjs && tsc -b && vite build",
+    "test:safe-return": "node ./scripts/verify-safe-return-to.mjs",
+    "test:core-nav": "node ./scripts/verify-core-nav-contract.mjs",
+    "test:contracts": "npm run test:ai-mode && npm run test:safe-return && npm run test:core-nav",
+    "build": "npm run test:contracts && tsc -b && vite build",
     "preview": "vite preview"
   },
   "dependencies": {

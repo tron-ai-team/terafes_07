@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { GlassCard } from '../components/common/GlassCard';
 import { NeonButton } from '../components/common/NeonButton';
-import { AI_MODES } from '../config/aiModes';
+import { AI_MODES, AI_MODE_SELECTOR_ORDER } from '../config/aiModes';
 import { AiMode } from '../types/aiProfile';
 import {
   Settings,
@@ -17,6 +17,7 @@ import {
   Sparkles,
   Zap,
   Brain,
+  Cloud,
   Rocket,
   Check,
   Server,
@@ -66,6 +67,8 @@ export const SettingsPage: React.FC = () => {
         return <Zap className="w-4 h-4 text-cyan-500" />;
       case 'SMART':
         return <Brain className="w-4 h-4 text-indigo-500" />;
+      case 'CLOUD':
+        return <Cloud className="w-4 h-4 text-sky-600" />;
       case 'ULTRA':
         return <Rocket className="w-4 h-4 text-purple-600" />;
     }
@@ -136,18 +139,25 @@ export const SettingsPage: React.FC = () => {
 
           {/* Mode Selection Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {(Object.keys(AI_MODES) as AiMode[]).map((modeKey) => {
+            {AI_MODE_SELECTOR_ORDER.map((modeKey) => {
               const mode = AI_MODES[modeKey];
               const isSelected = selectedAiMode === modeKey;
               const isUltra = modeKey === 'ULTRA';
+              const isUnavailable = !mode.available;
 
               return (
                 <button
                   key={modeKey}
                   type="button"
-                  onClick={() => setSelectedAiMode(modeKey)}
+                  disabled={isUnavailable}
+                  aria-disabled={isUnavailable}
+                  onClick={() => {
+                    if (isUnavailable) return;
+                    setSelectedAiMode(modeKey);
+                  }}
                   className={`
-                    p-4 rounded-2xl border text-left transition-all duration-200 cursor-pointer flex flex-col justify-between
+                    p-4 rounded-2xl border text-left transition-all duration-200 flex flex-col justify-between
+                    ${isUnavailable ? 'opacity-55 cursor-not-allowed' : 'cursor-pointer'}
                     ${
                       isSelected
                         ? isUltra

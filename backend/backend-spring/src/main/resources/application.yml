@@ -109,6 +109,12 @@ tron:
     groq-model-fast: ${GROQ_MODEL_FAST:openai/gpt-oss-20b}
     groq-model-smart: ${GROQ_MODEL_SMART:openai/gpt-oss-120b}
     prefer-groq-for-smart: ${TRON_AI_PREFER_GROQ_SMART:true}
+    # Exhibition RTX Smart Mode (default off — production SMART stays cloud until activated).
+    # When true: SMART → RTX Ollama only (no paid cloud fallback). CLOUD remains selectable.
+    rtx-smart-mode-enabled: ${TRON_AI_RTX_SMART_MODE:false}
+    rtx-smart-model: ${TRON_AI_RTX_SMART_MODEL:qwen3.5:9b-q4_K_M}
+    # Future GTX Fast Mode. While RTX smart is on and this is false, FAST is unavailable.
+    gtx-fast-mode-enabled: ${TRON_AI_GTX_FAST_MODE:false}
     # Cloud-first for CV Magic Fill / AI Assist (same AiGateway as Chat/Interview).
     # Set TRON_AI_CV_CLOUD_ENABLED=false or request localOnly=true to force Ollama-only.
     cv-assist-cloud-enabled: ${TRON_AI_CV_CLOUD_ENABLED:true}

@@ -2,11 +2,12 @@ package com.tronai.ai.gateway;
 
 /**
  * User-facing intelligence modes for the shared AI gateway.
- * FAST and QUALITY remain valid for existing clients.
+ * FAST, QUALITY, and CLOUD remain valid for existing / exhibition clients.
  */
 public enum AiMode {
     FAST,
     SMART,
+    CLOUD,
     QUALITY,
     ULTRA,
     AUTO;
@@ -22,10 +23,13 @@ public enum AiMode {
             }
         }
         throw new IllegalArgumentException(
-                "Unknown AI mode: '" + value + "'. Allowed: FAST, SMART, QUALITY, ULTRA, AUTO");
+                "Unknown AI mode: '" + value + "'. Allowed: FAST, SMART, CLOUD, QUALITY, ULTRA, AUTO");
     }
 
-    /** QUALITY is treated as SMART for routing while remaining API-compatible. */
+    /**
+     * QUALITY remains an API-compatible alias for SMART routing.
+     * CLOUD is a distinct selectable cloud route (does not alias to SMART).
+     */
     public AiMode routingMode() {
         return this == QUALITY ? SMART : this;
     }

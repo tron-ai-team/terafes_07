@@ -60,6 +60,19 @@ public class AiModelRouter {
                 throw new IllegalStateException(
                         "Ultra AI mode is not available: no configured ultra providers.");
             }
+            if (mode == AiMode.SMART && properties.isRtxSmartModeEnabled()) {
+                throw new IllegalStateException(
+                        "Smart AI mode is unavailable: RTX Ollama is offline or model "
+                                + properties.getRtxSmartModel() + " is not reachable.");
+            }
+            if (mode == AiMode.FAST && properties.isRtxSmartModeEnabled() && !properties.isGtxFastModeEnabled()) {
+                throw new IllegalStateException(
+                        "Fast AI mode is unavailable: GTX server is not configured yet.");
+            }
+            if (mode == AiMode.CLOUD) {
+                throw new IllegalStateException(
+                        "Cloud AI mode is unavailable: no configured cloud providers.");
+            }
             if (!context.isAllowCloud()) {
                 throw new IllegalStateException(
                         "No local AI provider available (cloud disabled for this request). Start Ollama.");
@@ -141,6 +154,11 @@ public class AiModelRouter {
 
         switch (mode) {
             case FAST -> {
+                // Exhibition: when RTX smart mode is on and GTX is not ready, FAST stays empty
+                // so resolveRoute returns a genuine unavailable error (no silent cloud fallback).
+                if (properties.isRtxSmartModeEnabled() && !properties.isGtxFastModeEnabled()) {
+                    break;
+                }
                 if (cloudOk) {
                     addRoute(routes, seen, tryOllamaFast(), tryGroqFast(), tryCloudflareFast());
                 } else {
@@ -148,7 +166,10 @@ public class AiModelRouter {
                 }
             }
             case SMART, QUALITY -> {
-                if (!cloudOk) {
+                if (properties.isRtxSmartModeEnabled()) {
+                    // SMART → RTX only. Never fall back to paid cloud providers.
+                    addRoute(routes, seen, tryRtxSmart());
+                } else if (!cloudOk) {
                     addRoute(routes, seen, tryOllamaQuality(), tryOllamaFast());
                 } else if (properties.isPreferGroqForSmart()) {
                     addRoute(routes, seen,
@@ -158,6 +179,19 @@ public class AiModelRouter {
                     addRoute(routes, seen,
                             tryOpenRouterSmart(), tryGroqSmart(), tryMistralSmart(),
                             tryOllamaQuality(), tryOllamaFast());
+                }
+            }
+            case CLOUD -> {
+                if (!cloudOk) {
+                    break;
+                }
+                // Explicit cloud selection — preserve existing verified cloud SMART chain.
+                if (properties.isPreferGroqForSmart()) {
+                    addRoute(routes, seen,
+                            tryGroqSmart(), tryOpenRouterSmart(), tryMistralSmart(), tryCloudflareFast());
+                } else {
+                    addRoute(routes, seen,
+                            tryOpenRouterSmart(), tryGroqSmart(), tryMistralSmart(), tryCloudflareFast());
                 }
             }
             case ULTRA -> {
@@ -222,6 +256,17 @@ public class AiModelRouter {
             }
         }
         return chars > 800;
+    }
+
+    private Route tryRtxSmart() {
+        if (!ollamaAvailable()) {
+            return null;
+        }
+        String model = properties.getRtxSmartModel();
+        if (model == null || model.isBlank()) {
+            return null;
+        }
+        return usableRoute(GatewayProviderId.OLLAMA, model.trim());
     }
 
     private Route tryOllamaFast() {

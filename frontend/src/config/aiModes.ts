@@ -25,42 +25,46 @@ export const ULTRA_CREDIT_COSTS = {
   cvReview: 1,
 } as const;
 
+/** Exhibition-facing order: Fast / Smart / Cloud first; legacy Auto+Ultra retained. */
+export const AI_MODE_SELECTOR_ORDER: AiMode[] = ['FAST', 'SMART', 'CLOUD', 'ULTRA', 'AUTO'];
+
 export const AI_MODES: Record<AiMode, AiModeDefinition> = {
-  AUTO: {
-    id: 'AUTO',
-    displayName: 'Auto',
-    badgeText: 'Adaptive',
-    shortDesc: 'Intelligent dynamic routing',
-    description: 'Automatically routes to the fastest or smartest model based on query complexity and intent.',
-    model: 'TRON Gateway Routing',
-    provider: 'TRON AI Gateway',
-    available: true,
-    status: 'Available',
-    icon: 'auto',
-  },
   FAST: {
     id: 'FAST',
     displayName: 'Fast',
-    badgeText: 'Low Latency',
-    shortDesc: 'Instant conversational speed',
-    description: 'Ultra-low latency inference for day-to-day queries, quick checks, and real-time voice interactions.',
-    model: 'qwen3:8b',
-    provider: 'Local Ollama',
-    available: true,
-    status: 'Available',
+    badgeText: 'GTX Soon',
+    shortDesc: 'Future GTX Fast server',
+    description: 'Reserved for the future GTX Fast server. Unavailable until that server is configured.',
+    model: 'GTX (not configured)',
+    provider: 'Local GTX (planned)',
+    available: false,
+    status: 'Unavailable',
+    reasonUnavailable: 'GTX Fast server is not configured yet.',
     icon: 'fast',
   },
   SMART: {
     id: 'SMART',
     displayName: 'Smart',
-    badgeText: 'Balanced',
-    shortDesc: 'Balanced cloud / local quality',
-    description: 'Routes through the TRON AI gateway to a verified working model (Groq / OpenRouter / Ollama).',
-    model: 'Gateway SMART route',
-    provider: 'TRON AI Gateway',
+    badgeText: 'RTX 4060',
+    shortDesc: 'RTX-powered Qwen 3.5 9B',
+    description: 'Routes to the RTX Ollama server running Qwen 3.5 9B. Returns a real offline error if RTX is unavailable — no paid cloud fallback.',
+    model: 'qwen3.5:9b-q4_K_M',
+    provider: 'RTX Ollama',
     available: true,
     status: 'Available',
     icon: 'smart',
+  },
+  CLOUD: {
+    id: 'CLOUD',
+    displayName: 'Cloud',
+    badgeText: 'Verified',
+    shortDesc: 'Existing cloud providers',
+    description: 'Uses the existing verified cloud gateway route (Groq / OpenRouter / Mistral). Separately selectable from Smart.',
+    model: 'Gateway CLOUD route',
+    provider: 'TRON AI Gateway',
+    available: true,
+    status: 'Available',
+    icon: 'cloud',
   },
   ULTRA: {
     id: 'ULTRA',
@@ -74,6 +78,18 @@ export const AI_MODES: Record<AiMode, AiModeDefinition> = {
     status: 'Available',
     icon: 'ultra',
     requiresCredits: true,
+  },
+  AUTO: {
+    id: 'AUTO',
+    displayName: 'Auto',
+    badgeText: 'Adaptive',
+    shortDesc: 'Intelligent dynamic routing',
+    description: 'Automatically routes to the fastest or smartest model based on query complexity and intent.',
+    model: 'TRON Gateway Routing',
+    provider: 'TRON AI Gateway',
+    available: true,
+    status: 'Available',
+    icon: 'auto',
   },
 };
 
@@ -240,13 +256,14 @@ export const ADVANCED_MODELS: AdvancedModelConfig[] = [
  * QUALITY remains a legacy alias accepted by the backend.
  */
 export function mapAiModeToBackendProfile(mode: AiMode | string): string {
-  const upper = (mode || 'FAST').toString().trim().toUpperCase();
+  const upper = (mode || 'SMART').toString().trim().toUpperCase();
   if (upper === 'QUALITY') return 'QUALITY';
   if (upper === 'SMART') return 'SMART';
+  if (upper === 'CLOUD') return 'CLOUD';
   if (upper === 'ULTRA') return 'ULTRA';
   if (upper === 'AUTO') return 'AUTO';
   if (upper === 'FAST') return 'FAST';
-  return 'FAST';
+  return 'SMART';
 }
 
 /**
@@ -276,13 +293,30 @@ export function parseAIError(err: any): AIErrorDetail {
     };
   }
 
-  if (message.toLowerCase().includes('ollama') || message.toLowerCase().includes('connection refused') || message.toLowerCase().includes('11434')) {
+  if (
+    message.toLowerCase().includes('rtx') ||
+    message.toLowerCase().includes('smart ai mode is unavailable') ||
+    message.toLowerCase().includes('ollama') ||
+    message.toLowerCase().includes('connection refused') ||
+    message.toLowerCase().includes('11434') ||
+    message.toLowerCase().includes('11435')
+  ) {
     return {
       type: 'ollama_offline',
-      title: 'Local Ollama Offline',
-      message: 'Cannot reach local Ollama on port 11434. Please start Ollama or switch to Cloud mode.',
-      actionLabel: 'Open AI Settings',
+      title: 'Smart / RTX Offline',
+      message: 'Cannot reach RTX Ollama for Smart mode. Switch to Cloud mode, or restore the RTX tunnel / server.',
+      actionLabel: 'Switch to Cloud',
       actionTarget: 'settings',
+    };
+  }
+
+  if (message.toLowerCase().includes('fast ai mode is unavailable') || message.toLowerCase().includes('gtx')) {
+    return {
+      type: 'provider_unavailable',
+      title: 'Fast Mode Unavailable',
+      message: 'GTX Fast server is not configured yet. Use Smart (RTX) or Cloud instead.',
+      actionLabel: 'Switch to Smart',
+      actionTarget: 'switch_smart',
     };
   }
 

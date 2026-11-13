@@ -168,6 +168,14 @@ export const AiProfileSelector: React.FC<AiProfileSelectorProps> = ({
           glow: 'shadow-indigo-500/10',
           badge: 'bg-indigo-100 text-indigo-800 border-indigo-200',
         };
+      case 'CLOUD':
+        return {
+          pillBorder: 'border-sky-200/80 hover:border-sky-300',
+          pillBg: 'bg-sky-50/50 hover:bg-sky-50/80',
+          pillText: 'text-sky-900',
+          glow: 'shadow-sky-500/10',
+          badge: 'bg-sky-100 text-sky-800 border-sky-200',
+        };
       case 'AUTO':
         return {
           pillBorder: 'border-blue-200/80 hover:border-blue-300',

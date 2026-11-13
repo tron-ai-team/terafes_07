@@ -1,20 +1,17 @@
 import React, { useState, useRef, useEffect, useId } from 'react';
 import { useApp } from '../../context/AppContext';
-import { AI_MODES } from '../../config/aiModes';
+import { AI_MODES, AI_MODE_SELECTOR_ORDER } from '../../config/aiModes';
 import { AiMode } from '../../types/aiProfile';
 import {
   Sparkles,
   Zap,
   Brain,
+  Cloud,
   Rocket,
   ChevronDown,
   Check,
-  Clock,
   Coins,
   Settings,
-  ShieldCheck,
-  AlertCircle,
-  HelpCircle,
 } from 'lucide-react';
 
 interface GlobalAiModeSelectorProps {
@@ -63,6 +60,8 @@ export const GlobalAiModeSelector: React.FC<GlobalAiModeSelectorProps> = ({
         return <Zap className={`${size} text-cyan-500 fill-cyan-500/20`} />;
       case 'SMART':
         return <Brain className={`${size} text-indigo-500`} />;
+      case 'CLOUD':
+        return <Cloud className={`${size} text-sky-600`} />;
       case 'ULTRA':
         return <Rocket className={`${size} text-purple-600 fill-purple-600/10`} />;
     }
@@ -81,6 +80,12 @@ export const GlobalAiModeSelector: React.FC<GlobalAiModeSelectorProps> = ({
           pill: 'bg-indigo-50/80 border-indigo-200 text-indigo-900 hover:border-indigo-300',
           badge: 'bg-indigo-100 text-indigo-800 border-indigo-200',
           ring: 'focus-visible:ring-indigo-400',
+        };
+      case 'CLOUD':
+        return {
+          pill: 'bg-sky-50/80 border-sky-200 text-sky-900 hover:border-sky-300',
+          badge: 'bg-sky-100 text-sky-800 border-sky-200',
+          ring: 'focus-visible:ring-sky-400',
         };
       case 'FAST':
         return {
@@ -165,10 +170,11 @@ export const GlobalAiModeSelector: React.FC<GlobalAiModeSelectorProps> = ({
 
           {/* Mode Options List */}
           <div className="space-y-1.5 max-h-[380px] overflow-y-auto pr-1">
-            {(Object.keys(AI_MODES) as AiMode[]).map((modeKey) => {
+            {AI_MODE_SELECTOR_ORDER.map((modeKey) => {
               const mode = AI_MODES[modeKey];
               const isSelected = selectedAiMode === modeKey;
               const isUltra = modeKey === 'ULTRA';
+              const isUnavailable = !mode.available;
 
               return (
                 <button
@@ -176,17 +182,23 @@ export const GlobalAiModeSelector: React.FC<GlobalAiModeSelectorProps> = ({
                   type="button"
                   role="option"
                   aria-selected={isSelected}
+                  aria-disabled={isUnavailable}
+                  disabled={isUnavailable}
                   onClick={() => {
+                    if (isUnavailable) return;
                     setSelectedAiMode(modeKey);
                     setIsOpen(false);
                   }}
                   className={`
-                    w-full flex items-start justify-between p-3 rounded-2xl text-left transition-all duration-150 cursor-pointer
+                    w-full flex items-start justify-between p-3 rounded-2xl text-left transition-all duration-150
+                    ${isUnavailable ? 'opacity-55 cursor-not-allowed' : 'cursor-pointer'}
                     ${isSelected
                       ? isUltra
                         ? 'bg-purple-50/90 border border-purple-300 shadow-xs'
                         : 'bg-blue-50/90 border border-blue-300 shadow-xs'
-                      : 'hover:bg-slate-50 border border-transparent hover:border-slate-100'
+                      : isUnavailable
+                        ? 'border border-transparent'
+                        : 'hover:bg-slate-50 border border-transparent hover:border-slate-100'
                     }
                   `}
                 >
@@ -212,8 +224,14 @@ export const GlobalAiModeSelector: React.FC<GlobalAiModeSelectorProps> = ({
                           </span>
                         )}
 
-                        {/* Availability Pill */}
-                        <span className="text-[9px] px-1.5 py-0.2 rounded-full font-mono text-emerald-700 bg-emerald-50 border border-emerald-200">
+                        {/* Availability Pill — genuine status only */}
+                        <span
+                          className={`text-[9px] px-1.5 py-0.2 rounded-full font-mono border ${
+                            mode.available
+                              ? 'text-emerald-700 bg-emerald-50 border-emerald-200'
+                              : 'text-amber-800 bg-amber-50 border-amber-200'
+                          }`}
+                        >
                           {mode.status}
                         </span>
                       </div>
@@ -221,6 +239,11 @@ export const GlobalAiModeSelector: React.FC<GlobalAiModeSelectorProps> = ({
                       <p className="text-[11px] text-slate-600 leading-snug mt-1 font-medium">
                         {mode.shortDesc}
                       </p>
+                      {isUnavailable && mode.reasonUnavailable && (
+                        <p className="text-[10px] text-amber-700 leading-snug mt-1">
+                          {mode.reasonUnavailable}
+                        </p>
+                      )}
 
                       <div className="flex items-center gap-2 mt-1.5 text-[10px] text-slate-400 font-mono">
                         <span>Model: {mode.model}</span>

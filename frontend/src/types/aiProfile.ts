@@ -1,4 +1,4 @@
-export type AiMode = 'AUTO' | 'FAST' | 'SMART' | 'ULTRA';
+export type AiMode = 'AUTO' | 'FAST' | 'SMART' | 'CLOUD' | 'ULTRA';
 
 export type AiProfile = AiMode | 'QUALITY' | 'GEMINI' | 'OPENAI' | 'CLAUDE' | (string & {});
 
@@ -24,7 +24,7 @@ export interface AiModeDefinition {
   available: boolean;
   status: FeatureAvailabilityStatus;
   reasonUnavailable?: string;
-  icon: 'auto' | 'fast' | 'smart' | 'ultra';
+  icon: 'auto' | 'fast' | 'smart' | 'cloud' | 'ultra';
   requiresCredits?: boolean;
 }
 

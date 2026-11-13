@@ -148,6 +148,7 @@ public class CvParser {
         AiMode mode = switch (logical) {
             case FAST -> AiMode.FAST;
             case SMART, QUALITY -> AiMode.SMART;
+            case CLOUD -> AiMode.CLOUD;
             case ULTRA -> AiMode.ULTRA;
             case AUTO -> AiMode.AUTO;
         };

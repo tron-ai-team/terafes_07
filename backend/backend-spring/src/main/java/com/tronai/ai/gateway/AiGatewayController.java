@@ -49,10 +49,22 @@ public class AiGatewayController {
     @Operation(summary = "List AI gateway modes")
     public ResponseEntity<Map<String, Object>> modes() {
         boolean ultraAvailable = isUltraAvailable();
+        boolean smartAvailable = isModeRouteAvailable(AiMode.SMART);
+        boolean fastAvailable = isModeRouteAvailable(AiMode.FAST);
+        boolean cloudAvailable = isModeRouteAvailable(AiMode.CLOUD);
         List<Map<String, Object>> modes = new ArrayList<>();
-        modes.add(modeEntry(AiMode.FAST, "Low-latency responses for chat and voice.", true));
-        modes.add(modeEntry(AiMode.SMART, "Balanced quality for analysis, CV, and agents.", true));
-        modes.add(modeEntry(AiMode.QUALITY, "Alias for SMART (legacy clients).", true));
+        modes.add(modeEntry(AiMode.FAST,
+                properties.isRtxSmartModeEnabled() && !properties.isGtxFastModeEnabled()
+                        ? "Future GTX Fast server — not configured yet."
+                        : "Low-latency responses for chat and voice.",
+                fastAvailable));
+        modes.add(modeEntry(AiMode.SMART,
+                properties.isRtxSmartModeEnabled()
+                        ? "RTX-powered Qwen 3.5 9B via local Ollama (no cloud fallback)."
+                        : "Balanced quality for analysis, CV, and agents.",
+                smartAvailable));
+        modes.add(modeEntry(AiMode.CLOUD, "Existing verified cloud providers (Groq / OpenRouter / Mistral).", cloudAvailable));
+        modes.add(modeEntry(AiMode.QUALITY, "Alias for SMART (legacy clients).", smartAvailable));
         modes.add(modeEntry(AiMode.ULTRA, "Highest-quality models; consumes daily Ultra credits.", ultraAvailable));
         modes.add(modeEntry(AiMode.AUTO, "Automatic mode selection based on feature and context.", true));
 
@@ -61,6 +73,11 @@ public class AiGatewayController {
         body.put("ultraEnabled", properties.isUltraEnabled());
         body.put("ultraAvailable", ultraAvailable);
         body.put("dailyUltraCredits", properties.getDailyUltraCredits());
+        body.put("rtxSmartModeEnabled", properties.isRtxSmartModeEnabled());
+        body.put("gtxFastModeEnabled", properties.isGtxFastModeEnabled());
+        body.put("smartAvailable", smartAvailable);
+        body.put("fastAvailable", fastAvailable);
+        body.put("cloudAvailable", cloudAvailable);
         if (ultraAvailable) {
             try {
                 AiModelRouter.Route ultraRoute = modelRouter.resolveRoute(
@@ -72,7 +89,30 @@ public class AiGatewayController {
                 // availability already computed; route metadata is best-effort
             }
         }
+        try {
+            AiModelRouter.Route smartRoute = modelRouter.resolveRoute(
+                    AiRequestContext.builder().feature(AiFeature.CHAT).mode(AiMode.SMART).build(),
+                    AiMode.SMART);
+            body.put("smartProvider", smartRoute.provider().name());
+            body.put("smartModelId", smartRoute.modelId());
+        } catch (RuntimeException ignored) {
+            if (properties.isRtxSmartModeEnabled()) {
+                body.put("smartProvider", "OLLAMA");
+                body.put("smartModelId", properties.getRtxSmartModel());
+            }
+        }
         return ResponseEntity.ok(body);
+    }
+
+    private boolean isModeRouteAvailable(AiMode mode) {
+        try {
+            modelRouter.resolveRoute(
+                    AiRequestContext.builder().feature(AiFeature.CHAT).mode(mode).build(),
+                    mode);
+            return true;
+        } catch (RuntimeException ex) {
+            return false;
+        }
     }
 
     private boolean isUltraAvailable() {

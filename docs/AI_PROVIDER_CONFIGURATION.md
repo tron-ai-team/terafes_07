@@ -42,6 +42,28 @@ TRON_AI_PREFER_GROQ_SMART=true
 
 Defaults use documented Groq IDs. Change via env if your account exposes different models.
 
+## Local GPU modes (RTX SMART / GTX FAST)
+
+See [GTX_FAST_AI_INTEGRATION.md](./GTX_FAST_AI_INTEGRATION.md) for the dedicated GTX Fast path.
+
+```dotenv
+# RTX SMART (existing)
+TRON_AI_RTX_SMART_MODE=false
+TRON_AI_RTX_SMART_MODEL=qwen3.5:9b-q4_K_M
+OLLAMA_BASE_URL=https://<rtx-magicdns>
+OLLAMA_CONNECT_IP=100.95.30.39
+OLLAMA_TLS_SERVER_NAME=<rtx-magicdns>
+OLLAMA_OVERRIDE_HOST=localhost:11434
+
+# GTX FAST (independent connection — do not reuse OLLAMA_*)
+TRON_AI_GTX_FAST_MODE=false
+TRON_AI_GTX_FAST_MODEL=qwen3:8b
+GTX_OLLAMA_BASE_URL=https://thushan-ai.tail63f4de.ts.net
+GTX_OLLAMA_CONNECT_IP=100.109.33.81
+GTX_OLLAMA_TLS_SERVER_NAME=thushan-ai.tail63f4de.ts.net
+GTX_OLLAMA_OVERRIDE_HOST=localhost:11434
+```
+
 ## Privacy
 
 | Flag | Default | Meaning |

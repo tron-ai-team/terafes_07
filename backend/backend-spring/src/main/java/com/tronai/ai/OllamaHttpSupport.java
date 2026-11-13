@@ -39,7 +39,7 @@ final class OllamaHttpSupport {
     private OllamaHttpSupport() {
     }
 
-    static RestClient createRestClient(OllamaProperties properties, Duration connectTimeout, Duration readTimeout) {
+    static RestClient createRestClient(OllamaEndpointConfig properties, Duration connectTimeout, Duration readTimeout) {
         HttpClient httpClient = createHttpClient(properties, connectTimeout, readTimeout);
         // Timeouts are configured on the Apache HttpClient; Spring factory wraps it only.
         HttpComponentsClientHttpRequestFactory requestFactory = new HttpComponentsClientHttpRequestFactory(httpClient);
@@ -55,7 +55,7 @@ final class OllamaHttpSupport {
         return builder.build();
     }
 
-    static HttpClient createHttpClient(OllamaProperties properties, Duration connectTimeout, Duration readTimeout) {
+    static HttpClient createHttpClient(OllamaEndpointConfig properties, Duration connectTimeout, Duration readTimeout) {
         Timeout connect = Timeout.ofMilliseconds(Math.max(1, connectTimeout.toMillis()));
         Timeout read = Timeout.ofMilliseconds(Math.max(1, readTimeout.toMillis()));
 
@@ -98,7 +98,7 @@ final class OllamaHttpSupport {
                 .build();
     }
 
-    static DnsResolver createDnsResolver(OllamaProperties properties) {
+    static DnsResolver createDnsResolver(OllamaEndpointConfig properties) {
         String connectIp = properties.getConnectIp();
         if (!StringUtils.hasText(connectIp)) {
             return null;
@@ -125,7 +125,7 @@ final class OllamaHttpSupport {
         };
     }
 
-    static String resolvePinnedHost(OllamaProperties properties) {
+    static String resolvePinnedHost(OllamaEndpointConfig properties) {
         if (StringUtils.hasText(properties.getTlsServerName())) {
             return properties.getTlsServerName().trim();
         }

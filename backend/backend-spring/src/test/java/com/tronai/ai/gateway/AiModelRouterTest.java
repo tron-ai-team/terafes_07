@@ -30,6 +30,8 @@ class AiModelRouterTest {
     @Mock
     private GatewayProvider ollamaProvider;
     @Mock
+    private GatewayProvider gtxOllamaProvider;
+    @Mock
     private GatewayProvider groqProvider;
     @Mock
     private GatewayProvider geminiProvider;
@@ -45,21 +47,26 @@ class AiModelRouterTest {
         properties.setGroqModelFast("groq-fast");
         properties.setGroqModelSmart("groq-smart");
         properties.setGeminiModelUltra("gemini-ultra");
+        properties.setGtxFastModel("qwen3:8b");
         router = new AiModelRouter(properties, providerRegistry, modelCatalog, null);
 
         lenient().when(providerRegistry.find(GatewayProviderId.OLLAMA)).thenReturn(Optional.of(ollamaProvider));
+        lenient().when(providerRegistry.find(GatewayProviderId.OLLAMA_GTX)).thenReturn(Optional.of(gtxOllamaProvider));
         lenient().when(providerRegistry.find(GatewayProviderId.GROQ)).thenReturn(Optional.of(groqProvider));
         lenient().when(providerRegistry.find(GatewayProviderId.GEMINI)).thenReturn(Optional.of(geminiProvider));
 
         lenient().when(ollamaProvider.isConfigured()).thenReturn(true);
+        lenient().when(gtxOllamaProvider.isConfigured()).thenReturn(true);
         lenient().when(groqProvider.isConfigured()).thenReturn(true);
         lenient().when(geminiProvider.isConfigured()).thenReturn(true);
 
         lenient().when(ollamaProvider.health()).thenReturn(ProviderHealthStatus.AVAILABLE);
+        lenient().when(gtxOllamaProvider.health()).thenReturn(ProviderHealthStatus.AVAILABLE);
         lenient().when(groqProvider.health()).thenReturn(ProviderHealthStatus.CONFIGURED);
         lenient().when(geminiProvider.health()).thenReturn(ProviderHealthStatus.CONFIGURED);
 
         lenient().when(ollamaProvider.knownModels()).thenReturn(List.of("ollama-fast", "ollama-quality"));
+        lenient().when(gtxOllamaProvider.knownModels()).thenReturn(List.of("qwen3:8b"));
         lenient().when(groqProvider.knownModels()).thenReturn(List.of("groq-fast", "groq-smart"));
         lenient().when(geminiProvider.knownModels()).thenReturn(List.of("gemini-ultra"));
 
@@ -147,6 +154,72 @@ class AiModelRouterTest {
         assertThatThrownBy(() -> router.resolveRoute(context, AiMode.FAST))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("GTX");
+    }
+
+    @Test
+    @DisplayName("GTX fast mode routes FAST exclusively to GTX Qwen3 8B")
+    void gtxFastModeUsesGtxOllamaOnly() {
+        properties.setRtxSmartModeEnabled(true);
+        properties.setGtxFastModeEnabled(true);
+        properties.setGtxFastModel("qwen3:8b");
+        AiRequestContext context = AiRequestContext.builder().feature(AiFeature.CHAT).build();
+        AiModelRouter.Route route = router.resolveRoute(context, AiMode.FAST);
+        assertThat(route.provider()).isEqualTo(GatewayProviderId.OLLAMA_GTX);
+        assertThat(route.modelId()).isEqualTo("qwen3:8b");
+        assertThat(router.fallbackCandidates(context, AiMode.FAST)).isEmpty();
+    }
+
+    @Test
+    @DisplayName("GTX fast mode fails closed when GTX is offline (no RTX/cloud fallback)")
+    void gtxFastModeFailsWhenGtxOffline() {
+        properties.setRtxSmartModeEnabled(true);
+        properties.setGtxFastModeEnabled(true);
+        properties.setGtxFastModel("qwen3:8b");
+        when(gtxOllamaProvider.health()).thenReturn(ProviderHealthStatus.UNAVAILABLE);
+        AiRequestContext context = AiRequestContext.builder().feature(AiFeature.CHAT).build();
+        assertThatThrownBy(() -> router.resolveRoute(context, AiMode.FAST))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("GTX Ollama");
+    }
+
+    @Test
+    @DisplayName("GTX fast mode keeps SMART on RTX and CLOUD on cloud providers")
+    void gtxFastDoesNotCrossRouteSmartOrCloud() {
+        properties.setRtxSmartModeEnabled(true);
+        properties.setRtxSmartModel("qwen3.5:9b-q4_K_M");
+        properties.setGtxFastModeEnabled(true);
+        properties.setGtxFastModel("qwen3:8b");
+
+        AiRequestContext context = AiRequestContext.builder().feature(AiFeature.CHAT).build();
+        assertThat(router.resolveRoute(context, AiMode.FAST).provider()).isEqualTo(GatewayProviderId.OLLAMA_GTX);
+        assertThat(router.resolveRoute(context, AiMode.SMART).provider()).isEqualTo(GatewayProviderId.OLLAMA);
+        assertThat(router.resolveRoute(context, AiMode.SMART).modelId()).isEqualTo("qwen3.5:9b-q4_K_M");
+        assertThat(router.resolveRoute(context, AiMode.CLOUD).provider()).isEqualTo(GatewayProviderId.GROQ);
+    }
+
+    @Test
+    @DisplayName("Feature flag disabled preserves legacy FAST cloud fallback when RTX smart is off")
+    void gtxFlagDisabledKeepsLegacyFastWhenRtxOff() {
+        properties.setRtxSmartModeEnabled(false);
+        properties.setGtxFastModeEnabled(false);
+        when(ollamaProvider.health()).thenReturn(ProviderHealthStatus.UNAVAILABLE);
+        AiRequestContext context = AiRequestContext.builder().feature(AiFeature.CHAT).build();
+        AiModelRouter.Route route = router.resolveRoute(context, AiMode.FAST);
+        assertThat(route.provider()).isEqualTo(GatewayProviderId.GROQ);
+        assertThat(route.modelId()).isEqualTo("groq-fast");
+    }
+
+    @Test
+    @DisplayName("RTX offline does not steal FAST traffic from healthy GTX")
+    void rtxOfflineDoesNotAffectGtxFast() {
+        properties.setRtxSmartModeEnabled(true);
+        properties.setGtxFastModeEnabled(true);
+        when(ollamaProvider.health()).thenReturn(ProviderHealthStatus.UNAVAILABLE);
+        AiRequestContext context = AiRequestContext.builder().feature(AiFeature.CHAT).build();
+        assertThat(router.resolveRoute(context, AiMode.FAST).provider()).isEqualTo(GatewayProviderId.OLLAMA_GTX);
+        assertThatThrownBy(() -> router.resolveRoute(context, AiMode.SMART))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("RTX Ollama");
     }
 
     @Test

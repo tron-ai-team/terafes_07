@@ -50,10 +50,12 @@ public class AiGatewayProperties {
     /** Ollama model used for SMART when {@link #rtxSmartModeEnabled} is true. */
     private String rtxSmartModel = "qwen3.5:9b-q4_K_M";
     /**
-     * When true (and RTX exhibition routing is active), FAST may use the future GTX path.
-     * When false while RTX smart mode is on, FAST returns a genuine unavailable state.
+     * When true, FAST routes exclusively to GTX Ollama ({@link #gtxFastModel}) with no
+     * RTX or paid cloud fallback. When false while RTX smart mode is on, FAST stays unavailable.
      */
     private boolean gtxFastModeEnabled = false;
+    /** Ollama model used for FAST when {@link #gtxFastModeEnabled} is true. */
+    private String gtxFastModel = "qwen3:8b";
     /**
      * When true (default), CV Magic Fill / AI Assist use cloud SMART via AiGateway
      * (same production path as Chat / Interview). Set false or request localOnly=true for Ollama-only.
@@ -127,6 +129,8 @@ public class AiGatewayProperties {
     public void setRtxSmartModel(String rtxSmartModel) { this.rtxSmartModel = rtxSmartModel; }
     public boolean isGtxFastModeEnabled() { return gtxFastModeEnabled; }
     public void setGtxFastModeEnabled(boolean gtxFastModeEnabled) { this.gtxFastModeEnabled = gtxFastModeEnabled; }
+    public String getGtxFastModel() { return gtxFastModel; }
+    public void setGtxFastModel(String gtxFastModel) { this.gtxFastModel = gtxFastModel; }
     public boolean isCvAssistCloudEnabled() { return cvAssistCloudEnabled; }
     public void setCvAssistCloudEnabled(boolean cvAssistCloudEnabled) { this.cvAssistCloudEnabled = cvAssistCloudEnabled; }
     public boolean isCompanyAnalysisCloudEnabled() { return companyAnalysisCloudEnabled; }

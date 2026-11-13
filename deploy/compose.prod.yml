@@ -110,17 +110,24 @@ services:
       OLLAMA_CONNECT_IP: ${OLLAMA_CONNECT_IP:-}
       OLLAMA_TLS_SERVER_NAME: ${OLLAMA_TLS_SERVER_NAME:-}
       OLLAMA_OVERRIDE_HOST: ${OLLAMA_OVERRIDE_HOST:-}
+      # GTX Tailscale Serve (optional, independent of OLLAMA_*).
+      GTX_OLLAMA_BASE_URL: ${GTX_OLLAMA_BASE_URL:-http://127.0.0.1:11434}
+      GTX_OLLAMA_CONNECT_IP: ${GTX_OLLAMA_CONNECT_IP:-}
+      GTX_OLLAMA_TLS_SERVER_NAME: ${GTX_OLLAMA_TLS_SERVER_NAME:-}
+      GTX_OLLAMA_OVERRIDE_HOST: ${GTX_OLLAMA_OVERRIDE_HOST:-}
       TRON_AI_RTX_SMART_MODE: ${TRON_AI_RTX_SMART_MODE:-false}
       TRON_AI_RTX_SMART_MODEL: ${TRON_AI_RTX_SMART_MODEL:-qwen3.5:9b-q4_K_M}
       TRON_AI_GTX_FAST_MODE: ${TRON_AI_GTX_FAST_MODE:-false}
+      TRON_AI_GTX_FAST_MODEL: ${TRON_AI_GTX_FAST_MODEL:-qwen3:8b}
     ports:
       # Loopback only — Nginx on the host is the public entry.
       # Conflicts avoided with nijotours:8080, techtitans:8081, ttcomputers:8082.
       - "127.0.0.1:${TRON_BACKEND_HOST_PORT:-18080}:8080"
     # Belt-and-suspenders DNS for MagicDNS inside the bridge network.
-    # Empty OLLAMA_TLS_SERVER_NAME / OLLAMA_CONNECT_IP skips useful mapping — set both for RTX.
+    # Empty TLS_SERVER_NAME / CONNECT_IP skips useful mapping — set both for RTX and/or GTX.
     extra_hosts:
       - "${OLLAMA_TLS_SERVER_NAME:-rtx-ollama.invalid}:${OLLAMA_CONNECT_IP:-127.0.0.1}"
+      - "${GTX_OLLAMA_TLS_SERVER_NAME:-gtx-ollama.invalid}:${GTX_OLLAMA_CONNECT_IP:-127.0.0.1}"
     volumes:
       - tron_ai_object_storage:/var/lib/tron-ai/object-storage
       - tron_ai_uploads:/var/lib/tron-ai/uploads

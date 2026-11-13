@@ -32,14 +32,15 @@ export const AI_MODES: Record<AiMode, AiModeDefinition> = {
   FAST: {
     id: 'FAST',
     displayName: 'Fast',
-    badgeText: 'GTX Soon',
-    shortDesc: 'Future GTX Fast server',
-    description: 'Reserved for the future GTX Fast server. Unavailable until that server is configured.',
-    model: 'GTX (not configured)',
-    provider: 'Local GTX (planned)',
+    badgeText: 'GTX 1070',
+    shortDesc: 'GTX-powered Qwen3 8B',
+    description:
+      'Routes to the GTX Ollama server running Qwen3 8B. Returns a real offline error if GTX is unavailable — no RTX or paid cloud fallback.',
+    model: 'qwen3:8b',
+    provider: 'GTX Ollama',
     available: false,
     status: 'Unavailable',
-    reasonUnavailable: 'GTX Fast server is not configured yet.',
+    reasonUnavailable: 'GTX Fast server is offline or not enabled.',
     icon: 'fast',
   },
   SMART: {
@@ -314,7 +315,8 @@ export function parseAIError(err: any): AIErrorDetail {
     return {
       type: 'provider_unavailable',
       title: 'Fast Mode Unavailable',
-      message: 'GTX Fast server is not configured yet. Use Smart (RTX) or Cloud instead.',
+      message:
+        'Cannot reach GTX Ollama for Fast mode. Use Smart (RTX) or Cloud instead, or restore the GTX tunnel / server.',
       actionLabel: 'Switch to Smart',
       actionTarget: 'switch_smart',
     };

@@ -86,6 +86,21 @@ ollama:
   tls-server-name: ${OLLAMA_TLS_SERVER_NAME:}
   override-host: ${OLLAMA_OVERRIDE_HOST:}
 
+# Dedicated GTX Fast Ollama (independent of RTX ollama.* above).
+# Example Tailscale Serve:
+#   GTX_OLLAMA_BASE_URL=https://thushan-ai.tail63f4de.ts.net
+#   GTX_OLLAMA_CONNECT_IP=100.109.33.81
+#   GTX_OLLAMA_OVERRIDE_HOST=localhost:11434
+gtx:
+  ollama:
+    base-url: ${GTX_OLLAMA_BASE_URL:http://127.0.0.1:11434}
+    model: ${GTX_OLLAMA_MODEL:qwen3:8b}
+    timeout-seconds: ${GTX_OLLAMA_TIMEOUT_SECONDS:180}
+    num-ctx: ${GTX_OLLAMA_NUM_CTX:4096}
+    connect-ip: ${GTX_OLLAMA_CONNECT_IP:}
+    tls-server-name: ${GTX_OLLAMA_TLS_SERVER_NAME:}
+    override-host: ${GTX_OLLAMA_OVERRIDE_HOST:}
+
 # ── TRON Model Management (Step 4) ───────────────────────────────────────────
 tron:
   default-model: ${TRON_DEFAULT_MODEL:qwen3-8b}
@@ -121,8 +136,10 @@ tron:
     # When true: SMART → RTX Ollama only (no paid cloud fallback). CLOUD remains selectable.
     rtx-smart-mode-enabled: ${TRON_AI_RTX_SMART_MODE:false}
     rtx-smart-model: ${TRON_AI_RTX_SMART_MODEL:qwen3.5:9b-q4_K_M}
-    # Future GTX Fast Mode. While RTX smart is on and this is false, FAST is unavailable.
+    # GTX Fast Mode. When true: FAST → GTX Ollama only (no RTX/cloud fallback).
+    # While RTX smart is on and this is false, FAST stays unavailable.
     gtx-fast-mode-enabled: ${TRON_AI_GTX_FAST_MODE:false}
+    gtx-fast-model: ${TRON_AI_GTX_FAST_MODEL:qwen3:8b}
     # Cloud-first for CV Magic Fill / AI Assist (same AiGateway as Chat/Interview).
     # Set TRON_AI_CV_CLOUD_ENABLED=false or request localOnly=true to force Ollama-only.
     cv-assist-cloud-enabled: ${TRON_AI_CV_CLOUD_ENABLED:true}

@@ -53,11 +53,7 @@ public class AiGatewayController {
         boolean fastAvailable = isModeRouteAvailable(AiMode.FAST);
         boolean cloudAvailable = isModeRouteAvailable(AiMode.CLOUD);
         List<Map<String, Object>> modes = new ArrayList<>();
-        modes.add(modeEntry(AiMode.FAST,
-                properties.isRtxSmartModeEnabled() && !properties.isGtxFastModeEnabled()
-                        ? "Future GTX Fast server — not configured yet."
-                        : "Low-latency responses for chat and voice.",
-                fastAvailable));
+        modes.add(modeEntry(AiMode.FAST, fastModeDescription(), fastAvailable));
         modes.add(modeEntry(AiMode.SMART,
                 properties.isRtxSmartModeEnabled()
                         ? "RTX-powered Qwen 3.5 9B via local Ollama (no cloud fallback)."
@@ -101,7 +97,29 @@ public class AiGatewayController {
                 body.put("smartModelId", properties.getRtxSmartModel());
             }
         }
+        try {
+            AiModelRouter.Route fastRoute = modelRouter.resolveRoute(
+                    AiRequestContext.builder().feature(AiFeature.CHAT).mode(AiMode.FAST).build(),
+                    AiMode.FAST);
+            body.put("fastProvider", fastRoute.provider().name());
+            body.put("fastModelId", fastRoute.modelId());
+        } catch (RuntimeException ignored) {
+            if (properties.isGtxFastModeEnabled()) {
+                body.put("fastProvider", "OLLAMA_GTX");
+                body.put("fastModelId", properties.getGtxFastModel());
+            }
+        }
         return ResponseEntity.ok(body);
+    }
+
+    private String fastModeDescription() {
+        if (properties.isGtxFastModeEnabled()) {
+            return "GTX-powered Qwen3 8B via local Ollama (no RTX/cloud fallback).";
+        }
+        if (properties.isRtxSmartModeEnabled()) {
+            return "Future GTX Fast server — not configured yet.";
+        }
+        return "Low-latency responses for chat and voice.";
     }
 
     private boolean isModeRouteAvailable(AiMode mode) {

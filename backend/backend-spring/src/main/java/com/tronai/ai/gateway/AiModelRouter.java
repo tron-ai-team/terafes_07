@@ -47,7 +47,7 @@ public class AiModelRouter {
 
         Route overrideRoute = resolveOverrides(context);
         if (overrideRoute != null) {
-            if (!context.isAllowCloud() && overrideRoute.provider() != GatewayProviderId.OLLAMA) {
+            if (!context.isAllowCloud() && !overrideRoute.provider().isLocalOllama()) {
                 throw new IllegalArgumentException(
                         "Cloud provider override blocked by privacy policy (local-only request)");
             }
@@ -64,6 +64,11 @@ public class AiModelRouter {
                 throw new IllegalStateException(
                         "Smart AI mode is unavailable: RTX Ollama is offline or model "
                                 + properties.getRtxSmartModel() + " is not reachable.");
+            }
+            if (mode == AiMode.FAST && properties.isGtxFastModeEnabled()) {
+                throw new IllegalStateException(
+                        "Fast AI mode is unavailable: GTX Ollama is offline or model "
+                                + properties.getGtxFastModel() + " is not reachable.");
             }
             if (mode == AiMode.FAST && properties.isRtxSmartModeEnabled() && !properties.isGtxFastModeEnabled()) {
                 throw new IllegalStateException(
@@ -154,9 +159,14 @@ public class AiModelRouter {
 
         switch (mode) {
             case FAST -> {
+                if (properties.isGtxFastModeEnabled()) {
+                    // FAST → GTX only. Never fall back to RTX or paid cloud providers.
+                    addRoute(routes, seen, tryGtxFast());
+                    break;
+                }
                 // Exhibition: when RTX smart mode is on and GTX is not ready, FAST stays empty
                 // so resolveRoute returns a genuine unavailable error (no silent cloud fallback).
-                if (properties.isRtxSmartModeEnabled() && !properties.isGtxFastModeEnabled()) {
+                if (properties.isRtxSmartModeEnabled()) {
                     break;
                 }
                 if (cloudOk) {
@@ -269,6 +279,17 @@ public class AiModelRouter {
         return usableRoute(GatewayProviderId.OLLAMA, model.trim());
     }
 
+    private Route tryGtxFast() {
+        if (!gtxOllamaAvailable()) {
+            return null;
+        }
+        String model = properties.getGtxFastModel();
+        if (model == null || model.isBlank()) {
+            return null;
+        }
+        return usableRoute(GatewayProviderId.OLLAMA_GTX, model.trim());
+    }
+
     private Route tryOllamaFast() {
         if (!ollamaAvailable()) {
             return null;
@@ -358,6 +379,15 @@ public class AiModelRouter {
                 .orElse(false);
     }
 
+    private boolean gtxOllamaAvailable() {
+        if (hybrid != null && !hybrid.allowsLocalInference()) {
+            return false;
+        }
+        return providerRegistry.find(GatewayProviderId.OLLAMA_GTX)
+                .map(p -> p.isConfigured() && healthPermitsRouting(p.health()))
+                .orElse(false);
+    }
+
     private boolean healthPermitsRouting(ProviderHealthStatus status) {
         return status == ProviderHealthStatus.CONFIGURED
                 || status == ProviderHealthStatus.AVAILABLE;
@@ -372,6 +402,7 @@ public class AiModelRouter {
                     Optional.ofNullable(usableRoute(providerId, properties.getCloudflareModelFast()));
             case GEMINI -> Optional.ofNullable(usableRoute(providerId, properties.getGeminiModelUltra()));
             case OLLAMA -> Optional.ofNullable(tryOllamaFast());
+            case OLLAMA_GTX -> Optional.ofNullable(tryGtxFast());
         };
     }
 
@@ -382,6 +413,9 @@ public class AiModelRouter {
         String clean = providerOverride.trim().toUpperCase().replace('-', '_');
         if ("CLOUDFLARE".equals(clean) || "CLOUDFLARE_WORKERS_AI".equals(clean)) {
             return GatewayProviderId.CLOUDFLARE_WORKERS_AI;
+        }
+        if ("GTX".equals(clean) || "OLLAMA_GTX".equals(clean) || "GTX_OLLAMA".equals(clean)) {
+            return GatewayProviderId.OLLAMA_GTX;
         }
         for (GatewayProviderId id : GatewayProviderId.values()) {
             if (id.name().equals(clean) || id.wireName().equalsIgnoreCase(providerOverride.trim())) {

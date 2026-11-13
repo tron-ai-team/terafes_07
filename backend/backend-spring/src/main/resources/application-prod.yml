@@ -45,6 +45,16 @@ ollama:
   tls-server-name: ${OLLAMA_TLS_SERVER_NAME:}
   override-host: ${OLLAMA_OVERRIDE_HOST:}
 
+gtx:
+  ollama:
+    # Independent GTX Tailscale Serve endpoint (do not reuse OLLAMA_* RTX values).
+    base-url: ${GTX_OLLAMA_BASE_URL:http://127.0.0.1:11434}
+    model: ${GTX_OLLAMA_MODEL:qwen3:8b}
+    timeout-seconds: ${GTX_OLLAMA_TIMEOUT_SECONDS:180}
+    connect-ip: ${GTX_OLLAMA_CONNECT_IP:}
+    tls-server-name: ${GTX_OLLAMA_TLS_SERVER_NAME:}
+    override-host: ${GTX_OLLAMA_OVERRIDE_HOST:}
+
 stt:
   # Empty until RTX AI node; cloud Groq Whisper is used when GROQ_API_KEY is set.
   base-url: ${STT_BASE_URL:}

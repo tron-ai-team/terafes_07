@@ -27,6 +27,8 @@ public class AiRequestContext {
      * When false, only local Ollama routes are eligible (privacy-preserving).
      */
     private boolean allowCloud = true;
+  /** Optional hint for CV_GENERATION meter split (CV_MAGIC_FILL vs CV_AI_ASSIST). */
+    private String quotaMeterHint;
 
     public static Builder builder() {
         return new Builder();
@@ -62,6 +64,8 @@ public class AiRequestContext {
     public void setStream(boolean stream) { this.stream = stream; }
     public boolean isAllowCloud() { return allowCloud; }
     public void setAllowCloud(boolean allowCloud) { this.allowCloud = allowCloud; }
+    public String getQuotaMeterHint() { return quotaMeterHint; }
+    public void setQuotaMeterHint(String quotaMeterHint) { this.quotaMeterHint = quotaMeterHint; }
 
     public static final class Builder {
         private final AiRequestContext ctx = new AiRequestContext();
@@ -81,6 +85,7 @@ public class AiRequestContext {
         public Builder taskCallIndex(int taskCallIndex) { ctx.taskCallIndex = taskCallIndex; return this; }
         public Builder stream(boolean stream) { ctx.stream = stream; return this; }
         public Builder allowCloud(boolean allowCloud) { ctx.allowCloud = allowCloud; return this; }
+        public Builder quotaMeterHint(String quotaMeterHint) { ctx.quotaMeterHint = quotaMeterHint; return this; }
         public AiRequestContext build() { return ctx; }
     }
 }

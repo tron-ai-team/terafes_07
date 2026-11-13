@@ -50,7 +50,10 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 try {
                     Long userId = Long.parseLong(claims.getSubject());
                     Optional<User> dbUser = users.findById(userId);
-                    if (dbUser.isEmpty() || !dbUser.get().isEnabled() || dbUser.get().getSuspendedAt() != null) {
+                    if (dbUser.isEmpty()
+                            || !dbUser.get().isEnabled()
+                            || dbUser.get().getSuspendedAt() != null
+                            || dbUser.get().getDeletedAt() != null) {
                         SecurityContextHolder.clearContext();
                         response.setStatus(HttpServletResponse.SC_FORBIDDEN);
                         response.setContentType(MediaType.APPLICATION_JSON_VALUE);

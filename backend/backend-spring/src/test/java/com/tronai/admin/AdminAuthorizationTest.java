@@ -34,12 +34,16 @@ class AdminAuthorizationTest {
     @Autowired com.tronai.auth.RefreshTokenRepository refreshTokens;
     @Autowired com.tronai.ai.gateway.usage.AiUsageEventRepository usageEvents;
     @Autowired com.tronai.ai.gateway.usage.AiQuotaReservationRepository reservations;
+    @Autowired com.tronai.admin.quota.AiFeatureQuotaReservationRepository featureReservations;
+    @Autowired com.tronai.admin.quota.AiFeatureDailyCounterRepository featureCounters;
 
     User admin;
     User normal;
 
     @BeforeEach
     void clean() {
+        featureReservations.deleteAll();
+        featureCounters.deleteAll();
         reservations.deleteAll();
         usageEvents.deleteAll();
         refreshTokens.deleteAll();

@@ -90,6 +90,7 @@ public class CvAiAssistService {
                 AiRequestContext ctx = AiRequestContext.builder()
                         .userId(userId)
                         .feature(AiFeature.CV_GENERATION)
+                        .quotaMeterHint("CV_AI_ASSIST")
                         .mode(AiMode.SMART)
                         .allowCloud(allowCloud)
                         .jsonMode(true)

@@ -4,7 +4,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.MediaType;
-import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestClient;
@@ -19,6 +18,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 
 /**
  * Ollama HTTP Client using Spring RestClient.
+ * Supports Tailscale Serve via DNS pin ({@code ollama.connect-ip}) and Host override
+ * ({@code ollama.override-host}) without disabling TLS verification.
  */
 @Component
 public class OllamaClient {
@@ -36,14 +37,16 @@ public class OllamaClient {
     public OllamaClient(OllamaProperties properties, ObjectMapper objectMapper) {
         this.properties = properties;
         this.objectMapper = objectMapper != null ? objectMapper : new ObjectMapper();
-        SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
-        requestFactory.setConnectTimeout(Duration.ofSeconds(5));
-        requestFactory.setReadTimeout(Duration.ofSeconds(properties.getTimeoutSeconds()));
-
-        this.restClient = RestClient.builder()
-                .baseUrl(properties.getBaseUrl())
-                .requestFactory(requestFactory)
-                .build();
+        Duration connectTimeout = Duration.ofSeconds(5);
+        Duration readTimeout = Duration.ofSeconds(Math.max(1, properties.getTimeoutSeconds()));
+        this.restClient = OllamaHttpSupport.createRestClient(properties, connectTimeout, readTimeout);
+        if (properties.getConnectIp() != null && !properties.getConnectIp().isBlank()) {
+            log.info("Ollama client DNS pin enabled: host={} -> {}",
+                    OllamaHttpSupport.resolvePinnedHost(properties), properties.getConnectIp().trim());
+        }
+        if (properties.getOverrideHost() != null && !properties.getOverrideHost().isBlank()) {
+            log.info("Ollama client Host override enabled: {}", properties.getOverrideHost().trim());
+        }
     }
 
     public OllamaClient(OllamaProperties properties) {
@@ -51,19 +54,13 @@ public class OllamaClient {
     }
 
     /**
-     * Check whether the local Ollama instance is healthy and responding.
+     * Check whether the configured Ollama instance is healthy and responding.
      */
     public boolean checkHealth() {
         try {
-            SimpleClientHttpRequestFactory quickFactory = new SimpleClientHttpRequestFactory();
-            quickFactory.setConnectTimeout(Duration.ofSeconds(2));
-            quickFactory.setReadTimeout(Duration.ofSeconds(2));
-
-            RestClient quickClient = RestClient.builder()
-                    .baseUrl(properties.getBaseUrl())
-                    .requestFactory(quickFactory)
-                    .build();
-
+            Duration connectTimeout = Duration.ofSeconds(2);
+            Duration readTimeout = Duration.ofSeconds(2);
+            RestClient quickClient = OllamaHttpSupport.createRestClient(properties, connectTimeout, readTimeout);
             quickClient.get()
                     .uri("/api/tags")
                     .retrieve()
@@ -165,6 +162,7 @@ public class OllamaClient {
                     .truncated(truncated)
                     .evalCount(evalCount)
                     .promptEvalCount(promptEvalCount)
+                    .actualModelId(targetModel)
                     .build();
 
         } catch (ResourceAccessException e) {

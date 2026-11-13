@@ -6,7 +6,6 @@ import {
   Plus,
   MessageCircle,
   Mic,
-  GraduationCap,
   Sparkles,
   FileText,
   History,
@@ -19,16 +18,6 @@ import {
   Trash2,
   User,
   Radio,
-  Bot,
-  Search,
-  Terminal,
-  Laptop,
-  Activity,
-  Archive,
-  Sliders,
-  Share2,
-  Key,
-  LayoutGrid,
   Briefcase,
   Compass,
   Shield,
@@ -69,7 +58,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     }
   };
 
-  // Strict Mode Detection
+  // Strict Mode Detection — core product surfaces only
   const isChatMode = location.pathname.startsWith('/chat');
   const isVoiceMode = location.pathname.startsWith('/voice');
   const isCareerMode =
@@ -77,7 +66,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     location.pathname.startsWith('/interview') ||
     location.pathname.startsWith('/cv') ||
     location.pathname.startsWith('/history');
-  const isWorkspaceMode = !isChatMode && !isVoiceMode && !isCareerMode;
+  const isSupportMode = !isChatMode && !isVoiceMode && !isCareerMode;
 
   const handleStartNewChat = () => {
     handleNavClick();
@@ -88,11 +77,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const handleStartNewVoice = () => {
     handleNavClick();
     navigate('/voice');
-  };
-
-  const handleStartNewCodingTask = () => {
-    handleNavClick();
-    navigate('/workspace/agent');
   };
 
   const handleStartNewInterview = () => {
@@ -184,9 +168,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </button>
           )}
 
-          {isWorkspaceMode && (
+          {isSupportMode && (
             <button
-              onClick={handleStartNewCodingTask}
+              onClick={handleStartNewChat}
               className={`
                 w-full flex items-center justify-center gap-2 rounded-xl
                 bg-gradient-to-r from-[#008CFF] to-[#0066FF] text-white font-semibold
@@ -196,7 +180,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               `}
             >
               <Plus className="w-4 h-4 shrink-0" />
-              {!collapsed && <span>{uiLanguage === 'ja' ? '新規コーディング' : 'New Coding Task'}</span>}
+              {!collapsed && <span>{uiLanguage === 'ja' ? 'AIチャットへ' : 'Open AI Chat'}</span>}
             </button>
           )}
 
@@ -307,101 +291,44 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </div>
           )}
 
-          {/* ================= 3. WORKSPACE SIDEBAR (DESKTOP AGENT ONLY) ================= */}
-          {isWorkspaceMode && (
+          {/* ================= 3. SUPPORT / PROFILE SIDEBAR — core feature shortcuts ================= */}
+          {isSupportMode && (
             <div className="space-y-4">
-              {/* DESKTOP AGENT WORKFLOWS */}
               <div>
                 {!collapsed && (
                   <div className="px-2.5 pb-1.5 text-[10px] font-bold font-mono tracking-wider text-slate-400 uppercase">
-                    {uiLanguage === 'ja' ? 'ワークスペース' : 'Workspace'}
+                    {uiLanguage === 'ja' ? '主要機能' : 'Core Features'}
                   </div>
                 )}
                 <div className="space-y-0.5">
                   {[
                     {
-                      title: uiLanguage === 'ja' ? 'ダッシュボード' : 'Dashboard',
-                      path: '/workspace',
-                      exact: true,
-                      icon: <LayoutGrid className="w-4 h-4 text-blue-600" />,
+                      title: uiLanguage === 'ja' ? 'AIチャット' : 'AI Chat',
+                      path: '/chat',
+                      icon: <MessageCircle className="w-4 h-4 text-blue-600" />,
                     },
                     {
-                      title: uiLanguage === 'ja' ? 'コーディング' : 'Coding Agent',
-                      path: '/workspace/agent',
-                      exact: true,
-                      icon: <Terminal className="w-4 h-4 text-indigo-600" />,
+                      title: uiLanguage === 'ja' ? 'AI音声' : 'AI Voice',
+                      path: '/voice',
+                      icon: <Mic className="w-4 h-4 text-cyan-600" />,
                     },
                     {
-                      title: uiLanguage === 'ja' ? 'デバイス' : 'Devices',
-                      path: '/workspace/agent/devices',
-                      icon: <Laptop className="w-4 h-4 text-cyan-600" />,
+                      title: uiLanguage === 'ja' ? '面接練習' : 'Interview Practice',
+                      path: '/career/interview',
+                      icon: <Sparkles className="w-4 h-4 text-blue-500" />,
                     },
                     {
-                      title: uiLanguage === 'ja' ? 'タスク' : 'Active Tasks',
-                      path: '/workspace/agent/tasks',
-                      icon: <Activity className="w-4 h-4 text-emerald-600" />,
+                      title: uiLanguage === 'ja' ? '履歴書ビルダー' : 'CV Builder',
+                      path: '/career/cv-builder',
+                      icon: <FileText className="w-4 h-4 text-purple-500" />,
                     },
                     {
-                      title: uiLanguage === 'ja' ? '実行履歴' : 'Execution History',
-                      path: '/workspace/agent/history',
-                      icon: <Archive className="w-4 h-4 text-slate-500" />,
+                      title: uiLanguage === 'ja' ? 'プロフィール' : 'Profile',
+                      path: '/profile',
+                      icon: <User className="w-4 h-4 text-slate-500" />,
                     },
                   ].map((item) => {
-                    const isActive = item.exact
-                      ? location.pathname === item.path
-                      : location.pathname.startsWith(item.path);
-
-                    return (
-                      <Link
-                        key={item.path}
-                        to={item.path}
-                        onClick={handleNavClick}
-                        className={`
-                          flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold transition-all
-                          ${isActive
-                            ? 'bg-blue-500/10 text-blue-600 border border-blue-200/50 shadow-2xs'
-                            : 'text-slate-600 hover:text-slate-900 hover:bg-blue-50/40'
-                          }
-                          ${collapsed ? 'justify-center px-0' : ''}
-                        `}
-                        title={collapsed ? item.title : undefined}
-                      >
-                        <span className={isActive ? 'text-blue-600' : 'text-slate-400'}>
-                          {item.icon}
-                        </span>
-                        {!collapsed && <span>{item.title}</span>}
-                      </Link>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* ACCOUNT GROUP */}
-              <div>
-                {!collapsed && (
-                  <div className="px-2.5 pb-1.5 text-[10px] font-bold font-mono tracking-wider text-slate-400 uppercase">
-                    {uiLanguage === 'ja' ? 'アカウント' : 'Account'}
-                  </div>
-                )}
-                <div className="space-y-0.5">
-                  {[
-                    {
-                      title: uiLanguage === 'ja' ? 'AI 設定' : 'AI Preferences',
-                      path: '/settings',
-                      icon: <Sliders className="w-4 h-4 text-blue-500" />,
-                    },
-                    {
-                      title: uiLanguage === 'ja' ? '連携機能' : 'Integrations',
-                      path: '/settings?tab=integrations',
-                      icon: <Share2 className="w-4 h-4 text-cyan-600" />,
-                    },
-                    {
-                      title: uiLanguage === 'ja' ? 'API アクセス' : 'API Access',
-                      path: '/settings?tab=api-access',
-                      icon: <Key className="w-4 h-4 text-amber-500" />,
-                    },
-                  ].map((item) => {
-                    const isActive = location.pathname === item.path;
+                    const isActive = location.pathname.startsWith(item.path);
 
                     return (
                       <Link
@@ -430,26 +357,21 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </div>
           )}
 
-          {/* ================= 4. CAREER CENTER SIDEBAR (CAREER SUITE ONLY) ================= */}
+          {/* ================= 4. CAREER SIDEBAR — Interview / CV / Profile only ================= */}
           {isCareerMode && (
             <div>
               {!collapsed && (
                 <div className="px-2.5 pb-1.5 text-[10px] font-bold font-mono tracking-wider text-slate-400 uppercase">
-                  {uiLanguage === 'ja' ? 'キャリアセンター' : 'Career Center'}
+                  {uiLanguage === 'ja' ? '面接 & 履歴書' : 'Interview & CV'}
                 </div>
               )}
               <div className="space-y-0.5">
                 {[
                   {
-                    title: uiLanguage === 'ja' ? 'ダッシュボード' : 'Dashboard',
+                    title: uiLanguage === 'ja' ? '概要' : 'Overview',
                     path: '/career',
                     exact: true,
                     icon: <Briefcase className="w-4 h-4 text-blue-600" />,
-                  },
-                  {
-                    title: uiLanguage === 'ja' ? '求人検索' : 'Job Finder',
-                    path: '/career/jobs',
-                    icon: <Search className="w-4 h-4 text-cyan-600" />,
                   },
                   {
                     title: uiLanguage === 'ja' ? '面接練習' : 'Interview Practice',
@@ -457,14 +379,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     icon: <Sparkles className="w-4 h-4 text-blue-500" />,
                   },
                   {
-                    title: uiLanguage === 'ja' ? '面接エージェント' : 'Interview Agent',
-                    path: '/career/interview-agent',
-                    icon: <Bot className="w-4 h-4 text-indigo-500" />,
-                  },
-                  {
                     title: uiLanguage === 'ja' ? '履歴書ビルダー' : 'CV Builder',
                     path: '/career/cv-builder',
                     icon: <FileText className="w-4 h-4 text-purple-500" />,
+                  },
+                  {
+                    title: uiLanguage === 'ja' ? '候補者プロフィール' : 'Candidate Profile',
+                    path: '/career/profile',
+                    icon: <User className="w-4 h-4 text-sky-600" />,
                   },
                   {
                     title: uiLanguage === 'ja' ? '面接履歴' : 'Interview History',

@@ -22,9 +22,9 @@ export const LandingPage: React.FC<LandingPageProps> = ({ defaultSection }) => {
 
   const handleGetStarted = () => {
     if (isAuthenticated) {
-      navigate("/workspace");
+      navigate("/chat");
     } else {
-      navigate("/auth?mode=signup");
+      navigate("/auth?mode=signup&returnTo=%2Fchat");
     }
   };
 
@@ -96,12 +96,12 @@ export const LandingPage: React.FC<LandingPageProps> = ({ defaultSection }) => {
         <main className="w-full flex-1 flex flex-col justify-between min-w-0">
           <HeroSection
             onStartForFree={handleGetStarted}
-            onOpenDemos={() => navigate("/career")}
+            onOpenDemos={() => navigate("/career/interview")}
           />
         </main>
 
         {/* Secondary Bottom Dock Navigation */}
-        <LandingSecondaryNav onOpenDemos={() => navigate("/career")} />
+        <LandingSecondaryNav onOpenDemos={() => navigate("/career/interview")} />
       </div>
 
       {/* Interactive Platform Demo Modal */}

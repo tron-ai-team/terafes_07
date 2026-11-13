@@ -44,7 +44,7 @@ export const CtaSection: React.FC<CtaSectionProps> = ({ onGetStarted }) => {
               </button>
 
               <button
-                onClick={() => navigate('/workspace')}
+                onClick={() => navigate('/chat')}
                 className="w-full sm:w-auto px-6 py-3.5 rounded-2xl font-semibold text-sm text-white bg-white/10 hover:bg-white/20 border border-white/20 transition-all flex items-center justify-center gap-2"
               >
                 <span>{t.cta.secondary}</span>

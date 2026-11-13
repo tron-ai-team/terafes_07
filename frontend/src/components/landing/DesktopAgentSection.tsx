@@ -57,7 +57,7 @@ export const DesktopAgentSection: React.FC = () => {
             {/* Launch Button */}
             <div>
               <button
-                onClick={() => navigate('/workspace/agent')}
+                onClick={() => navigate('/chat')}
                 className="px-6 py-3 rounded-2xl text-xs font-bold text-white bg-gradient-to-r from-teal-600 to-cyan-600 hover:from-teal-700 hover:to-cyan-700 shadow-md shadow-teal-500/20 transition-all flex items-center gap-2"
               >
                 <span>{t.desktopAgent.openWorkspaceAgent}</span>

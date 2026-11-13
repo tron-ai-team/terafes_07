@@ -85,13 +85,13 @@ export const LandingFooter: React.FC = () => {
                 </button>
               </li>
               <li>
-                <button onClick={() => navigate('/workspace/agent')} className="hover:text-blue-600 transition-colors">
-                  {t.footer.codingModule}
+                <button onClick={() => navigate('/career/cv-builder')} className="hover:text-blue-600 transition-colors">
+                  AI CV Builder
                 </button>
               </li>
               <li>
-                <button onClick={() => navigate('/career')} className="hover:text-blue-600 transition-colors">
-                  {t.footer.careerModule}
+                <button onClick={() => navigate('/profile')} className="hover:text-blue-600 transition-colors">
+                  Profile
                 </button>
               </li>
             </ul>

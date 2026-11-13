@@ -7,7 +7,7 @@ import org.springframework.stereotype.Component;
 @Data
 @Component
 @ConfigurationProperties(prefix = "ollama")
-public class OllamaProperties {
+public class OllamaProperties implements OllamaEndpointConfig {
     /**
      * Ollama base URL. For RTX Tailscale Serve use the HTTPS MagicDNS URL
      * (keeps TLS SNI + certificate identity correct).

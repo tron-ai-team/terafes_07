@@ -10,6 +10,7 @@ import {
   ULTRA_CREDIT_COSTS,
   AI_MODES,
   mapAiModeToBackendProfile,
+  shouldAutoMigrateAwayFromFast,
 } from '../config/aiModes';
 import { requestAssistantReply } from '../services/chatClient';
 import {
@@ -347,6 +348,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (typeof modes?.fastAvailable === 'boolean') {
         AI_MODES.FAST.available = modes.fastAvailable;
         AI_MODES.FAST.status = modes.fastAvailable ? 'Available' : 'Unavailable';
+        if (!modes.fastAvailable) {
+          AI_MODES.FAST.reasonUnavailable =
+            modes?.gtxFastModeEnabled === true
+              ? 'GTX Ollama is offline or the configured Fast model is not available. Choose Smart or Cloud explicitly.'
+              : 'GTX Fast server is not configured yet.';
+          // Keep an actively selected FAST mode when GTX Fast Mode is enabled but offline.
+          // Only auto-migrate when Fast is not yet an enabled product mode.
+          if (shouldAutoMigrateAwayFromFast(modes?.gtxFastModeEnabled)) {
+            setSelectedAiModeState((current) => (current === 'FAST' ? 'SMART' : current));
+          }
+        } else {
+          delete AI_MODES.FAST.reasonUnavailable;
+        }
       }
       if (typeof modes?.smartAvailable === 'boolean') {
         AI_MODES.SMART.available = modes.smartAvailable;
@@ -369,11 +383,28 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         AI_MODES.SMART.provider =
           modes.smartProvider === 'OLLAMA' ? 'RTX Ollama' : String(modes.smartProvider);
       }
-      if (modes?.rtxSmartModeEnabled === true && modes?.gtxFastModeEnabled !== true) {
+      if (modes?.fastModelId) {
+        AI_MODES.FAST.model = modes.fastModelId;
+      }
+      if (modes?.fastProvider) {
+        AI_MODES.FAST.provider =
+          modes.fastProvider === 'OLLAMA_GTX' ? 'GTX Ollama' : String(modes.fastProvider);
+      }
+      if (modes?.gtxFastModeEnabled === true) {
+        AI_MODES.FAST.badgeText = 'GTX 1070';
+        AI_MODES.FAST.shortDesc = 'GTX-powered Qwen3 8B';
+        AI_MODES.FAST.description =
+          'Routes to the GTX Ollama server running Qwen3 8B. Returns a real offline error if GTX is unavailable — no RTX or paid cloud fallback.';
+      } else if (modes?.rtxSmartModeEnabled === true) {
         AI_MODES.FAST.available = false;
         AI_MODES.FAST.status = 'Unavailable';
+        AI_MODES.FAST.badgeText = 'GTX Soon';
+        AI_MODES.FAST.shortDesc = 'Future GTX Fast server';
         AI_MODES.FAST.reasonUnavailable = 'GTX Fast server is not configured yet.';
-        setSelectedAiModeState((current) => (current === 'FAST' ? 'SMART' : current));
+        // Feature not enabled — sensible initial migration off FAST is OK.
+        if (shouldAutoMigrateAwayFromFast(false)) {
+          setSelectedAiModeState((current) => (current === 'FAST' ? 'SMART' : current));
+        }
       }
     } catch {
       // modes endpoint may be unauthenticated-ok; ignore soft failures

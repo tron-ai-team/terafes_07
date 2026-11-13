@@ -58,7 +58,9 @@ public class AiModelCatalog {
     public Optional<ResolvedModel> resolveDefault(AiMode mode, AiFeature feature) {
         AiMode routing = mode != null ? mode.routingMode() : AiMode.AUTO.routingMode();
         return switch (routing) {
-            case FAST -> firstConfigured(
+            case FAST -> properties.isGtxFastModeEnabled()
+                    ? firstConfigured(resolved(GatewayProviderId.OLLAMA_GTX, properties.getGtxFastModel()))
+                    : firstConfigured(
                     resolved(GatewayProviderId.GROQ, properties.getGroqModelFast()),
                     resolved(GatewayProviderId.CLOUDFLARE_WORKERS_AI, properties.getCloudflareModelFast()),
                     resolved(GatewayProviderId.OLLAMA, firstOllamaFast()));

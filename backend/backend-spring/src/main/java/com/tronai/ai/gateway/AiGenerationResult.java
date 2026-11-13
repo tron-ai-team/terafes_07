@@ -36,7 +36,7 @@ public class AiGenerationResult {
                 .evalCount(completionTokens)
                 .logicalProfile(mode == null ? null : mode.name())
                 .actualModelId(modelId)
-                .providerType(provider == GatewayProviderId.OLLAMA ? ProviderType.LOCAL : ProviderType.CLOUD)
+                .providerType(provider != null && provider.isLocalOllama() ? ProviderType.LOCAL : ProviderType.CLOUD)
                 .build();
         return result;
     }

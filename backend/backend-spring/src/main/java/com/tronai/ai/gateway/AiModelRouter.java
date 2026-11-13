@@ -45,12 +45,13 @@ public class AiModelRouter {
     public Route resolveRoute(AiRequestContext context, AiMode effectiveMode) {
         AiMode mode = effectiveMode != null ? effectiveMode.routingMode() : AiMode.SMART;
 
-        Route overrideRoute = resolveOverrides(context);
+        Route overrideRoute = resolveOverrides(context, mode);
         if (overrideRoute != null) {
-            if (!context.isAllowCloud() && overrideRoute.provider() != GatewayProviderId.OLLAMA) {
+            if (!context.isAllowCloud() && !overrideRoute.provider().isLocalOllama()) {
                 throw new IllegalArgumentException(
                         "Cloud provider override blocked by privacy policy (local-only request)");
             }
+            enforceExclusiveModeIsolation(mode, overrideRoute);
             return overrideRoute;
         }
 
@@ -64,6 +65,11 @@ public class AiModelRouter {
                 throw new IllegalStateException(
                         "Smart AI mode is unavailable: RTX Ollama is offline or model "
                                 + properties.getRtxSmartModel() + " is not reachable.");
+            }
+            if (mode == AiMode.FAST && properties.isGtxFastModeEnabled()) {
+                throw new IllegalStateException(
+                        "Fast AI mode is unavailable: GTX Ollama is offline or model "
+                                + properties.getGtxFastModel() + " is not reachable.");
             }
             if (mode == AiMode.FAST && properties.isRtxSmartModeEnabled() && !properties.isGtxFastModeEnabled()) {
                 throw new IllegalStateException(
@@ -96,7 +102,7 @@ public class AiModelRouter {
         return fallbackCandidates(AiRequestContext.builder().allowCloud(true).build(), effectiveMode);
     }
 
-    private Route resolveOverrides(AiRequestContext context) {
+    private Route resolveOverrides(AiRequestContext context, AiMode mode) {
         String modelOverride = context.getModelOverride();
         String providerOverride = context.getProviderOverride();
         if ((modelOverride == null || modelOverride.isBlank())
@@ -106,8 +112,10 @@ public class AiModelRouter {
 
         GatewayProviderId providerId = parseProviderOverride(providerOverride);
         String modelId = modelOverride != null ? modelOverride.trim() : "";
+        Set<GatewayProviderId> allowedProviders = exclusiveProvidersForMode(mode);
 
         if (providerId != null && !modelId.isBlank()) {
+            assertProviderAllowedForMode(mode, providerId, allowedProviders);
             if (!modelCatalog.isAllowed(providerId, modelId)) {
                 throw new IllegalArgumentException(
                         "Model override is not allowed for provider " + providerId + ": " + modelId);
@@ -120,6 +128,7 @@ public class AiModelRouter {
         }
 
         if (providerId != null && modelId.isBlank()) {
+            assertProviderAllowedForMode(mode, providerId, allowedProviders);
             Optional<Route> defaultForProvider = defaultModelForProvider(providerId);
             if (defaultForProvider.isEmpty()) {
                 throw new IllegalArgumentException("No default model for provider override: " + providerId);
@@ -133,11 +142,55 @@ public class AiModelRouter {
 
         if (!modelId.isBlank()) {
             for (GatewayProviderId candidate : GatewayProviderId.values()) {
+                if (allowedProviders != null && !allowedProviders.contains(candidate)) {
+                    continue;
+                }
                 if (modelCatalog.isAllowed(candidate, modelId) && isUsable(candidate, modelId)) {
                     return new Route(candidate, modelId);
                 }
             }
             throw new IllegalArgumentException("Unsupported model override: " + modelId);
+        }
+        return null;
+    }
+
+    /**
+     * When exhibition locks are active, overrides cannot escape FAST→GTX or SMART→RTX.
+     * CLOUD / ULTRA / unlocked modes keep normal override behavior.
+     */
+    private void enforceExclusiveModeIsolation(AiMode mode, Route route) {
+        Set<GatewayProviderId> allowed = exclusiveProvidersForMode(mode);
+        if (allowed == null) {
+            return;
+        }
+        if (!allowed.contains(route.provider())) {
+            if (mode == AiMode.FAST) {
+                throw new IllegalArgumentException(
+                        "Provider override blocked: Fast mode is locked to GTX Ollama.");
+            }
+            if (mode == AiMode.SMART) {
+                throw new IllegalArgumentException(
+                        "Provider override blocked: Smart mode is locked to RTX Ollama.");
+            }
+            throw new IllegalArgumentException(
+                    "Provider override blocked for mode " + mode + ": " + route.provider());
+        }
+    }
+
+    private void assertProviderAllowedForMode(
+            AiMode mode, GatewayProviderId providerId, Set<GatewayProviderId> allowedProviders) {
+        if (allowedProviders != null && !allowedProviders.contains(providerId)) {
+            enforceExclusiveModeIsolation(mode, new Route(providerId, "override"));
+        }
+    }
+
+    /** @return locked provider set, or {@code null} when the mode is not exclusively locked */
+    private Set<GatewayProviderId> exclusiveProvidersForMode(AiMode mode) {
+        if (mode == AiMode.FAST && properties.isGtxFastModeEnabled()) {
+            return Set.of(GatewayProviderId.OLLAMA_GTX);
+        }
+        if (mode == AiMode.SMART && properties.isRtxSmartModeEnabled()) {
+            return Set.of(GatewayProviderId.OLLAMA);
         }
         return null;
     }
@@ -154,9 +207,14 @@ public class AiModelRouter {
 
         switch (mode) {
             case FAST -> {
+                if (properties.isGtxFastModeEnabled()) {
+                    // FAST → GTX only. Never fall back to RTX or paid cloud providers.
+                    addRoute(routes, seen, tryGtxFast());
+                    break;
+                }
                 // Exhibition: when RTX smart mode is on and GTX is not ready, FAST stays empty
                 // so resolveRoute returns a genuine unavailable error (no silent cloud fallback).
-                if (properties.isRtxSmartModeEnabled() && !properties.isGtxFastModeEnabled()) {
+                if (properties.isRtxSmartModeEnabled()) {
                     break;
                 }
                 if (cloudOk) {
@@ -269,6 +327,17 @@ public class AiModelRouter {
         return usableRoute(GatewayProviderId.OLLAMA, model.trim());
     }
 
+    private Route tryGtxFast() {
+        if (!gtxOllamaAvailable()) {
+            return null;
+        }
+        String model = properties.getGtxFastModel();
+        if (model == null || model.isBlank()) {
+            return null;
+        }
+        return usableRoute(GatewayProviderId.OLLAMA_GTX, model.trim());
+    }
+
     private Route tryOllamaFast() {
         if (!ollamaAvailable()) {
             return null;
@@ -358,6 +427,15 @@ public class AiModelRouter {
                 .orElse(false);
     }
 
+    private boolean gtxOllamaAvailable() {
+        if (hybrid != null && !hybrid.allowsLocalInference()) {
+            return false;
+        }
+        return providerRegistry.find(GatewayProviderId.OLLAMA_GTX)
+                .map(p -> p.isConfigured() && healthPermitsRouting(p.health()))
+                .orElse(false);
+    }
+
     private boolean healthPermitsRouting(ProviderHealthStatus status) {
         return status == ProviderHealthStatus.CONFIGURED
                 || status == ProviderHealthStatus.AVAILABLE;
@@ -372,6 +450,7 @@ public class AiModelRouter {
                     Optional.ofNullable(usableRoute(providerId, properties.getCloudflareModelFast()));
             case GEMINI -> Optional.ofNullable(usableRoute(providerId, properties.getGeminiModelUltra()));
             case OLLAMA -> Optional.ofNullable(tryOllamaFast());
+            case OLLAMA_GTX -> Optional.ofNullable(tryGtxFast());
         };
     }
 
@@ -382,6 +461,9 @@ public class AiModelRouter {
         String clean = providerOverride.trim().toUpperCase().replace('-', '_');
         if ("CLOUDFLARE".equals(clean) || "CLOUDFLARE_WORKERS_AI".equals(clean)) {
             return GatewayProviderId.CLOUDFLARE_WORKERS_AI;
+        }
+        if ("GTX".equals(clean) || "OLLAMA_GTX".equals(clean) || "GTX_OLLAMA".equals(clean)) {
+            return GatewayProviderId.OLLAMA_GTX;
         }
         for (GatewayProviderId id : GatewayProviderId.values()) {
             if (id.name().equals(clean) || id.wireName().equalsIgnoreCase(providerOverride.trim())) {

@@ -20,6 +20,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
  * Ollama HTTP Client using Spring RestClient.
  * Supports Tailscale Serve via DNS pin ({@code ollama.connect-ip}) and Host override
  * ({@code ollama.override-host}) without disabling TLS verification.
+ *
+ * <p>The Spring-managed bean targets the RTX / primary Ollama endpoint.
+ * GTX uses a separate {@link GtxOllamaClient} with independent connection config.
  */
 @Component
 public class OllamaClient {
@@ -29,24 +32,15 @@ public class OllamaClient {
     private static final Pattern THINK_BLOCK = Pattern.compile("<think>.*?</think>", Pattern.CASE_INSENSITIVE | Pattern.DOTALL);
     private static final Pattern THINK_OPEN = Pattern.compile("<think>.*", Pattern.CASE_INSENSITIVE | Pattern.DOTALL);
 
-    private final OllamaProperties properties;
+    private final OllamaEndpointConfig properties;
+    private final String defaultModel;
+    private final String clientLabel;
     private final RestClient restClient;
     private final ObjectMapper objectMapper;
 
     @org.springframework.beans.factory.annotation.Autowired
     public OllamaClient(OllamaProperties properties, ObjectMapper objectMapper) {
-        this.properties = properties;
-        this.objectMapper = objectMapper != null ? objectMapper : new ObjectMapper();
-        Duration connectTimeout = Duration.ofSeconds(5);
-        Duration readTimeout = Duration.ofSeconds(Math.max(1, properties.getTimeoutSeconds()));
-        this.restClient = OllamaHttpSupport.createRestClient(properties, connectTimeout, readTimeout);
-        if (properties.getConnectIp() != null && !properties.getConnectIp().isBlank()) {
-            log.info("Ollama client DNS pin enabled: host={} -> {}",
-                    OllamaHttpSupport.resolvePinnedHost(properties), properties.getConnectIp().trim());
-        }
-        if (properties.getOverrideHost() != null && !properties.getOverrideHost().isBlank()) {
-            log.info("Ollama client Host override enabled: {}", properties.getOverrideHost().trim());
-        }
+        this(properties, properties.getModel(), "Ollama", objectMapper);
     }
 
     public OllamaClient(OllamaProperties properties) {
@@ -54,22 +48,118 @@ public class OllamaClient {
     }
 
     /**
+     * Shared constructor for RTX and GTX clients. TLS verification stays enabled.
+     */
+    OllamaClient(OllamaEndpointConfig properties, String defaultModel, String clientLabel, ObjectMapper objectMapper) {
+        this.properties = properties;
+        this.defaultModel = defaultModel != null ? defaultModel : "";
+        this.clientLabel = clientLabel != null ? clientLabel : "Ollama";
+        this.objectMapper = objectMapper != null ? objectMapper : new ObjectMapper();
+        Duration connectTimeout = Duration.ofSeconds(5);
+        Duration readTimeout = Duration.ofSeconds(Math.max(1, properties.getTimeoutSeconds()));
+        this.restClient = OllamaHttpSupport.createRestClient(properties, connectTimeout, readTimeout);
+        if (properties.getConnectIp() != null && !properties.getConnectIp().isBlank()) {
+            log.info("{} client DNS pin enabled: host={} -> {}",
+                    this.clientLabel,
+                    OllamaHttpSupport.resolvePinnedHost(properties), properties.getConnectIp().trim());
+        }
+        if (properties.getOverrideHost() != null && !properties.getOverrideHost().isBlank()) {
+            log.info("{} client Host override enabled: {}", this.clientLabel, properties.getOverrideHost().trim());
+        }
+    }
+
+    /**
      * Check whether the configured Ollama instance is healthy and responding.
      */
     public boolean checkHealth() {
+        return fetchTagsJson().isPresent();
+    }
+
+    /**
+     * Lightweight availability check: Ollama is reachable and {@code modelId} appears in {@code /api/tags}.
+     * Does not run inference.
+     */
+    public boolean isModelAvailable(String modelId) {
+        if (modelId == null || modelId.isBlank()) {
+            return checkHealth();
+        }
+        Optional<String> tagsJson = fetchTagsJson();
+        if (tagsJson.isEmpty()) {
+            return false;
+        }
+        boolean present = tagsListContainsModel(tagsJson.get(), modelId.trim(), objectMapper);
+        if (!present) {
+            log.debug("{} model not present in /api/tags: {}", clientLabel, modelId);
+        }
+        return present;
+    }
+
+    private Optional<String> fetchTagsJson() {
         try {
             Duration connectTimeout = Duration.ofSeconds(2);
             Duration readTimeout = Duration.ofSeconds(2);
             RestClient quickClient = OllamaHttpSupport.createRestClient(properties, connectTimeout, readTimeout);
-            quickClient.get()
+            String body = quickClient.get()
                     .uri("/api/tags")
                     .retrieve()
-                    .toBodilessEntity();
-            return true;
+                    .body(String.class);
+            if (body == null || body.isBlank()) {
+                return Optional.empty();
+            }
+            return Optional.of(body);
         } catch (Exception e) {
-            log.debug("Ollama health check failed: {}", e.getMessage());
+            log.debug("{} health check failed: {}", clientLabel, e.getMessage());
+            return Optional.empty();
+        }
+    }
+
+    /**
+     * Parses Ollama {@code /api/tags} JSON and checks for an installed model name.
+     * Matches exact {@code name}/{@code model} values; also accepts {@code name@digest} forms.
+     */
+    static boolean tagsListContainsModel(String tagsJson, String modelId, ObjectMapper mapper) {
+        if (tagsJson == null || tagsJson.isBlank() || modelId == null || modelId.isBlank()) {
             return false;
         }
+        try {
+            ObjectMapper om = mapper != null ? mapper : new ObjectMapper();
+            Map<?, ?> root = om.readValue(tagsJson, Map.class);
+            Object modelsObj = root.get("models");
+            if (!(modelsObj instanceof List<?> models)) {
+                return false;
+            }
+            String wanted = modelId.trim();
+            for (Object entry : models) {
+                if (!(entry instanceof Map<?, ?> model)) {
+                    continue;
+                }
+                if (modelNameMatches(model.get("name"), wanted) || modelNameMatches(model.get("model"), wanted)) {
+                    return true;
+                }
+            }
+            return false;
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    private static boolean modelNameMatches(Object rawName, String wanted) {
+        if (rawName == null) {
+            return false;
+        }
+        String name = rawName.toString().trim();
+        if (name.isEmpty()) {
+            return false;
+        }
+        if (name.equalsIgnoreCase(wanted)) {
+            return true;
+        }
+        // Ollama may append @digest to the installed tag name.
+        int at = name.indexOf('@');
+        if (at > 0 && name.substring(0, at).equalsIgnoreCase(wanted)) {
+            return true;
+        }
+        return false;
     }
 
     /**
@@ -79,7 +169,7 @@ public class OllamaClient {
         Map<String, Object> payload = new LinkedHashMap<>();
         String targetModel = (request.getModel() != null && !request.getModel().isBlank())
                 ? request.getModel().trim()
-                : properties.getModel();
+                : defaultModel;
         payload.put("model", targetModel);
 
         List<Map<String, String>> msgList = new ArrayList<>();
@@ -116,13 +206,13 @@ public class OllamaClient {
                     .body(payload)
                     .retrieve()
                     .onStatus(HttpStatusCode::isError, (req, resp) -> {
-                        log.error("Ollama /api/chat returned status {}", resp.getStatusCode());
-                        throw new AiProviderUnavailableException("Ollama request failed with status: " + resp.getStatusCode());
+                        log.error("{} /api/chat returned status {}", clientLabel, resp.getStatusCode());
+                        throw new AiProviderUnavailableException(clientLabel + " request failed with status: " + resp.getStatusCode());
                     })
                     .body(String.class);
 
             if (rawJson == null || rawJson.isBlank()) {
-                throw new AiProviderUnavailableException("Ollama returned an empty response body");
+                throw new AiProviderUnavailableException(clientLabel + " returned an empty response body");
             }
 
             Map<String, Object> responseBody = objectMapper.readValue(rawJson, Map.class);
@@ -167,20 +257,20 @@ public class OllamaClient {
 
         } catch (ResourceAccessException e) {
             if (e.getCause() instanceof SocketTimeoutException) {
-                log.warn("Ollama chat timed out after {}s", properties.getTimeoutSeconds());
-                throw new AiProviderTimeoutException("Ollama timed out", e);
+                log.warn("{} chat timed out after {}s", clientLabel, properties.getTimeoutSeconds());
+                throw new AiProviderTimeoutException(clientLabel + " timed out", e);
             }
-            log.warn("Ollama connection failed: {}", e.getMessage());
-            throw new AiProviderUnavailableException("Ollama is unavailable", e);
+            log.warn("{} connection failed: {}", clientLabel, e.getMessage());
+            throw new AiProviderUnavailableException(clientLabel + " is unavailable", e);
         } catch (RestClientResponseException e) {
-            log.warn("Ollama HTTP error {}: {}", e.getStatusCode(), e.getMessage());
-            throw new AiProviderUnavailableException("Ollama is unavailable: " + e.getStatusCode(), e);
+            log.warn("{} HTTP error {}: {}", clientLabel, e.getStatusCode(), e.getMessage());
+            throw new AiProviderUnavailableException(clientLabel + " is unavailable: " + e.getStatusCode(), e);
         } catch (org.springframework.web.client.RestClientException e) {
-            log.warn("Ollama RestClient error: {}", e.getMessage());
-            throw new AiProviderUnavailableException("Ollama request failed: " + e.getMessage(), e);
+            log.warn("{} RestClient error: {}", clientLabel, e.getMessage());
+            throw new AiProviderUnavailableException(clientLabel + " request failed: " + e.getMessage(), e);
         } catch (Exception e) {
-            log.warn("Ollama processing error: {}", e.getMessage());
-            throw new AiProviderUnavailableException("Ollama error: " + e.getMessage(), e);
+            log.warn("{} processing error: {}", clientLabel, e.getMessage());
+            throw new AiProviderUnavailableException(clientLabel + " error: " + e.getMessage(), e);
         }
     }
 

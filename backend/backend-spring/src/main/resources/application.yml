@@ -72,11 +72,19 @@ management:
       show-details: always
 
 # ── Ollama / AI Configuration ────────────────────────────────────────────────
+# Local/dev default remains loopback. Exhibition RTX Tailscale Serve example:
+#   OLLAMA_BASE_URL=https://<magicdns>
+#   OLLAMA_CONNECT_IP=100.95.30.39
+#   OLLAMA_OVERRIDE_HOST=localhost:11434
+# TLS verification stays on; connect-ip only pins DNS for the MagicDNS hostname.
 ollama:
   base-url: ${OLLAMA_BASE_URL:http://127.0.0.1:11434}
   model: ${OLLAMA_MODEL:qwen3:8b}
   timeout-seconds: ${OLLAMA_TIMEOUT_SECONDS:180}
   num-ctx: ${OLLAMA_NUM_CTX:4096}
+  connect-ip: ${OLLAMA_CONNECT_IP:}
+  tls-server-name: ${OLLAMA_TLS_SERVER_NAME:}
+  override-host: ${OLLAMA_OVERRIDE_HOST:}
 
 # ── TRON Model Management (Step 4) ───────────────────────────────────────────
 tron:
@@ -109,6 +117,12 @@ tron:
     groq-model-fast: ${GROQ_MODEL_FAST:openai/gpt-oss-20b}
     groq-model-smart: ${GROQ_MODEL_SMART:openai/gpt-oss-120b}
     prefer-groq-for-smart: ${TRON_AI_PREFER_GROQ_SMART:true}
+    # Exhibition RTX Smart Mode (default off — production SMART stays cloud until activated).
+    # When true: SMART → RTX Ollama only (no paid cloud fallback). CLOUD remains selectable.
+    rtx-smart-mode-enabled: ${TRON_AI_RTX_SMART_MODE:false}
+    rtx-smart-model: ${TRON_AI_RTX_SMART_MODEL:qwen3.5:9b-q4_K_M}
+    # Future GTX Fast Mode. While RTX smart is on and this is false, FAST is unavailable.
+    gtx-fast-mode-enabled: ${TRON_AI_GTX_FAST_MODE:false}
     # Cloud-first for CV Magic Fill / AI Assist (same AiGateway as Chat/Interview).
     # Set TRON_AI_CV_CLOUD_ENABLED=false or request localOnly=true to force Ollama-only.
     cv-assist-cloud-enabled: ${TRON_AI_CV_CLOUD_ENABLED:true}

@@ -62,12 +62,19 @@ public class AiModelCatalog {
                     resolved(GatewayProviderId.GROQ, properties.getGroqModelFast()),
                     resolved(GatewayProviderId.CLOUDFLARE_WORKERS_AI, properties.getCloudflareModelFast()),
                     resolved(GatewayProviderId.OLLAMA, firstOllamaFast()));
-            case SMART -> firstConfigured(
+            case SMART -> properties.isRtxSmartModeEnabled()
+                    ? firstConfigured(resolved(GatewayProviderId.OLLAMA, properties.getRtxSmartModel()))
+                    : firstConfigured(
                     resolved(GatewayProviderId.GROQ, properties.getGroqModelSmart()),
                     resolved(GatewayProviderId.MISTRAL, properties.getMistralModelSmart()),
                     resolved(GatewayProviderId.GEMINI, properties.getGeminiModelSmart()),
                     resolved(GatewayProviderId.OPENROUTER, properties.getOpenrouterModelSmart()),
                     resolved(GatewayProviderId.OLLAMA, firstOllamaQuality()));
+            case CLOUD -> firstConfigured(
+                    resolved(GatewayProviderId.GROQ, properties.getGroqModelSmart()),
+                    resolved(GatewayProviderId.OPENROUTER, properties.getOpenrouterModelSmart()),
+                    resolved(GatewayProviderId.MISTRAL, properties.getMistralModelSmart()),
+                    resolved(GatewayProviderId.CLOUDFLARE_WORKERS_AI, properties.getCloudflareModelFast()));
             case ULTRA -> firstConfigured(
                     resolved(GatewayProviderId.OPENROUTER, properties.getOpenrouterModelUltra()),
                     resolved(GatewayProviderId.MISTRAL, properties.getMistralModelUltra()),

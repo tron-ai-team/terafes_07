@@ -7,7 +7,8 @@ package com.tronai.ai.profile;
 public enum AiProfile {
     FAST("Fast", "Fast responses for everyday use", "tron-fast", 0.4, 1024),
     QUALITY("Quality", "Higher-quality answers with deeper reasoning and slower response time", "tron-quality", 0.2, 2048),
-    SMART("Smart", "Balanced quality routing via the shared AI gateway", "tron-quality", 0.25, 1536),
+    SMART("Smart", "RTX-powered local Smart routing via the shared AI gateway", "tron-quality", 0.25, 1536),
+    CLOUD("Cloud", "Existing verified cloud providers via the shared AI gateway", "tron-quality", 0.25, 1536),
     ULTRA("Ultra", "Highest-quality gateway models with daily Ultra credits", "tron-quality", 0.15, 4096),
     AUTO("Auto", "Automatic gateway mode selection by feature", "tron-fast", 0.35, 1024);
 
@@ -61,6 +62,6 @@ public enum AiProfile {
             }
         }
         throw new IllegalArgumentException(
-                "Unknown AI profile: '" + value + "'. Allowed profiles are: FAST, QUALITY, SMART, ULTRA, AUTO");
+                "Unknown AI profile: '" + value + "'. Allowed profiles are: FAST, QUALITY, SMART, CLOUD, ULTRA, AUTO");
     }
 }

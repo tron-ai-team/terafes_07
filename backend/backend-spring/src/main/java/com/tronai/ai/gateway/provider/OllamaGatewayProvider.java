@@ -4,6 +4,7 @@ import com.tronai.ai.AiProvider;
 import com.tronai.ai.ChatGenerationRequest;
 import com.tronai.ai.OllamaClient;
 import com.tronai.ai.gateway.AiGenerationResult;
+import com.tronai.ai.gateway.AiGatewayProperties;
 import com.tronai.ai.gateway.AiRequestContext;
 import com.tronai.ai.gateway.GatewayProviderId;
 import com.tronai.ai.gateway.ProviderHealthStatus;
@@ -24,16 +25,19 @@ public class OllamaGatewayProvider implements GatewayProvider {
     private final OllamaClient ollamaClient;
     private final ModelRegistry modelRegistry;
     private final ModelProperties modelProperties;
+    private final AiGatewayProperties gatewayProperties;
 
     public OllamaGatewayProvider(
             @Qualifier("ollamaAiProvider") AiProvider localAiProvider,
             OllamaClient ollamaClient,
             ModelRegistry modelRegistry,
-            ModelProperties modelProperties) {
+            ModelProperties modelProperties,
+            AiGatewayProperties gatewayProperties) {
         this.localAiProvider = localAiProvider;
         this.ollamaClient = ollamaClient;
         this.modelRegistry = modelRegistry;
         this.modelProperties = modelProperties;
+        this.gatewayProperties = gatewayProperties;
     }
 
     @Override
@@ -56,6 +60,9 @@ public class OllamaGatewayProvider implements GatewayProvider {
         Set<String> models = new LinkedHashSet<>();
         models.add(modelProperties.getFastModel());
         models.add(modelProperties.getQualityModel());
+        if (gatewayProperties.getRtxSmartModel() != null && !gatewayProperties.getRtxSmartModel().isBlank()) {
+            models.add(gatewayProperties.getRtxSmartModel().trim());
+        }
         modelRegistry.findAll().forEach(p -> {
             if (p.getProviderModelName() != null && !p.getProviderModelName().isBlank()) {
                 models.add(p.getProviderModelName().trim());

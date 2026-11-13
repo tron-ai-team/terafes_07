@@ -1,10 +1,9 @@
 package com.tronai.hybrid;
 
+import com.tronai.ai.OllamaClient;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
-import java.net.HttpURLConnection;
-import java.net.URI;
 import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -18,14 +17,9 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class HybridRoutingService {
 
     private final PlatformControlRepository controls;
+    private final OllamaClient ollamaClient;
     private final AtomicInteger inFlight = new AtomicInteger(0);
     private final AtomicInteger queued = new AtomicInteger(0);
-
-    @Value("${tron.hybrid.ollama-health-url:http://127.0.0.1:11434/api/tags}")
-    private String ollamaHealthUrl;
-
-    @Value("${tron.hybrid.rtx-probe-timeout-ms:1500}")
-    private int rtxProbeTimeoutMs;
 
     /**
      * Test-only deterministic mode. When true, skip the live HTTP probe and treat local
@@ -34,8 +28,9 @@ public class HybridRoutingService {
     @Value("${tron.hybrid.assume-local-healthy:false}")
     private boolean assumeLocalHealthy;
 
-    public HybridRoutingService(PlatformControlRepository controls) {
+    public HybridRoutingService(PlatformControlRepository controls, OllamaClient ollamaClient) {
         this.controls = controls;
+        this.ollamaClient = ollamaClient;
     }
 
     public PlatformControlEntity state() {
@@ -83,7 +78,8 @@ public class HybridRoutingService {
         if (assumeLocalHealthy) {
             return true;
         }
-        return probe(ollamaHealthUrl);
+        // Use the shared OllamaClient so Tailscale DNS pin + Host override apply.
+        return ollamaClient.checkHealth();
     }
 
     public String selectSupervisorRoute() {
@@ -165,21 +161,4 @@ public class HybridRoutingService {
         return m;
     }
 
-    private boolean probe(String url) {
-        HttpURLConnection conn = null;
-        try {
-            conn = (HttpURLConnection) URI.create(url).toURL().openConnection();
-            conn.setConnectTimeout(rtxProbeTimeoutMs);
-            conn.setReadTimeout(rtxProbeTimeoutMs);
-            conn.setRequestMethod("GET");
-            int code = conn.getResponseCode();
-            return code >= 200 && code < 500;
-        } catch (Exception e) {
-            return false;
-        } finally {
-            if (conn != null) {
-                conn.disconnect();
-            }
-        }
-    }
 }

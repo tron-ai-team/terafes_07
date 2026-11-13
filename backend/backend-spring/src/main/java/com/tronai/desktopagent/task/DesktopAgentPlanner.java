@@ -832,6 +832,7 @@ public class DesktopAgentPlanner {
         return switch (profile) {
             case FAST -> AiMode.FAST;
             case SMART, QUALITY -> AiMode.SMART;
+            case CLOUD -> AiMode.CLOUD;
             case ULTRA -> AiMode.ULTRA;
             case AUTO -> AiMode.AUTO;
         };

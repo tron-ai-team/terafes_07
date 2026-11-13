@@ -475,6 +475,7 @@ public class ChatService {
             case FAST -> AiMode.FAST;
             case QUALITY -> AiMode.QUALITY;
             case SMART -> AiMode.SMART;
+            case CLOUD -> AiMode.CLOUD;
             case ULTRA -> AiMode.ULTRA;
             case AUTO -> AiMode.AUTO;
         };

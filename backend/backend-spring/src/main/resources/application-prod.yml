@@ -36,9 +36,14 @@ spring:
 
 ollama:
   # Optional in phase-1 core deploy; AI node / cloud keys integrate later.
+  # RTX Tailscale Serve: set OLLAMA_BASE_URL=https://<magicdns>, OLLAMA_CONNECT_IP,
+  # and OLLAMA_OVERRIDE_HOST=localhost:11434 (TLS verification remains enabled).
   base-url: ${OLLAMA_BASE_URL:http://127.0.0.1:11434}
   model: ${OLLAMA_MODEL:qwen3:8b}
   timeout-seconds: ${OLLAMA_TIMEOUT_SECONDS:180}
+  connect-ip: ${OLLAMA_CONNECT_IP:}
+  tls-server-name: ${OLLAMA_TLS_SERVER_NAME:}
+  override-host: ${OLLAMA_OVERRIDE_HOST:}
 
 stt:
   # Empty until RTX AI node; cloud Groq Whisper is used when GROQ_API_KEY is set.

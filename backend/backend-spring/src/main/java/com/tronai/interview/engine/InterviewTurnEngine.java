@@ -87,6 +87,7 @@ public class InterviewTurnEngine {
         return switch (profile) {
             case ULTRA -> AiProfile.ULTRA;
             case SMART, AUTO -> AiProfile.SMART;
+            case CLOUD -> AiProfile.CLOUD;
             case FAST, QUALITY -> AiProfile.SMART;
         };
     }

@@ -195,11 +195,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [backendStatus, setBackendStatus] = useState<'checking' | 'connected' | 'offline'>('checking');
   const [backendMessage, setBackendMessage] = useState('Connecting to TRON Core backend at localhost:8080...');
 
-  // Centralized AI Mode State (AUTO | FAST | SMART | ULTRA)
+  // Centralized AI Mode State (FAST | SMART | CLOUD | ULTRA | AUTO)
   const [selectedAiMode, setSelectedAiModeState] = useState<AiMode>(() => {
     try {
       const saved = localStorage.getItem(AI_MODE_STORAGE_KEY);
-      if (saved && ['AUTO', 'FAST', 'SMART', 'ULTRA'].includes(saved)) {
+      if (saved && ['AUTO', 'FAST', 'SMART', 'CLOUD', 'ULTRA'].includes(saved)) {
         return saved as AiMode;
       }
     } catch {}
@@ -264,7 +264,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const upper = profile.toUpperCase();
     if (upper === 'QUALITY') setSelectedAiModeState('SMART');
     else if (upper === 'FAST') setSelectedAiModeState('FAST');
-    else if (['AUTO', 'FAST', 'SMART', 'ULTRA'].includes(upper)) setSelectedAiModeState(upper as AiMode);
+    else if (['AUTO', 'FAST', 'SMART', 'CLOUD', 'ULTRA'].includes(upper)) setSelectedAiModeState(upper as AiMode);
 
     if (user && accessToken) {
       void authApi.updateSettings({ preferredAiProfile: profile }).catch(() => {});
@@ -341,6 +341,39 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         if (modes.ultraProvider) {
           AI_MODES.ULTRA.provider = modes.ultraProvider;
         }
+      }
+
+      // Sync genuine Fast / Smart / Cloud availability from gateway (no fake online status).
+      if (typeof modes?.fastAvailable === 'boolean') {
+        AI_MODES.FAST.available = modes.fastAvailable;
+        AI_MODES.FAST.status = modes.fastAvailable ? 'Available' : 'Unavailable';
+      }
+      if (typeof modes?.smartAvailable === 'boolean') {
+        AI_MODES.SMART.available = modes.smartAvailable;
+        AI_MODES.SMART.status = modes.smartAvailable ? 'Available' : 'Unavailable';
+        if (!modes.smartAvailable) {
+          AI_MODES.SMART.reasonUnavailable =
+            'RTX Ollama is offline or Smart mode is not reachable.';
+        } else {
+          delete AI_MODES.SMART.reasonUnavailable;
+        }
+      }
+      if (typeof modes?.cloudAvailable === 'boolean') {
+        AI_MODES.CLOUD.available = modes.cloudAvailable;
+        AI_MODES.CLOUD.status = modes.cloudAvailable ? 'Available' : 'Unavailable';
+      }
+      if (modes?.smartModelId) {
+        AI_MODES.SMART.model = modes.smartModelId;
+      }
+      if (modes?.smartProvider) {
+        AI_MODES.SMART.provider =
+          modes.smartProvider === 'OLLAMA' ? 'RTX Ollama' : String(modes.smartProvider);
+      }
+      if (modes?.rtxSmartModeEnabled === true && modes?.gtxFastModeEnabled !== true) {
+        AI_MODES.FAST.available = false;
+        AI_MODES.FAST.status = 'Unavailable';
+        AI_MODES.FAST.reasonUnavailable = 'GTX Fast server is not configured yet.';
+        setSelectedAiModeState((current) => (current === 'FAST' ? 'SMART' : current));
       }
     } catch {
       // modes endpoint may be unauthenticated-ok; ignore soft failures
@@ -469,7 +502,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
       if (settings.preferredAiProfile) {
         const upper = settings.preferredAiProfile.toUpperCase();
-        if (['AUTO', 'FAST', 'SMART', 'ULTRA'].includes(upper)) {
+        if (['AUTO', 'FAST', 'SMART', 'CLOUD', 'ULTRA'].includes(upper)) {
           setSelectedAiModeState(upper as AiMode);
           setPreferredAiProfileState(mapAiModeToBackendProfile(upper as AiMode) as AiProfile);
         } else if (upper === 'QUALITY') {

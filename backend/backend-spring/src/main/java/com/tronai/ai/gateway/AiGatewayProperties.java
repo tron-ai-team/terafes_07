@@ -42,6 +42,19 @@ public class AiGatewayProperties {
     /** Prefer Groq ahead of OpenRouter for SMART when Groq is configured. */
     private boolean preferGroqForSmart = true;
     /**
+     * When true, SMART (and QUALITY alias) route exclusively to RTX Ollama
+     * ({@link #rtxSmartModel}) with no paid cloud fallback.
+     * Default false preserves existing production SMART → cloud behavior.
+     */
+    private boolean rtxSmartModeEnabled = false;
+    /** Ollama model used for SMART when {@link #rtxSmartModeEnabled} is true. */
+    private String rtxSmartModel = "qwen3.5:9b-q4_K_M";
+    /**
+     * When true (and RTX exhibition routing is active), FAST may use the future GTX path.
+     * When false while RTX smart mode is on, FAST returns a genuine unavailable state.
+     */
+    private boolean gtxFastModeEnabled = false;
+    /**
      * When true (default), CV Magic Fill / AI Assist use cloud SMART via AiGateway
      * (same production path as Chat / Interview). Set false or request localOnly=true for Ollama-only.
      */
@@ -108,6 +121,12 @@ public class AiGatewayProperties {
 
     public boolean isPreferGroqForSmart() { return preferGroqForSmart; }
     public void setPreferGroqForSmart(boolean preferGroqForSmart) { this.preferGroqForSmart = preferGroqForSmart; }
+    public boolean isRtxSmartModeEnabled() { return rtxSmartModeEnabled; }
+    public void setRtxSmartModeEnabled(boolean rtxSmartModeEnabled) { this.rtxSmartModeEnabled = rtxSmartModeEnabled; }
+    public String getRtxSmartModel() { return rtxSmartModel; }
+    public void setRtxSmartModel(String rtxSmartModel) { this.rtxSmartModel = rtxSmartModel; }
+    public boolean isGtxFastModeEnabled() { return gtxFastModeEnabled; }
+    public void setGtxFastModeEnabled(boolean gtxFastModeEnabled) { this.gtxFastModeEnabled = gtxFastModeEnabled; }
     public boolean isCvAssistCloudEnabled() { return cvAssistCloudEnabled; }
     public void setCvAssistCloudEnabled(boolean cvAssistCloudEnabled) { this.cvAssistCloudEnabled = cvAssistCloudEnabled; }
     public boolean isCompanyAnalysisCloudEnabled() { return companyAnalysisCloudEnabled; }

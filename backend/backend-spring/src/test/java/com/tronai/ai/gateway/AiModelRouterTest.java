@@ -106,6 +106,50 @@ class AiModelRouterTest {
     }
 
     @Test
+    @DisplayName("RTX smart mode routes SMART exclusively to Ollama RTX model")
+    void rtxSmartModeUsesOllamaOnly() {
+        properties.setRtxSmartModeEnabled(true);
+        properties.setRtxSmartModel("qwen3.5:9b-q4_K_M");
+        AiRequestContext context = AiRequestContext.builder().feature(AiFeature.CHAT).build();
+        AiModelRouter.Route route = router.resolveRoute(context, AiMode.SMART);
+        assertThat(route.provider()).isEqualTo(GatewayProviderId.OLLAMA);
+        assertThat(route.modelId()).isEqualTo("qwen3.5:9b-q4_K_M");
+        assertThat(router.fallbackCandidates(context, AiMode.SMART)).isEmpty();
+    }
+
+    @Test
+    @DisplayName("RTX smart mode fails closed when Ollama is offline (no cloud fallback)")
+    void rtxSmartModeFailsWhenOllamaOffline() {
+        properties.setRtxSmartModeEnabled(true);
+        properties.setRtxSmartModel("qwen3.5:9b-q4_K_M");
+        when(ollamaProvider.health()).thenReturn(ProviderHealthStatus.UNAVAILABLE);
+        AiRequestContext context = AiRequestContext.builder().feature(AiFeature.CHAT).build();
+        assertThatThrownBy(() -> router.resolveRoute(context, AiMode.SMART))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("RTX Ollama");
+    }
+
+    @Test
+    @DisplayName("CLOUD mode uses cloud providers and never Ollama as primary")
+    void cloudModeUsesCloudProviders() {
+        AiRequestContext context = AiRequestContext.builder().feature(AiFeature.CHAT).build();
+        AiModelRouter.Route route = router.resolveRoute(context, AiMode.CLOUD);
+        assertThat(route.provider()).isEqualTo(GatewayProviderId.GROQ);
+        assertThat(route.modelId()).isEqualTo("groq-smart");
+    }
+
+    @Test
+    @DisplayName("FAST unavailable under RTX exhibition mode when GTX not enabled")
+    void fastUnavailableWhenGtxNotConfigured() {
+        properties.setRtxSmartModeEnabled(true);
+        properties.setGtxFastModeEnabled(false);
+        AiRequestContext context = AiRequestContext.builder().feature(AiFeature.CHAT).build();
+        assertThatThrownBy(() -> router.resolveRoute(context, AiMode.FAST))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("GTX");
+    }
+
+    @Test
     @DisplayName("SMART prefers OpenRouter when preferGroqForSmart=false")
     void smartPrefersOpenRouterWhenConfigured() {
         properties.setPreferGroqForSmart(false);

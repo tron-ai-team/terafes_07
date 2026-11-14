@@ -52,11 +52,26 @@ export const SettingsPage: React.FC = () => {
           preferredLanguage: selectedLanguage,
           preferredAiProfile: selectedAiMode,
         });
-      } catch {
-        // ignore
+        addToast(
+          uiLocale === 'ja' ? '設定を正常に保存しました' : 'Preferences saved successfully',
+          'success'
+        );
+      } catch (err: any) {
+        addToast(
+          err?.detail ||
+            err?.message ||
+            (uiLocale === 'ja'
+              ? '設定の保存に失敗しました'
+              : 'Failed to save preferences to server'),
+          'error'
+        );
       }
+    } else {
+      addToast(
+        uiLocale === 'ja' ? 'ローカル設定を更新しました' : 'Local preferences updated',
+        'success'
+      );
     }
-    addToast('Preferences saved successfully', 'success');
   };
 
   const getModeIcon = (mode: AiMode) => {
@@ -75,7 +90,7 @@ export const SettingsPage: React.FC = () => {
   };
 
   return (
-    <div className="max-w-4xl mx-auto w-full space-y-6 select-none py-2">
+    <div className="max-w-4xl mx-auto w-full space-y-6 select-none py-2 pb-24 md:pb-6">
       <div>
         <h1 className="text-2xl md:text-3xl font-extrabold text-slate-900 font-display tracking-tight">
           Settings & Preferences

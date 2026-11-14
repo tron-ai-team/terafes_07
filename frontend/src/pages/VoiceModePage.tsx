@@ -669,7 +669,7 @@ export const VoiceModePage: React.FC = () => {
   return (
     <div className="relative flex-1 flex flex-col justify-between items-center max-w-4xl mx-auto w-full min-h-[calc(100dvh-5.5rem)] md:h-[calc(100vh-6rem)] select-none py-3 sm:py-4 text-center">
       {/* Top Bar: Mode Selector & Live Status Pill */}
-      <div className="flex flex-wrap items-center justify-center gap-3">
+      <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-3">
         {/* Auto / Manual Segmented Toggle */}
         <div className="flex items-center p-1 rounded-full bg-white/90 border border-[#E2EEF8] shadow-2xs">
           <button
@@ -683,7 +683,7 @@ export const VoiceModePage: React.FC = () => {
                 'info'
               );
             }}
-            className={`flex items-center gap-1.5 px-3.5 py-1 rounded-full text-xs font-bold transition-all ${
+            className={`flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3.5 py-1 rounded-full text-xs font-bold transition-all ${
               voiceMode === 'auto'
                 ? 'bg-gradient-to-r from-[#00DFFF] to-[#008CFF] text-white shadow-xs'
                 : 'text-slate-600 hover:text-slate-900'
@@ -691,7 +691,7 @@ export const VoiceModePage: React.FC = () => {
           >
             <Radio className="w-3 h-3" />
             <span>Auto Mode</span>
-            <span className="text-[10px] opacity-80">(Hands-free)</span>
+            <span className="text-[10px] opacity-80 hidden sm:inline">(Hands-free)</span>
           </button>
           <button
             type="button"
@@ -704,7 +704,7 @@ export const VoiceModePage: React.FC = () => {
                 'info'
               );
             }}
-            className={`flex items-center gap-1.5 px-3.5 py-1 rounded-full text-xs font-bold transition-all ${
+            className={`flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3.5 py-1 rounded-full text-xs font-bold transition-all ${
               voiceMode === 'manual'
                 ? 'bg-gradient-to-r from-[#00DFFF] to-[#008CFF] text-white shadow-xs'
                 : 'text-slate-600 hover:text-slate-900'
@@ -716,7 +716,7 @@ export const VoiceModePage: React.FC = () => {
         </div>
 
         {/* Live Audio Stream Status Indicator */}
-        <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/80 border border-[#E2EEF8] text-xs font-semibold text-slate-600 shadow-2xs">
+        <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-white/80 border border-[#E2EEF8] text-xs font-semibold text-slate-600 shadow-2xs">
           <span
             className={`w-2 h-2 rounded-full ${
               isActive ? 'bg-cyan-400 animate-ping' : 'bg-slate-300'
@@ -735,12 +735,12 @@ export const VoiceModePage: React.FC = () => {
       </div>
 
       {/* Centerpiece: Glowing TRON AI Logo inside animated concentric HUD circles */}
-      <div className="relative flex flex-col items-center justify-center my-auto">
+      <div className="relative flex flex-col items-center justify-center my-auto py-2">
         <div className="relative flex items-center justify-center">
           <HUDCircle
             size={340}
             animate={isActive}
-            className="w-[220px] h-[220px] sm:w-[280px] sm:h-[280px] md:w-[340px] md:h-[340px]"
+            className="w-[170px] h-[170px] sm:w-[220px] sm:h-[220px] md:w-[340px] md:h-[340px]"
           />
           <div className="absolute inset-0 flex items-center justify-center">
             <TronLogo
@@ -752,7 +752,7 @@ export const VoiceModePage: React.FC = () => {
         </div>
 
         {/* Dynamic Voice Status Heading */}
-        <h2 className="mt-6 text-xl md:text-2xl font-black font-display tracking-tight text-slate-900">
+        <h2 className="mt-3 sm:mt-6 text-lg sm:text-xl md:text-2xl font-black font-display tracking-tight text-slate-900">
           {getStatusText()}
         </h2>
 
@@ -808,7 +808,7 @@ export const VoiceModePage: React.FC = () => {
       {/* Live Captions Sub-panel (collapsible) */}
       <div className="w-full max-w-xl mx-auto space-y-4">
         {showCaptions && (
-          <div className="p-4 rounded-2xl bg-white/90 backdrop-blur-xl border border-[#E2EEF8] shadow-sm max-h-36 overflow-y-auto text-xs text-left space-y-2">
+          <div className="p-3 sm:p-4 rounded-2xl bg-white/90 backdrop-blur-xl border border-[#E2EEF8] shadow-sm max-h-24 sm:max-h-36 overflow-y-auto text-xs text-left space-y-2">
             {captions.slice(-4).map((c, idx) => (
               <div key={idx} className="flex gap-2 items-start">
                 <span

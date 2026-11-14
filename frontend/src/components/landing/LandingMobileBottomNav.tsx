@@ -39,6 +39,7 @@ export const MobileBottomNav: React.FC = () => {
   }, []);
 
   const isHome = location.pathname === "/" || location.pathname === "/landing";
+  const isInterviewRoom = location.pathname === "/career/interview/room" || location.pathname === "/interview/room";
 
   const navItems = [
     {
@@ -56,43 +57,53 @@ export const MobileBottomNav: React.FC = () => {
     },
     {
       id: "chat",
-      label: isJa ? "チャット" : "Chat",
+      label: "Chat",
       icon: <AiChatIcon size={16} className="stroke-[2]" />,
       active: location.pathname.startsWith("/chat"),
       onClick: () => navigate("/chat"),
     },
     {
       id: "voice",
-      label: isJa ? "音声" : "Voice",
+      label: "Voice",
       icon: <AiVoiceIcon size={16} className="stroke-[2]" />,
       active: location.pathname.startsWith("/voice"),
       onClick: () => navigate("/voice"),
     },
     {
       id: "interview",
-      label: isJa ? "面接" : "Interview",
+      label: "Interview",
       icon: <InterviewPracticeIcon size={16} className="stroke-[2]" />,
-      active: location.pathname.startsWith("/career/interview"),
+      active:
+        location.pathname.startsWith("/career/interview") ||
+        location.pathname.startsWith("/career/history") ||
+        location.pathname.startsWith("/interview") ||
+        location.pathname === "/history",
       onClick: () => navigate("/career/interview"),
     },
     {
       id: "cv",
-      label: isJa ? "履歴書" : "Create CV",
+      label: "Create CV",
       icon: <CreateCvIcon size={16} className="stroke-[2]" />,
-      active: location.pathname.startsWith("/career/cv-builder"),
+      active:
+        location.pathname.startsWith("/career/cv-builder") ||
+        location.pathname.startsWith("/career/cv") ||
+        location.pathname === "/cv",
       onClick: () => navigate("/career/cv-builder"),
     },
     {
       id: "profile",
       label: isJa ? "プロフィール" : "Profile",
       icon: <User size={16} className="stroke-[2]" />,
-      active: location.pathname.startsWith("/profile"),
+      active:
+        location.pathname.startsWith("/profile") ||
+        location.pathname.startsWith("/career/profile"),
       onClick: () => navigate("/profile"),
     },
   ];
 
-  if (isKeyboardVisible) {
-    return null; // Collapse completely while onscreen keyboard is open to give max space to composer & thread
+  // Hide dock completely when keyboard is visible OR when inside active interview room focus session
+  if (isKeyboardVisible || isInterviewRoom) {
+    return null;
   }
 
   return (

@@ -50,9 +50,9 @@ export const AppLayout: React.FC = () => {
       />
 
       {/* Main Content Area */}
-      <div className="relative z-10 flex-1 flex flex-col min-w-0 h-[100dvh] max-h-[100dvh] overflow-hidden md:overflow-y-auto">
+      <div className="relative z-10 flex-1 flex flex-col min-w-0 h-[100dvh] max-h-[100dvh] overflow-y-auto overflow-x-hidden">
         <TopBar onToggleMobileSidebar={() => setMobileOpen((prev) => !prev)} />
-        <main className="flex-1 p-2 sm:p-4 md:p-8 flex flex-col min-w-0 min-h-0 pb-[calc(3.5rem+env(safe-area-inset-bottom,0px))] md:pb-[max(1rem,env(safe-area-inset-bottom))]">
+        <main className="flex-1 p-2 sm:p-4 md:p-8 flex flex-col min-w-0 min-h-0 pb-[calc(4rem+env(safe-area-inset-bottom,0px))] md:pb-[max(1rem,env(safe-area-inset-bottom))]">
           <Outlet />
         </main>
       </div>

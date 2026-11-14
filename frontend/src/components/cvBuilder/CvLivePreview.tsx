@@ -107,14 +107,14 @@ export const CvLivePreview: React.FC<CvLivePreviewProps> = ({
         </div>
 
         {/* Toolbar: Zoom, Print, PDF Download */}
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
           {/* Zoom controls */}
-          <div className="hidden sm:flex items-center bg-slate-100 rounded-xl p-0.5 border border-slate-200 text-slate-600">
+          <div className="flex items-center bg-slate-100 rounded-xl p-0.5 border border-slate-200 text-slate-600">
             <button
               type="button"
               onClick={handleZoomOut}
-              disabled={zoomLevel <= 60}
-              className="p-1.5 hover:bg-white rounded-lg transition disabled:opacity-30"
+              disabled={zoomLevel <= 40}
+              className="p-1 sm:p-1.5 hover:bg-white rounded-lg transition disabled:opacity-30"
               title={ja ? '縮小' : 'Zoom Out'}
             >
               <ZoomOut className="w-3.5 h-3.5" />
@@ -122,7 +122,7 @@ export const CvLivePreview: React.FC<CvLivePreviewProps> = ({
             <button
               type="button"
               onClick={handleResetZoom}
-              className="px-2 py-1 text-xs font-mono font-semibold hover:bg-white rounded-lg transition"
+              className="px-1.5 sm:px-2 py-1 text-[11px] sm:text-xs font-mono font-semibold hover:bg-white rounded-lg transition"
               title={ja ? '倍率リセット' : 'Reset Zoom'}
             >
               {zoomLevel}%
@@ -131,7 +131,7 @@ export const CvLivePreview: React.FC<CvLivePreviewProps> = ({
               type="button"
               onClick={handleZoomIn}
               disabled={zoomLevel >= 150}
-              className="p-1.5 hover:bg-white rounded-lg transition disabled:opacity-30"
+              className="p-1 sm:p-1.5 hover:bg-white rounded-lg transition disabled:opacity-30"
               title={ja ? '拡大' : 'Zoom In'}
             >
               <ZoomIn className="w-3.5 h-3.5" />

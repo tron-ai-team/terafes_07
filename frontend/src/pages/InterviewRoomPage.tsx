@@ -1152,16 +1152,16 @@ export const InterviewRoomPage: React.FC = () => {
   return (
     <div className="relative flex-1 flex flex-col justify-between max-w-6xl mx-auto w-full select-none py-1 min-w-0">
       {/* Top Status Bar: Mode, Company, Question Counter, Timer */}
-      <GlassCard className="px-5 py-3 mb-3 flex flex-wrap items-center justify-between gap-4">
+      <GlassCard className="px-3 sm:px-5 py-2 sm:py-3 mb-2 sm:mb-3 flex flex-wrap items-center justify-between gap-2 sm:gap-4">
         {/* Company & Role */}
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-blue-500/10 border border-blue-200 text-blue-600 flex items-center justify-center font-bold text-xs shrink-0">
+        <div className="flex items-center gap-2 sm:gap-3">
+          <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-blue-500/10 border border-blue-200 text-blue-600 flex items-center justify-center font-bold text-xs shrink-0">
             AI
           </div>
           <div>
-            <div className="font-bold text-sm text-slate-800 flex items-center gap-2">
-              <span>{interviewConfig.companyName}</span>
-              <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-blue-100/70 text-blue-700">
+            <div className="font-bold text-xs sm:text-sm text-slate-800 flex items-center gap-1.5 sm:gap-2">
+              <span className="truncate max-w-[140px] sm:max-w-none">{interviewConfig.companyName}</span>
+              <span className="px-1.5 sm:px-2 py-0.5 rounded-full text-[9px] sm:text-[10px] font-semibold bg-blue-100/70 text-blue-700">
                 {interviewConfig.type.toUpperCase()}
               </span>
               <AiProfileSelector
@@ -1171,38 +1171,38 @@ export const InterviewRoomPage: React.FC = () => {
                 compact
               />
             </div>
-            <div className="text-xs text-slate-500 mt-0.5">{interviewConfig.jobPosition}</div>
+            <div className="text-[11px] sm:text-xs text-slate-500 mt-0.5 truncate max-w-[180px] sm:max-w-none">{interviewConfig.jobPosition}</div>
           </div>
         </div>
 
         {/* Auto / Manual Mode Toggle */}
-        <div className="flex items-center p-1 rounded-full bg-slate-100/80 border border-[#E2EEF8] shadow-2xs">
+        <div className="flex items-center p-0.5 sm:p-1 rounded-full bg-slate-100/80 border border-[#E2EEF8] shadow-2xs">
           <button
             type="button"
             onClick={() => handleSwitchMode('auto')}
-            className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold transition-all ${interviewMode === 'auto'
+            className={`flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1 rounded-full text-[11px] sm:text-xs font-bold transition-all ${interviewMode === 'auto'
                 ? 'bg-gradient-to-r from-[#00DFFF] to-[#008CFF] text-white shadow-xs'
                 : 'text-slate-600 hover:text-slate-900'
               }`}
           >
             <Radio className="w-3 h-3" />
-            <span>Auto Mode</span>
+            <span>Auto</span>
           </button>
           <button
             type="button"
             onClick={() => handleSwitchMode('manual')}
-            className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold transition-all ${interviewMode === 'manual'
+            className={`flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1 rounded-full text-[11px] sm:text-xs font-bold transition-all ${interviewMode === 'manual'
                 ? 'bg-gradient-to-r from-[#00DFFF] to-[#008CFF] text-white shadow-xs'
                 : 'text-slate-600 hover:text-slate-900'
               }`}
           >
             <Hand className="w-3 h-3" />
-            <span>Manual Mode</span>
+            <span>Manual</span>
           </button>
         </div>
 
         {/* Question Counter & Status */}
-        <div className="flex items-center gap-5 text-xs font-semibold">
+        <div className="flex items-center gap-3 sm:gap-5 text-xs font-semibold">
           <div className="flex items-center gap-1.5 text-slate-600">
             <span className="text-slate-400">Q:</span>
             <span className="text-blue-600 font-extrabold text-sm">
@@ -1269,22 +1269,23 @@ export const InterviewRoomPage: React.FC = () => {
           <HUDCircle
             size={180}
             animate={aiState === 'thinking' || aiState === 'listening'}
-            className="w-[160px] h-[160px] md:w-[180px] md:h-[180px]"
+            className="w-[110px] h-[110px] sm:w-[140px] sm:h-[140px] md:w-[180px] md:h-[180px]"
           />
           <div className="absolute inset-0 flex items-center justify-center">
-            <TronLogo size="lg" state={aiState} showGlow />
+            <TronLogo size="md" className="sm:hidden" state={aiState} showGlow />
+            <TronLogo size="lg" className="hidden sm:block" state={aiState} showGlow />
           </div>
         </div>
 
         {/* AI Status Caption */}
-        <p className="mt-2 text-xs font-semibold font-mono tracking-wider text-slate-500 uppercase flex items-center gap-2">
+        <p className="mt-1.5 sm:mt-2 text-[11px] sm:text-xs font-semibold font-mono tracking-wider text-slate-500 uppercase flex items-center gap-1.5">
           <span>●</span>
           <span>{statusMessage}</span>
         </p>
 
         {/* Active Audio Waveform bars when speaking or listening */}
         {(isRecording || aiState === 'speaking') && (
-          <div className="flex items-center gap-1.5 mt-2 h-6">
+          <div className="flex items-center gap-1.5 mt-1 sm:mt-2 h-5 sm:h-6">
             {audioMeterLevels.map((lvl, idx) => (
               <div
                 key={idx}
@@ -1300,7 +1301,7 @@ export const InterviewRoomPage: React.FC = () => {
 
         {/* Auto Mode Speech Pill */}
         {interviewMode === 'auto' && isRecording && (
-          <div className="mt-2 inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full text-[11px] font-semibold border bg-white/90 border-[#D6E6F7] text-slate-600 shadow-2xs">
+          <div className="mt-1.5 sm:mt-2 inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full text-[10px] sm:text-[11px] font-semibold border bg-white/90 border-[#D6E6F7] text-slate-600 shadow-2xs">
             {isSpeechDetected ? (
               <>
                 <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
@@ -1341,33 +1342,33 @@ export const InterviewRoomPage: React.FC = () => {
         )}
 
         {/* Current Question Panel */}
-        <div className="w-full max-w-3xl mt-3">
-          <GlassCard className="p-5 md:p-6 text-center border-blue-200/80 shadow-md shadow-blue-500/5 relative overflow-hidden">
-            <div className="absolute top-3 left-4 flex items-center gap-2">
-              <span className="px-2.5 py-0.5 rounded-md text-[10px] font-bold bg-blue-100 text-blue-700">
+        <div className="w-full max-w-3xl mt-2 sm:mt-3">
+          <GlassCard className="p-4 sm:p-5 md:p-6 text-center border-blue-200/80 shadow-md shadow-blue-500/5 relative overflow-hidden">
+            <div className="absolute top-2.5 sm:top-3 left-3 sm:left-4 flex items-center gap-1.5 sm:gap-2">
+              <span className="px-2 sm:px-2.5 py-0.5 rounded-md text-[9px] sm:text-[10px] font-bold bg-blue-100 text-blue-700">
                 {currentQ.categoryJa || '面接質問'}
               </span>
-              <span className="text-[11px] text-slate-400 font-medium">
+              <span className="text-[10px] sm:text-[11px] text-slate-400 font-medium">
                 Q{currentQIndex + 1}
               </span>
             </div>
 
             <button
               onClick={() => setShowEnglishTranslation(!showEnglishTranslation)}
-              className="absolute top-3 right-4 flex items-center gap-1 text-[11px] text-blue-600 hover:text-blue-800 font-semibold bg-blue-50 px-2.5 py-1 rounded-lg border border-blue-100 transition-colors"
+              className="absolute top-2.5 sm:top-3 right-3 sm:right-4 flex items-center gap-1 text-[10px] sm:text-[11px] text-blue-600 hover:text-blue-800 font-semibold bg-blue-50 px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-lg border border-blue-100 transition-colors"
             >
-              <Languages className="w-3.5 h-3.5" />
+              <Languages className="w-3 sm:w-3.5 h-3 sm:h-3.5" />
               <span>{showEnglishTranslation ? '日本語のみ' : 'English Translation'}</span>
             </button>
 
             {/* Real Japanese AI Question */}
-            <h2 className="text-xl md:text-2xl font-bold text-slate-900 leading-relaxed font-display mt-4">
+            <h2 className="text-base sm:text-xl md:text-2xl font-bold text-slate-900 leading-relaxed font-display mt-5 sm:mt-4">
               「{displayQuestionJa}」
             </h2>
 
             {/* Optional English translation */}
             {showEnglishTranslation && currentQ.textEn && (
-              <p className="text-sm text-slate-500 mt-3 pt-3 border-t border-slate-100 italic">
+              <p className="text-xs sm:text-sm text-slate-500 mt-2 sm:mt-3 pt-2 sm:pt-3 border-t border-slate-100 italic">
                 "{currentQ.textEn}"
               </p>
             )}
@@ -1459,7 +1460,7 @@ export const InterviewRoomPage: React.FC = () => {
           </button>
 
           {showTranscriptPanel && (
-            <div className="p-3 max-h-36 overflow-y-auto space-y-2 text-xs border-t border-[#E2EEF8]">
+            <div className="p-2.5 sm:p-3 max-h-24 sm:max-h-36 overflow-y-auto space-y-2 text-xs border-t border-[#E2EEF8]">
               {transcript.map((msg) => (
                 <div
                   key={msg.id}

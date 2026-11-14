@@ -12,7 +12,7 @@ import type {
   RirekishoValidationResult,
 } from '../../templates/rirekishoCanonicalTemplate';
 
-export type CvBuilderTab = 'editor' | 'preview' | 'split';
+export type CvBuilderTab = 'editor' | 'preview' | 'split' | 'drafts';
 
 export type CvEditorSection =
   | 'personal'

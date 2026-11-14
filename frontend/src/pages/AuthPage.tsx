@@ -138,7 +138,7 @@ export const AuthPage: React.FC = () => {
   };
 
   return (
-    <div className="relative min-h-screen flex items-center justify-center p-4 md:p-6 bg-[#F8FCFF] overflow-hidden select-none">
+    <div className="relative min-h-[100dvh] flex items-center justify-center p-3 sm:p-4 md:p-6 bg-[#F8FCFF] overflow-y-auto select-none py-6">
       {/* Background Ambience */}
       <div
         className="fixed inset-0 pointer-events-none bg-cover bg-center select-none opacity-90"

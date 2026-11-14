@@ -62,7 +62,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onStartForFree }) => {
   return (
     <section
       id="hero"
-      className="relative w-full flex-1 flex flex-col justify-center pt-16 sm:pt-20 lg:pt-16 pb-4 sm:pb-6 overflow-x-hidden min-w-0 bg-transparent"
+      className="relative w-full flex-1 flex flex-col justify-between pt-12 sm:pt-14 lg:pt-16 pb-0 overflow-x-hidden min-w-0 bg-transparent"
       aria-label="TRON AI Master Hero"
     >
       {/* ══════════════════════════════════════════════════════════════════════
@@ -70,16 +70,17 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onStartForFree }) => {
           Faithful reconstruction matching the target mobile design reference:
           Header -> Badge -> Headline -> Subtitle -> Robot Hero ->
           3 Benefit Pills -> Full-width CTA -> 2x2 Feature Cards Grid
+          Adaptive Single-Screen Viewport Optimized
           ══════════════════════════════════════════════════════════════════════ */}
-      <div className="lg:hidden w-full max-w-md mx-auto px-4 pt-4 sm:pt-6 pb-2 text-center z-20 flex flex-col items-center">
+      <div className="lg:hidden w-full max-w-md mx-auto px-3.5 sm:px-4 pt-1 sm:pt-1.5 pb-0 text-center z-20 flex flex-col items-center justify-between flex-1 min-h-0">
         {/* Top Badge: ✦ ★ オールインワン AI アシスタント */}
-        <div className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full tron-liquid-pill text-[11px] sm:text-xs font-bold text-slate-800 tracking-wide shadow-2xs mb-2.5">
-          <Sparkles className="w-3.5 h-3.5 text-cyan-500 fill-cyan-400/30" />
+        <div className="inline-flex items-center gap-1 px-2.5 py-0.5 sm:px-3 sm:py-1 rounded-full tron-liquid-pill text-[10px] sm:text-[11px] font-bold text-slate-800 tracking-wide shadow-2xs mb-1 sm:mb-1.5 shrink-0">
+          <Sparkles className="w-3 h-3 text-cyan-500 fill-cyan-400/30" />
           <span>{t.hero.badge}</span>
         </div>
 
         {/* Main Mobile Japanese / English Headline */}
-        <h1 className="text-[25px] sm:text-3xl font-black font-heading tracking-tight leading-[1.22] text-slate-950 mb-2">
+        <h1 className="text-[19px] xs:text-[21px] sm:text-[24px] font-black font-heading tracking-tight leading-[1.18] text-slate-950 mb-1 sm:mb-1.5 shrink-0">
           <span className="block text-slate-950">{t.hero.titlePart1}</span>
           <span className="block bg-gradient-to-r from-blue-600 via-blue-500 to-cyan-400 bg-clip-text text-transparent mt-0.5">
             {t.hero.titleHighlight1}
@@ -87,7 +88,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onStartForFree }) => {
         </h1>
 
         {/* Supporting Description */}
-        <p className="text-xs sm:text-[13px] text-slate-600 leading-relaxed font-normal max-w-sm mx-auto mb-2">
+        <p className="text-[10px] xs:text-[10.5px] sm:text-xs text-slate-600 leading-[1.3] font-normal max-w-xs sm:max-w-sm mx-auto mb-1 sm:mb-1.5 line-clamp-2 shrink-0">
           {t.hero.description}
         </p>
 
@@ -95,18 +96,19 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onStartForFree }) => {
         {/*
           Houses the single master video element.
           On mobile (< lg): Contained between description and benefit cards with glowing pedestal aura.
+          Adaptive flex-1 sizing ensures complete single-screen fit across mobile viewports.
           On desktop (>= lg): Transitions via lg:fixed lg:inset-0 into the cinematic background layer.
         */}
-        <div className="relative w-full max-w-[360px] sm:max-w-[400px] h-[260px] sm:h-[300px] mx-auto my-1 flex items-center justify-center lg:contents">
+        <div className="relative w-full max-w-[320px] sm:max-w-[360px] flex-1 min-h-[110px] max-h-[190px] h-[clamp(115px,17vh,185px)] mx-auto my-0.5 sm:my-1 flex items-center justify-center lg:contents">
           {/* Concentric Halo energy aura behind robot */}
           <div
-            className="lg:hidden absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[240px] h-[240px] rounded-full bg-cyan-400/20 blur-2xl pointer-events-none"
+            className="lg:hidden absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[clamp(140px,22vh,200px)] h-[clamp(140px,22vh,200px)] rounded-full bg-cyan-400/20 blur-2xl pointer-events-none"
             aria-hidden="true"
           />
 
           {/* Concentric rotating SVG rings accenting the robot & globe */}
           <div
-            className="lg:hidden absolute top-[44%] left-1/2 -translate-x-1/2 -translate-y-1/2 w-[250px] h-[250px] pointer-events-none z-10 opacity-75"
+            className="lg:hidden absolute top-[44%] left-1/2 -translate-x-1/2 -translate-y-1/2 w-[clamp(150px,24vh,210px)] h-[clamp(150px,24vh,210px)] pointer-events-none z-10 opacity-75"
             aria-hidden="true"
           >
             <svg viewBox="0 0 260 260" className="w-full h-full animate-[spin_40s_linear_infinite]">
@@ -136,7 +138,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onStartForFree }) => {
           {/* ── THE SINGLE MASTER VIDEO ELEMENT (No duplicates) ── */}
           <video
             ref={videoRef}
-            className="w-full h-full object-cover object-[50%_28%] rounded-3xl lg:rounded-none lg:fixed lg:inset-0 lg:w-full lg:h-full lg:object-center pointer-events-none z-0"
+            className="w-full h-full object-cover object-[50%_24%] rounded-2xl lg:rounded-none lg:fixed lg:inset-0 lg:w-full lg:h-full lg:object-center pointer-events-none z-0"
             autoPlay
             muted
             loop
@@ -151,72 +153,72 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onStartForFree }) => {
 
           {/* Subtle gradient fades top and bottom for smooth edge blending on mobile */}
           <div
-            className="lg:hidden absolute inset-x-0 top-0 h-10 bg-gradient-to-b from-[#EEFAFF] to-transparent pointer-events-none z-10"
+            className="lg:hidden absolute inset-x-0 top-0 h-6 bg-gradient-to-b from-[#EEFAFF] to-transparent pointer-events-none z-10"
             aria-hidden="true"
           />
           <div
-            className="lg:hidden absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-[#EEFAFF] to-transparent pointer-events-none z-10"
+            className="lg:hidden absolute inset-x-0 bottom-0 h-8 bg-gradient-to-t from-[#EEFAFF] to-transparent pointer-events-none z-10"
             aria-hidden="true"
           />
 
           {/* Glowing pedestal highlight at the base of the robot */}
           <div
-            className="lg:hidden absolute -bottom-1 inset-x-8 h-10 rounded-full bg-cyan-400/35 blur-lg pointer-events-none z-10"
+            className="lg:hidden absolute -bottom-1 inset-x-8 h-8 rounded-full bg-cyan-400/35 blur-lg pointer-events-none z-10"
             aria-hidden="true"
           />
         </div>
 
         {/* ── THREE BENEFIT PILLS ── */}
-        <div className="grid grid-cols-3 gap-2 w-full max-w-[380px] mx-auto my-2 px-0.5">
+        <div className="grid grid-cols-3 gap-1.5 sm:gap-2 w-full max-w-[380px] mx-auto my-1 sm:my-1.5 px-0.5 shrink-0">
           {/* Benefit 1 */}
-          <div className="flex flex-col items-center justify-center p-2 rounded-2xl tron-liquid-card text-center cursor-default shadow-xs">
-            <div className="w-7 h-7 rounded-lg bg-cyan-50/90 border border-cyan-200/80 flex items-center justify-center text-cyan-600 mb-1 shadow-2xs">
-              <BenefitFreeIcon size={15} className="stroke-[2]" />
+          <div className="flex flex-col items-center justify-center py-1 sm:py-1.5 px-1 rounded-xl sm:rounded-2xl tron-liquid-card text-center cursor-default shadow-xs">
+            <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg bg-cyan-50/90 border border-cyan-200/80 flex items-center justify-center text-cyan-600 mb-0.5 sm:mb-1 shadow-2xs">
+              <BenefitFreeIcon size={13} className="stroke-[2]" />
             </div>
-            <span className="text-[10px] sm:text-[11px] font-bold text-slate-800 leading-tight">
+            <span className="text-[9px] xs:text-[9.5px] sm:text-[10.5px] font-bold text-slate-800 leading-tight">
               {t.hero.badgeLocalCloud}
             </span>
           </div>
 
           {/* Benefit 2 */}
-          <div className="flex flex-col items-center justify-center p-2 rounded-2xl tron-liquid-card text-center cursor-default shadow-xs">
-            <div className="w-7 h-7 rounded-lg bg-blue-50/90 border border-blue-200/80 flex items-center justify-center text-blue-600 mb-1 shadow-2xs">
-              <BenefitBilingualIcon size={15} className="stroke-[1.9]" />
+          <div className="flex flex-col items-center justify-center py-1 sm:py-1.5 px-1 rounded-xl sm:rounded-2xl tron-liquid-card text-center cursor-default shadow-xs">
+            <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg bg-blue-50/90 border border-blue-200/80 flex items-center justify-center text-blue-600 mb-0.5 sm:mb-1 shadow-2xs">
+              <BenefitBilingualIcon size={13} className="stroke-[1.9]" />
             </div>
-            <span className="text-[10px] sm:text-[11px] font-bold text-slate-800 leading-tight">
+            <span className="text-[9px] xs:text-[9.5px] sm:text-[10.5px] font-bold text-slate-800 leading-tight">
               {t.hero.badgeJapaneseInterview}
             </span>
           </div>
 
           {/* Benefit 3 */}
-          <div className="flex flex-col items-center justify-center p-2 rounded-2xl tron-liquid-card text-center cursor-default shadow-xs">
-            <div className="w-7 h-7 rounded-lg bg-indigo-50/90 border border-indigo-200/80 flex items-center justify-center text-indigo-600 mb-1 shadow-2xs">
-              <BenefitModulesIcon size={15} className="stroke-[1.9]" />
+          <div className="flex flex-col items-center justify-center py-1 sm:py-1.5 px-1 rounded-xl sm:rounded-2xl tron-liquid-card text-center cursor-default shadow-xs">
+            <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg bg-indigo-50/90 border border-indigo-200/80 flex items-center justify-center text-indigo-600 mb-0.5 sm:mb-1 shadow-2xs">
+              <BenefitModulesIcon size={13} className="stroke-[1.9]" />
             </div>
-            <span className="text-[10px] sm:text-[11px] font-bold text-slate-800 leading-tight">
+            <span className="text-[9px] xs:text-[9.5px] sm:text-[10.5px] font-bold text-slate-800 leading-tight">
               {t.hero.badgeMultilingual}
             </span>
           </div>
         </div>
 
         {/* ── PRIMARY CTA BUTTON ── */}
-        <div className="w-full max-w-[380px] mx-auto my-2 px-0.5">
+        <div className="w-full max-w-[380px] mx-auto my-1 sm:my-1.5 px-0.5 shrink-0">
           <button
             type="button"
             onClick={handleLaunchPrimary}
             id="tron-mobile-launch-cta-button"
-            className="w-full py-3.5 px-6 rounded-full font-black text-xs sm:text-sm text-white tron-primary-cta flex items-center justify-center gap-2.5 shadow-[0_8px_24px_rgba(37,99,235,0.38)] active:scale-[0.98] transition-transform cursor-pointer"
+            className="w-full h-10 sm:h-11 px-5 rounded-full font-black text-xs sm:text-[13px] text-white tron-primary-cta flex items-center justify-center gap-2 shadow-[0_6px_20px_rgba(37,99,235,0.35)] active:scale-[0.98] transition-transform cursor-pointer"
           >
             <div className="w-5 h-5 rounded-full bg-white/20 flex items-center justify-center shrink-0">
               <Play className="w-2.5 h-2.5 fill-white text-white ml-0.5" />
             </div>
             <span className="tracking-wide font-bold">{t.hero.startForFree}</span>
-            <RefinedArrowRight size={15} className="stroke-[2.5]" />
+            <RefinedArrowRight size={14} className="stroke-[2.5]" />
           </button>
         </div>
 
         {/* ── FOUR MAIN FEATURE CARDS (2x2 GRID) ── */}
-        <div className="w-full max-w-[410px] mx-auto mt-2.5 mb-4">
+        <div className="w-full max-w-[410px] mx-auto mt-1 sm:mt-1.5 mb-1 shrink-0">
           <MobileFeatureCardsGrid onNavigate={handleNavigation} />
         </div>
       </div>

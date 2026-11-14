@@ -39,7 +39,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ defaultSection }) => {
   }, [defaultSection]);
 
   return (
-    <div className="landing-page relative min-h-screen min-h-[100dvh] overflow-x-hidden lg:overflow-hidden isolate bg-[#EEFAFF] text-slate-900 font-sans antialiased selection:bg-cyan-500/20 selection:text-blue-600 pb-20 sm:pb-24 lg:pb-0">
+    <div className="landing-page relative min-h-screen min-h-[100dvh] overflow-x-hidden overflow-y-auto lg:overflow-hidden isolate bg-[#EEFAFF] text-slate-900 font-sans antialiased selection:bg-cyan-500/20 selection:text-blue-600">
       {/* ── MOBILE BACKGROUND WAVES (Clean subtle cyan/blue waves, mobile-only) ── */}
       <MobileBackgroundWaves />
 
@@ -62,7 +62,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ defaultSection }) => {
       />
 
       {/* ── FOREGROUND USER INTERFACE LAYER ── */}
-      <div className="landing-content relative z-10 flex flex-col min-h-screen min-h-[100dvh] justify-between">
+      <div className="landing-content relative z-10 flex flex-col min-h-screen min-h-[100dvh] justify-between pb-[calc(3.4rem+env(safe-area-inset-bottom,0px))] lg:pb-0">
         {/* Floating Translucent Futuristic Navigation */}
         <LandingNavbar onSignIn={handleSignIn} onGetStarted={handleGetStarted} />
 

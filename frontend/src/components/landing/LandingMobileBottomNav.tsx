@@ -22,7 +22,7 @@ export const LandingMobileBottomNav: React.FC = () => {
     {
       id: "home",
       label: isJa ? "ホーム" : "Home",
-      icon: <NavHomeIcon size={18} className="stroke-[2.2]" />,
+      icon: <NavHomeIcon size={16} className="stroke-[2.2]" />,
       active: isHome,
       onClick: () => {
         if (location.pathname === "/" || location.pathname === "/landing") {
@@ -35,35 +35,35 @@ export const LandingMobileBottomNav: React.FC = () => {
     {
       id: "chat",
       label: "Chat",
-      icon: <AiChatIcon size={18} className="stroke-[2]" />,
+      icon: <AiChatIcon size={16} className="stroke-[2]" />,
       active: location.pathname.startsWith("/chat"),
       onClick: () => navigate("/chat"),
     },
     {
       id: "voice",
       label: "Voice",
-      icon: <AiVoiceIcon size={18} className="stroke-[2]" />,
+      icon: <AiVoiceIcon size={16} className="stroke-[2]" />,
       active: location.pathname.startsWith("/voice"),
       onClick: () => navigate("/voice"),
     },
     {
       id: "interview",
       label: "Interview",
-      icon: <InterviewPracticeIcon size={18} className="stroke-[2]" />,
+      icon: <InterviewPracticeIcon size={16} className="stroke-[2]" />,
       active: location.pathname.startsWith("/career/interview"),
       onClick: () => navigate("/career/interview"),
     },
     {
       id: "cv",
       label: "Create CV",
-      icon: <CreateCvIcon size={18} className="stroke-[2]" />,
+      icon: <CreateCvIcon size={16} className="stroke-[2]" />,
       active: location.pathname.startsWith("/career/cv-builder"),
       onClick: () => navigate("/career/cv-builder"),
     },
     {
       id: "profile",
       label: isJa ? "プロフィール" : "Profile",
-      icon: <User size={18} className="stroke-[2]" />,
+      icon: <User size={16} className="stroke-[2]" />,
       active: location.pathname.startsWith("/profile"),
       onClick: () => navigate("/profile"),
     },
@@ -72,7 +72,7 @@ export const LandingMobileBottomNav: React.FC = () => {
   return (
     <nav
       aria-label="Mobile Bottom Navigation"
-      className="fixed bottom-0 inset-x-0 z-40 lg:hidden bg-white/94 backdrop-blur-2xl border-t border-blue-100/90 shadow-[0_-6px_28px_rgba(0,50,140,0.07)] rounded-t-2xl sm:rounded-t-3xl pt-2 pb-[calc(0.5rem+env(safe-area-inset-bottom,0px))] px-1.5 transition-all duration-300"
+      className="fixed bottom-0 inset-x-0 z-40 lg:hidden bg-white/94 backdrop-blur-2xl border-t border-blue-100/90 shadow-[0_-6px_28px_rgba(0,50,140,0.07)] rounded-t-2xl sm:rounded-t-3xl pt-1 pb-[calc(0.35rem+env(safe-area-inset-bottom,0px))] px-1 transition-all duration-300"
     >
       <div className="max-w-md mx-auto grid grid-cols-6 gap-0.5 sm:gap-1 items-center justify-items-center">
         {navItems.map((item) => (
@@ -82,7 +82,7 @@ export const LandingMobileBottomNav: React.FC = () => {
             onClick={item.onClick}
             aria-label={item.label}
             aria-current={item.active ? "page" : undefined}
-            className={`flex flex-col items-center justify-center w-full py-1 px-0.5 rounded-xl transition-all duration-200 cursor-pointer ${
+            className={`flex flex-col items-center justify-center w-full py-0.5 px-0.5 rounded-xl transition-all duration-200 cursor-pointer ${
               item.active
                 ? "text-blue-600 font-bold"
                 : "text-slate-500 hover:text-slate-800 font-medium"
@@ -90,7 +90,7 @@ export const LandingMobileBottomNav: React.FC = () => {
           >
             {/* Active Pill container around Icon */}
             <div
-              className={`flex items-center justify-center w-9 h-7 rounded-full transition-all duration-200 ${
+              className={`flex items-center justify-center w-8 h-6 rounded-full transition-all duration-200 ${
                 item.active
                   ? "bg-blue-100/90 text-blue-600 shadow-2xs border border-blue-200/80"
                   : "text-slate-600 hover:bg-slate-100/60"
@@ -101,7 +101,7 @@ export const LandingMobileBottomNav: React.FC = () => {
 
             {/* Label below Icon */}
             <span
-              className={`text-[9.5px] sm:text-[10px] tracking-tight leading-none mt-1 truncate max-w-full ${
+              className={`text-[8.5px] sm:text-[9px] tracking-tight leading-none mt-0.5 truncate max-w-full ${
                 item.active ? "text-blue-600 font-bold" : "text-slate-600"
               }`}
             >

@@ -172,4 +172,78 @@ test.describe('TRON AI Mobile Homepage Reference Validation', () => {
     const videos = page.locator('video');
     await expect(videos).toHaveCount(1);
   });
+
+  test('adaptive single-screen viewport fit on 360x740, 375x812, 390x844, 430x932 without vertical scroll', async ({ page }) => {
+    const supportedViewports = [
+      { name: 'Compact Android', width: 360, height: 740 },
+      { name: 'Common iPhone', width: 375, height: 812 },
+      { name: 'iPhone', width: 390, height: 844 },
+      { name: 'iPhone Pro Max', width: 430, height: 932 },
+    ];
+
+    for (const vp of supportedViewports) {
+      await page.setViewportSize({ width: vp.width, height: vp.height });
+      await page.goto('/');
+
+      // Check scrollHeight <= clientHeight + 1 (no vertical page scroll)
+      const metrics = await page.evaluate(() => {
+        const doc = document.documentElement;
+        const body = document.body;
+        return {
+          scrollHeight: Math.max(doc.scrollHeight, body.scrollHeight),
+          clientHeight: window.innerHeight,
+        };
+      });
+
+      expect(metrics.scrollHeight, `${vp.name} (${vp.width}x${vp.height}) should fit in single viewport without scrolling`).toBeLessThanOrEqual(metrics.clientHeight + 1);
+
+      // Verify all 4 feature cards and CTA are inside the viewport bounds
+      const isInViewport = await page.evaluate(() => {
+        const cta = document.getElementById('tron-mobile-launch-cta-button');
+        const cvCard = Array.from(document.querySelectorAll('button')).find((b) =>
+          b.textContent?.includes('Create CV')
+        );
+        const chatCard = Array.from(document.querySelectorAll('button')).find((b) =>
+          b.textContent?.includes('AI Chat')
+        );
+        const bottomNav = document.querySelector('nav[aria-label="Mobile Bottom Navigation"]');
+
+        const checkInView = (el) => {
+          if (!el) return false;
+          const rect = el.getBoundingClientRect();
+          return rect.top >= 0 && rect.bottom <= window.innerHeight;
+        };
+
+        return {
+          cta: checkInView(cta),
+          chatCard: checkInView(chatCard),
+          cvCard: checkInView(cvCard),
+          bottomNav: checkInView(bottomNav),
+        };
+      });
+
+      expect(isInViewport.cta, `${vp.name}: CTA should be in viewport`).toBe(true);
+      expect(isInViewport.chatCard, `${vp.name}: AI Chat card should be in viewport`).toBe(true);
+      expect(isInViewport.cvCard, `${vp.name}: Create CV card should be in viewport`).toBe(true);
+      expect(isInViewport.bottomNav, `${vp.name}: Bottom nav should be in viewport`).toBe(true);
+    }
+  });
+
+  test('graceful fallback scrolling on very short screens (320x568) without content clipping', async ({ page }) => {
+    await page.setViewportSize({ width: 320, height: 568 });
+    await page.goto('/');
+
+    // Verify key elements exist and are accessible
+    await expect(page.locator('#tron-mobile-launch-cta-button')).toBeVisible();
+    await expect(page.locator('.lg\\:hidden').getByRole('heading', { name: 'AI Chat' })).toBeVisible();
+    await expect(page.locator('.lg\\:hidden').getByRole('heading', { name: 'Create CV' })).toBeVisible();
+    await expect(page.getByRole('navigation', { name: /mobile bottom navigation/i })).toBeVisible();
+
+    // Verify scrolling works without clipping
+    const canScroll = await page.evaluate(() => {
+      window.scrollTo(0, 100);
+      return window.scrollY > 0;
+    });
+    expect(canScroll).toBe(true);
+  });
 });

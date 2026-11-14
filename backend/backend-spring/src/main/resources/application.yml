@@ -186,6 +186,7 @@ tron:
       read-timeout-ms: ${TRON_SEARCH_SERPER_READ_TIMEOUT_MS:6000}
       daily-max-calls: ${TRON_SEARCH_SERPER_DAILY_MAX_CALLS:0}
       max-results: ${TRON_SEARCH_SERPER_MAX_RESULTS:5}
+      # Absolute persistent path required when Serper is enabled (relative = fail-closed).
       budget-ledger-path: ${TRON_SEARCH_SERPER_BUDGET_LEDGER:data/serper-daily-budget.ledger}
     groq-native:
       browser-search-enabled: ${TRON_SEARCH_GROQ_BROWSER_ENABLED:false}

@@ -41,7 +41,8 @@ public class SerperSearchClient {
     }
 
     public boolean isConfigured() {
-        return properties.getSerper().isReady();
+        // Fail-closed: properties ready AND durable ledger healthy.
+        return properties.getSerper().isReady() && budgetTracker.acceptsPaidSearches();
     }
 
     public ResearchToolStatus status() {
@@ -56,8 +57,10 @@ public class SerperSearchClient {
             return ProviderSearchOutcome.failed("SERPER", query, "error", "query required");
         }
         if (!budgetTracker.tryConsume()) {
-            return ProviderSearchOutcome.failed("SERPER", query, "unavailable",
-                    "Serper daily budget exhausted or zero");
+            String detail = budgetTracker.isFailClosed()
+                    ? ("Serper budget fail-closed: " + budgetTracker.failClosedReason())
+                    : "Serper daily budget exhausted, zero, or ledger unavailable";
+            return ProviderSearchOutcome.failed("SERPER", query, "unavailable", detail);
         }
 
         WebSearchProperties.Serper cfg = properties.getSerper();

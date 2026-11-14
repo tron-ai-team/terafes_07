@@ -49,8 +49,9 @@ class SerperSearchClientTest {
         properties.getSerper().setApiKey("test-key");
         properties.getSerper().setDailyMaxCalls(2);
         properties.getSerper().setBaseUrl("http://127.0.0.1:" + server.getAddress().getPort());
-        properties.getSerper().setBudgetLedgerPath(tempDir.resolve("serper.ledger").toString());
-        budget = new SerperBudgetTracker(properties, tempDir.resolve("serper.ledger"));
+        Path ledger = tempDir.resolve("serper.ledger").toAbsolutePath();
+        properties.getSerper().setBudgetLedgerPath(ledger.toString());
+        budget = new SerperBudgetTracker(properties, ledger);
         client = new SerperSearchClient(properties, new ObjectMapper(), budget);
     }
 

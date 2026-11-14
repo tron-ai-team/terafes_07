@@ -3,6 +3,8 @@ package com.tronai.ai.research.search;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.stereotype.Component;
 
+import java.nio.file.Path;
+
 /**
  * Backend Intelligence V1 web-search controls. Defaults keep current behavior (no search).
  */
@@ -222,7 +224,11 @@ public class WebSearchProperties {
         private int readTimeoutMs = 6000;
         private int dailyMaxCalls = 0;
         private int maxResults = 5;
-        /** Durable daily budget ledger path; survives process restarts. */
+        /**
+         * Durable daily budget ledger path. Paid Serper requires an <b>absolute</b> path on
+         * persistent storage (host mount / volume). Relative defaults are local/dev only and
+         * fail-closed for paid searches so container replacement cannot reset spend.
+         */
         private String budgetLedgerPath = "data/serper-daily-budget.ledger";
 
         public boolean isEnabled() {
@@ -290,7 +296,14 @@ public class WebSearchProperties {
         }
 
         public boolean isReady() {
-            return enabled && apiKey != null && !apiKey.isBlank() && dailyMaxCalls > 0;
+            if (!enabled || apiKey == null || apiKey.isBlank() || dailyMaxCalls <= 0) {
+                return false;
+            }
+            // Absolute ledger required — relative paths reset on container replace.
+            if (budgetLedgerPath == null || budgetLedgerPath.isBlank()) {
+                return false;
+            }
+            return Path.of(budgetLedgerPath).isAbsolute();
         }
     }
 

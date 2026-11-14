@@ -5,6 +5,7 @@ import { TopBar } from './TopBar';
 import { ToastContainer } from '../common/ToastContainer';
 import { UltraLimitModal } from '../common/UltraLimitModal';
 import { AdvancedAiSettingsModal } from '../settings/AdvancedAiSettingsModal';
+import { MobileBottomNav } from '../common/MobileBottomNav';
 
 export const AppLayout: React.FC = () => {
   const [collapsed, setCollapsed] = useState(false);
@@ -40,7 +41,7 @@ export const AppLayout: React.FC = () => {
         />
       )}
 
-      {/* Sidebar */}
+      {/* Sidebar (z-50 overlays mobile bottom navigation smoothly) */}
       <Sidebar
         collapsed={collapsed}
         setCollapsed={setCollapsed}
@@ -49,12 +50,15 @@ export const AppLayout: React.FC = () => {
       />
 
       {/* Main Content Area */}
-      <div className="relative z-10 flex-1 flex flex-col min-w-0 h-[100dvh] max-h-[100dvh] overflow-y-auto overflow-x-hidden">
+      <div className="relative z-10 flex-1 flex flex-col min-w-0 h-[100dvh] max-h-[100dvh] overflow-hidden md:overflow-y-auto">
         <TopBar onToggleMobileSidebar={() => setMobileOpen((prev) => !prev)} />
-        <main className="flex-1 p-3 sm:p-4 md:p-8 flex flex-col min-w-0 pb-[max(1rem,env(safe-area-inset-bottom))]">
+        <main className="flex-1 p-2 sm:p-4 md:p-8 flex flex-col min-w-0 min-h-0 pb-[calc(3.5rem+env(safe-area-inset-bottom,0px))] md:pb-[max(1rem,env(safe-area-inset-bottom))]">
           <Outlet />
         </main>
       </div>
+
+      {/* Fixed Mobile Bottom Navigation Bar (< lg / < md) */}
+      <MobileBottomNav />
 
       {/* Modals & Overlays */}
       <UltraLimitModal />

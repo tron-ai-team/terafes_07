@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { User } from "lucide-react";
 import {
@@ -10,11 +10,33 @@ import {
 } from "./TronIcons";
 import { useTranslation } from "../../hooks/useTranslation";
 
-export const LandingMobileBottomNav: React.FC = () => {
+export const MobileBottomNav: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { lang } = useTranslation();
   const isJa = lang === "ja";
+  const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
+
+  // Dynamic keyboard detection via visualViewport
+  useEffect(() => {
+    if (typeof window === "undefined" || !window.visualViewport) return;
+
+    const handleResize = () => {
+      const vv = window.visualViewport;
+      if (!vv) return;
+      // If visualViewport height is substantially smaller than window.innerHeight, keyboard is active
+      const keyboardOpen = window.innerHeight - vv.height > 120;
+      setIsKeyboardVisible(keyboardOpen);
+    };
+
+    window.visualViewport.addEventListener("resize", handleResize);
+    window.visualViewport.addEventListener("scroll", handleResize);
+
+    return () => {
+      window.visualViewport?.removeEventListener("resize", handleResize);
+      window.visualViewport?.removeEventListener("scroll", handleResize);
+    };
+  }, []);
 
   const isHome = location.pathname === "/" || location.pathname === "/landing";
 
@@ -34,28 +56,28 @@ export const LandingMobileBottomNav: React.FC = () => {
     },
     {
       id: "chat",
-      label: "Chat",
+      label: isJa ? "チャット" : "Chat",
       icon: <AiChatIcon size={16} className="stroke-[2]" />,
       active: location.pathname.startsWith("/chat"),
       onClick: () => navigate("/chat"),
     },
     {
       id: "voice",
-      label: "Voice",
+      label: isJa ? "音声" : "Voice",
       icon: <AiVoiceIcon size={16} className="stroke-[2]" />,
       active: location.pathname.startsWith("/voice"),
       onClick: () => navigate("/voice"),
     },
     {
       id: "interview",
-      label: "Interview",
+      label: isJa ? "面接" : "Interview",
       icon: <InterviewPracticeIcon size={16} className="stroke-[2]" />,
       active: location.pathname.startsWith("/career/interview"),
       onClick: () => navigate("/career/interview"),
     },
     {
       id: "cv",
-      label: "Create CV",
+      label: isJa ? "履歴書" : "Create CV",
       icon: <CreateCvIcon size={16} className="stroke-[2]" />,
       active: location.pathname.startsWith("/career/cv-builder"),
       onClick: () => navigate("/career/cv-builder"),
@@ -68,6 +90,10 @@ export const LandingMobileBottomNav: React.FC = () => {
       onClick: () => navigate("/profile"),
     },
   ];
+
+  if (isKeyboardVisible) {
+    return null; // Collapse completely while onscreen keyboard is open to give max space to composer & thread
+  }
 
   return (
     <nav
@@ -114,4 +140,5 @@ export const LandingMobileBottomNav: React.FC = () => {
   );
 };
 
-export default LandingMobileBottomNav;
+export const LandingMobileBottomNav = MobileBottomNav;
+export default MobileBottomNav;

@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "node init && vite",
     "test:ai-mode": "node ./scripts/verify-ai-mode-selection.mjs",
     "test:safe-return": "node ./scripts/verify-safe-return-to.mjs",
     "test:core-nav": "node ./scripts/verify-core-nav-contract.mjs",
@@ -16,7 +16,7 @@
     "test:e2e": "playwright test",
     "test:e2e:guest": "playwright test e2e/guest-routing.spec.ts --project=desktop-1440",
     "test:e2e:auth": "playwright test e2e/auth-chat.spec.ts --project=desktop-1440",
-    "build": "npm run test:contracts && tsc -b && vite build",
+    "build": "node init && npm run test:contracts && tsc -b && vite build",
     "preview": "vite preview"
   },
   "dependencies": {

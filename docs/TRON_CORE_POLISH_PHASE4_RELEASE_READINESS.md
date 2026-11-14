@@ -2,7 +2,7 @@
 
 **PR:** https://github.com/tron-ai-team/terafes_07/pull/26  
 **Branch:** `feature/tron-core-polish-20261114`  
-**Final commit SHA:** `e976431f83d00ad8808684a8edcfdeb5a757aa63`  
+**Final commit SHA:** `84514e1f6a970f67540acb9ad3b4b84dc2c83b05`  
 **Base:** `origin/main` @ `d9df8dea35ac09021f2e9472de01ca8111aaefc2`  
 **Merge / production deploy by this mission:** **NO — owner approval required**
 
@@ -10,15 +10,16 @@
 
 ## 1. Final commit SHA
 
-`e976431f83d00ad8808684a8edcfdeb5a757aa63`
+`84514e1f6a970f67540acb9ad3b4b84dc2c83b05` (Phase 4 readiness docs)
 
-Primary functional fix commit: `2f2d9430` (ChatService FAST → GTX gateway lock).
+Primary functional fix commit: `2f2d9430` (ChatService FAST → GTX gateway lock).  
+CI fully green on prior tip `e976431f` (all five required checks + Vercel). Docs-only tip re-runs CI — confirm green before merge.
 
 ---
 
-## 2. Required GitHub CI status (exact tip)
+## 2. Required GitHub CI status
 
-Verified against PR tip `e976431f` via `gh pr checks` / check-runs:
+Verified on `e976431f` via `gh pr checks` (all **pass**). Tip `84514e1f` is docs-only; reconfirm checks before merge:
 
 | Check | Status |
 |---|---|

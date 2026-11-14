@@ -40,6 +40,21 @@ public class OpenAiCompatibleClient {
             boolean jsonMode,
             Map<String, String> extraHeaders,
             int timeoutSeconds) {
+        return generate(baseUrl, apiKey, model, messages, temperature, maxTokens, jsonMode,
+                extraHeaders, timeoutSeconds, null);
+    }
+
+    public AiGenerationResult generate(
+            String baseUrl,
+            String apiKey,
+            String model,
+            List<ChatMessage> messages,
+            Double temperature,
+            Integer maxTokens,
+            boolean jsonMode,
+            Map<String, String> extraHeaders,
+            int timeoutSeconds,
+            List<Map<String, Object>> tools) {
 
         long start = System.currentTimeMillis();
         SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
@@ -60,8 +75,12 @@ public class OpenAiCompatibleClient {
         if (maxTokens != null && maxTokens > 0) {
             body.put("max_tokens", maxTokens);
         }
-        if (jsonMode) {
+        // Structured JSON mode is incompatible with some tool-calling paths — skip when tools present.
+        if (jsonMode && (tools == null || tools.isEmpty())) {
             body.put("response_format", Map.of("type", "json_object"));
+        }
+        if (tools != null && !tools.isEmpty()) {
+            body.put("tools", tools);
         }
 
         try {

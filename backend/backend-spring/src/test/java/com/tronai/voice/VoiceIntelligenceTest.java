@@ -112,7 +112,8 @@ class VoiceIntelligenceTest {
     @DisplayName("Cloud Voice FAST upgrades to SMART when prefer-smart is enabled")
     void cloudVoicePrefersSmart() {
         VoiceService service = new VoiceService(
-                speechToTextProvider, null, null, null, null, null, null, null, null, null, null, voiceProperties);
+                speechToTextProvider, null, null, null, null, null, null, null, null, null, null, null,
+                voiceProperties, null, null);
         assertThat(service.resolveCloudVoiceMode(AiMode.FAST)).isEqualTo(AiMode.SMART);
         assertThat(service.resolveCloudVoiceMode(AiMode.AUTO)).isEqualTo(AiMode.SMART);
         assertThat(service.resolveCloudVoiceMode(AiMode.ULTRA)).isEqualTo(AiMode.ULTRA);

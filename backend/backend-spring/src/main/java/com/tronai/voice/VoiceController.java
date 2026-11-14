@@ -39,7 +39,9 @@ public class VoiceController {
             @RequestParam(value = "voiceSessionId", required = false) String voiceSessionId,
             @RequestParam(value = "language", required = false) String language,
             @RequestParam(value = "aiProfile", required = false) String aiProfile,
-            @RequestParam(value = "ai_profile", required = false) String aiProfileSnake) {
+            @RequestParam(value = "ai_profile", required = false) String aiProfileSnake,
+            @RequestParam(value = "searchMode", required = false) String searchMode,
+            @RequestParam(value = "search_mode", required = false) String searchModeSnake) {
 
         if (file == null || file.isEmpty()) {
             throw new VoiceException(HttpStatus.BAD_REQUEST, "The audio file is empty");
@@ -58,8 +60,10 @@ public class VoiceController {
         String resolvedSessionId = (sessionId != null && !sessionId.isBlank())
                 ? sessionId
                 : ((sessionIdSnake != null && !sessionIdSnake.isBlank()) ? sessionIdSnake : voiceSessionId);
+        String resolvedSearchMode = (searchMode != null && !searchMode.isBlank()) ? searchMode : searchModeSnake;
 
-        V1VoiceTurnResponse response = voiceService.handleVoiceTurn(bytes, filename, contentType, resolvedSessionId, language, profile);
+        V1VoiceTurnResponse response = voiceService.handleVoiceTurn(
+                bytes, filename, contentType, resolvedSessionId, language, profile, resolvedSearchMode);
         return ResponseEntity.ok(response);
     }
 

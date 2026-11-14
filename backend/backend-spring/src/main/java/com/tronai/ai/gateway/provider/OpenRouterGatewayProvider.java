@@ -67,6 +67,13 @@ public class OpenRouterGatewayProvider implements GatewayProvider {
         for (int i = 0; i < keys.size(); i++) {
             String key = keys.get((start + i) % keys.size());
             try {
+                List<Map<String, Object>> tools = null;
+                // Current server tool — not the deprecated web-search plugin.
+                if (context.isEnableNativeWebSearch()
+                        && "OPENROUTER_WEB_SEARCH".equalsIgnoreCase(context.getNativeWebSearchProvider())
+                        && !context.isJsonMode()) {
+                    tools = List.of(Map.of("type", "openrouter:web_search"));
+                }
                 AiGenerationResult result = client.generate(
                         BASE_URL,
                         key,
@@ -76,7 +83,8 @@ public class OpenRouterGatewayProvider implements GatewayProvider {
                         context.getMaxTokens(),
                         context.isJsonMode(),
                         headers,
-                        properties.getRequestTimeoutSeconds());
+                        properties.getRequestTimeoutSeconds(),
+                        tools);
                 enrich(result, context, model);
                 return result;
             } catch (GatewayProviderException e) {

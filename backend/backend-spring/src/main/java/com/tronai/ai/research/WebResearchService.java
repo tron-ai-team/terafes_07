@@ -27,16 +27,25 @@ public class WebResearchService {
     private final TavilySearchClient tavily;
     private final FirecrawlScrapeClient firecrawl;
     private final SafeUrlFetcher safeUrlFetcher;
+    private final com.tronai.ai.research.search.SearxngSearchClient searxng;
+    private final com.tronai.ai.research.search.SerperSearchClient serper;
+    private final com.tronai.ai.research.search.WebSearchProperties webSearchProperties;
 
     public WebResearchService(
             ResearchProperties properties,
             TavilySearchClient tavily,
             FirecrawlScrapeClient firecrawl,
-            SafeUrlFetcher safeUrlFetcher) {
+            SafeUrlFetcher safeUrlFetcher,
+            com.tronai.ai.research.search.SearxngSearchClient searxng,
+            com.tronai.ai.research.search.SerperSearchClient serper,
+            com.tronai.ai.research.search.WebSearchProperties webSearchProperties) {
         this.properties = properties;
         this.tavily = tavily;
         this.firecrawl = firecrawl;
         this.safeUrlFetcher = safeUrlFetcher;
+        this.searxng = searxng;
+        this.serper = serper;
+        this.webSearchProperties = webSearchProperties;
     }
 
     public Map<String, Object> toolHealth() {
@@ -53,6 +62,16 @@ public class WebResearchService {
                 "status", ResearchToolStatus.CONFIGURED.name(),
                 "configured", true,
                 "capability", "web_extract_fallback"));
+        out.put("searxng", Map.of(
+                "status", searxng.status().name(),
+                "configured", searxng.isConfigured(),
+                "capability", "private_web_search",
+                "v1Enabled", webSearchProperties.isWebSearchV1Enabled()));
+        out.put("serper", Map.of(
+                "status", serper.status().name(),
+                "configured", serper.isConfigured(),
+                "capability", "google_results_opt_in",
+                "v1Enabled", webSearchProperties.isWebSearchV1Enabled()));
         return out;
     }
 

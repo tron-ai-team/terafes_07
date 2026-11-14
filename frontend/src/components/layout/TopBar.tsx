@@ -6,8 +6,8 @@ import { TronLogo } from '../common/TronLogo';
 import {
   MessageCircle,
   Mic,
-  LayoutGrid,
-  Briefcase,
+  FileText,
+  Sparkles,
   User,
   Globe,
   Wifi,
@@ -65,31 +65,34 @@ export const TopBar: React.FC<TopBarProps> = ({ onToggleMobileSidebar }) => {
     };
   }, [langMenuOpen]);
 
-  // Determine current active mode based on route
-  const getCurrentMode = (): AppMode => {
+  // Core product modes only (Workspace / unfinished career tools hidden from public nav)
+  type CoreNavMode = 'chat' | 'voice' | 'interview' | 'cv';
+
+  const getCurrentMode = (): CoreNavMode => {
     if (location.pathname.startsWith('/chat')) return 'chat';
     if (location.pathname.startsWith('/voice')) return 'voice';
     if (
-      location.pathname.startsWith('/career') ||
-      location.pathname.startsWith('/interview') ||
-      location.pathname.startsWith('/cv') ||
-      location.pathname.startsWith('/history')
+      location.pathname.startsWith('/career/cv') ||
+      location.pathname === '/cv' ||
+      location.pathname.startsWith('/career/profile')
     ) {
-      return 'career';
+      return 'cv';
     }
     if (
-      location.pathname.startsWith('/workspace') ||
-      location.pathname.startsWith('/agent') ||
-      location.pathname.startsWith('/dashboard')
+      location.pathname.startsWith('/career') ||
+      location.pathname.startsWith('/interview') ||
+      location.pathname.startsWith('/history')
     ) {
-      return 'workspace';
+      return 'interview';
     }
-    return activeMode;
+    if (activeMode === 'voice') return 'voice';
+    if (activeMode === 'interview' || activeMode === 'career') return 'interview';
+    return 'chat';
   };
 
   const currentMode = getCurrentMode();
 
-  const handleModeSwitch = (mode: AppMode) => {
+  const handleModeSwitch = (mode: CoreNavMode) => {
     if (location.pathname.includes('/interview/room')) {
       const confirmLeave = window.confirm(
         'An interview session is currently active. Are you sure you want to switch modes? Your completed answers are saved in your session.'
@@ -97,7 +100,9 @@ export const TopBar: React.FC<TopBarProps> = ({ onToggleMobileSidebar }) => {
       if (!confirmLeave) return;
     }
 
-    setActiveMode(mode);
+    const mapped: AppMode =
+      mode === 'interview' ? 'interview' : mode === 'cv' ? 'career' : mode;
+    setActiveMode(mapped);
     switch (mode) {
       case 'chat':
         navigate('/chat');
@@ -105,15 +110,11 @@ export const TopBar: React.FC<TopBarProps> = ({ onToggleMobileSidebar }) => {
       case 'voice':
         navigate('/voice');
         break;
-      case 'workspace':
-        navigate('/workspace');
-        break;
-      case 'career':
       case 'interview':
-        navigate('/career');
+        navigate('/career/interview');
         break;
-      case 'agent':
-        navigate('/workspace/agent');
+      case 'cv':
+        navigate('/career/cv-builder');
         break;
     }
   };
@@ -214,11 +215,9 @@ export const TopBar: React.FC<TopBarProps> = ({ onToggleMobileSidebar }) => {
         </div>
       </div>
 
-      {/* Center: TWO SEPARATE VISUAL GROUPS: [Chat | Voice | Workspace] + [💼 Career Center] */}
+      {/* Center: four core features — Chat | Voice | Interview | CV */}
       <div className="flex items-center justify-center gap-1.5 sm:gap-2.5 md:gap-3.5 shrink-0">
-        {/* Group 1: Primary Core Modes Segmented Control */}
         <div className="flex items-center p-0.5 sm:p-1 rounded-xl sm:rounded-2xl bg-white/95 backdrop-blur-2xl border border-[#D6E6F7] shadow-md shadow-blue-500/5">
-          {/* Tab 1: Chat */}
           <button
             type="button"
             onClick={() => handleModeSwitch('chat')}
@@ -237,7 +236,6 @@ export const TopBar: React.FC<TopBarProps> = ({ onToggleMobileSidebar }) => {
             </span>
           </button>
 
-          {/* Tab 2: Voice */}
           <button
             type="button"
             onClick={() => handleModeSwitch('voice')}
@@ -256,45 +254,43 @@ export const TopBar: React.FC<TopBarProps> = ({ onToggleMobileSidebar }) => {
             </span>
           </button>
 
-          {/* Tab 3: Workspace */}
           <button
             type="button"
-            onClick={() => handleModeSwitch('workspace')}
+            onClick={() => handleModeSwitch('interview')}
             className={`
               flex items-center gap-1 sm:gap-1.5 md:gap-2 px-2 sm:px-3 md:px-4 py-1.5 sm:py-2 rounded-lg sm:rounded-xl text-xs font-bold transition-all duration-200 cursor-pointer
-              ${currentMode === 'workspace'
+              ${currentMode === 'interview'
                 ? 'bg-gradient-to-r from-[#008CFF] to-[#0066FF] text-white shadow-md shadow-blue-500/25 scale-[1.02]'
                 : 'text-slate-600 hover:text-slate-900 hover:bg-blue-50/60'
               }
             `}
-            title={t.topbar.workspace}
+            title={uiLocale === 'ja' ? '面接練習' : 'Interview Practice'}
           >
-            <LayoutGrid className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
+            <Sparkles className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
             <span className="hidden sm:inline whitespace-nowrap">
-              {t.topbar.workspace}
+              {uiLocale === 'ja' ? '面接' : 'Interview'}
             </span>
           </button>
         </div>
 
-        {/* Group 2: Visually Separate Career Center Button */}
         <button
           type="button"
-          onClick={() => handleModeSwitch('career')}
+          onClick={() => handleModeSwitch('cv')}
           className={`
             flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-4 py-1.5 sm:py-2.5 rounded-xl sm:rounded-2xl text-xs font-bold transition-all duration-200 shadow-md cursor-pointer
-            ${currentMode === 'career'
+            ${currentMode === 'cv'
               ? 'bg-gradient-to-r from-[#008CFF] to-[#0066FF] text-white shadow-blue-500/25 ring-2 ring-blue-400/40 scale-[1.02]'
               : 'bg-white/95 backdrop-blur-2xl border border-[#D6E6F7] text-slate-700 hover:text-blue-600 hover:border-blue-300 shadow-blue-500/5 hover:bg-blue-50/40'
             }
           `}
-          title="Open Career Center"
+          title={uiLocale === 'ja' ? 'AI履歴書ビルダー' : 'AI CV Builder'}
         >
-          <Briefcase className={`w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0 ${currentMode === 'career' ? 'text-white' : 'text-blue-600'}`} />
+          <FileText className={`w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0 ${currentMode === 'cv' ? 'text-white' : 'text-blue-600'}`} />
           <span className="hidden md:inline whitespace-nowrap font-display tracking-tight">
-            {t.topbar.careerCenter}
+            {uiLocale === 'ja' ? '履歴書' : 'CV Builder'}
           </span>
           <span className="md:hidden hidden sm:inline whitespace-nowrap font-display tracking-tight">
-            Career
+            CV
           </span>
         </button>
       </div>

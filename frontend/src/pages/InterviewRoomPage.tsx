@@ -1114,8 +1114,43 @@ export const InterviewRoomPage: React.FC = () => {
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
+  if (aiState === 'error' && !interviewId) {
+    return (
+      <div className="flex-1 flex items-center justify-center py-10 px-4">
+        <GlassCard className="max-w-md w-full p-8 text-center space-y-4">
+          <TronLogo size="lg" />
+          <h1 className="text-xl font-extrabold text-slate-900 font-display">
+            {uiLanguage === 'ja' ? '面接を開始できませんでした' : 'Could not start interview'}
+          </h1>
+          <p className="text-sm text-slate-500">
+            {statusMessage ||
+              (uiLanguage === 'ja'
+                ? 'TRON AIに接続できません。設定に戻ってやり直してください。'
+                : 'TRON AI is temporarily unavailable. Return to setup and try again.')}
+          </p>
+          <div className="flex flex-col sm:flex-row gap-2 justify-center pt-2">
+            <button
+              type="button"
+              onClick={() => navigate('/career/interview/setup')}
+              className="px-5 py-2.5 rounded-2xl text-sm font-semibold text-white bg-gradient-to-r from-[#008CFF] to-[#0066FF] shadow-md"
+            >
+              {uiLanguage === 'ja' ? 'セットアップへ戻る' : 'Back to Setup'}
+            </button>
+            <button
+              type="button"
+              onClick={() => navigate('/career/interview')}
+              className="px-5 py-2.5 rounded-2xl text-sm font-semibold text-slate-700 bg-white border border-[#E2EEF8]"
+            >
+              {uiLanguage === 'ja' ? 'ダッシュボードへ' : 'Interview Dashboard'}
+            </button>
+          </div>
+        </GlassCard>
+      </div>
+    );
+  }
+
   return (
-    <div className="relative flex-1 flex flex-col justify-between max-w-6xl mx-auto w-full select-none py-1">
+    <div className="relative flex-1 flex flex-col justify-between max-w-6xl mx-auto w-full select-none py-1 min-w-0">
       {/* Top Status Bar: Mode, Company, Question Counter, Timer */}
       <GlassCard className="px-5 py-3 mb-3 flex flex-wrap items-center justify-between gap-4">
         {/* Company & Role */}

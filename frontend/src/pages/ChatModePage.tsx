@@ -6,7 +6,6 @@ import { MarkdownContent } from '../components/common/MarkdownContent';
 import { AiProfileSelector } from '../components/common/AiProfileSelector';
 import {
   Send,
-  Paperclip,
   ArrowUp,
   Loader2,
   Copy,
@@ -16,7 +15,6 @@ import {
   MessageCircle,
   HelpCircle,
   RefreshCw,
-  Plus,
   Search,
 } from 'lucide-react';
 
@@ -45,7 +43,6 @@ export const ChatModePage: React.FC = () => {
 
   const [input, setInput] = useState('');
   const [copiedId, setCopiedId] = useState<string | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -81,8 +78,12 @@ export const ChatModePage: React.FC = () => {
     const text = input.trim();
     if (!text || isChatSending) return;
 
+    // Clear composer optimistically; restore on failure so the user never loses typed text.
     setInput('');
-    await sendChatMessage(text);
+    const ok = await sendChatMessage(text);
+    if (!ok) {
+      setInput(text);
+    }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -92,17 +93,25 @@ export const ChatModePage: React.FC = () => {
     }
   };
 
-  const handleCopy = (id: string, text: string) => {
-    navigator.clipboard.writeText(text);
-    setCopiedId(id);
-    addToast('Message copied to clipboard', 'info');
-    setTimeout(() => setCopiedId(null), 2000);
-  };
-
-  const handleFileAttach = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      addToast(`Attached: ${file.name}. Chat file ingestion ready.`, 'info');
+  const handleCopy = async (id: string, text: string) => {
+    try {
+      if (!navigator.clipboard?.writeText) {
+        throw new Error('Clipboard unavailable');
+      }
+      await navigator.clipboard.writeText(text);
+      setCopiedId(id);
+      addToast(
+        uiLanguage === 'ja' ? 'クリップボードにコピーしました' : 'Message copied to clipboard',
+        'info',
+      );
+      setTimeout(() => setCopiedId(null), 2000);
+    } catch {
+      addToast(
+        uiLanguage === 'ja'
+          ? 'コピーに失敗しました。手動で選択してコピーしてください。'
+          : 'Copy failed. Select the text and copy manually.',
+        'error',
+      );
     }
   };
 
@@ -123,17 +132,23 @@ export const ChatModePage: React.FC = () => {
     <div className="relative flex-1 flex flex-col justify-between max-w-4xl mx-auto w-full h-[calc(100dvh-5.5rem)] md:h-[calc(100vh-6rem)] select-none">
       {/* Backend connection banner if offline */}
       {backendStatus === 'offline' && (
-        <div className="mb-2 p-2.5 rounded-2xl bg-amber-50/90 border border-amber-200/80 text-amber-800 text-xs flex items-center justify-between shadow-xs shrink-0">
-          <div className="flex items-center gap-2">
+        <div className="mb-2 p-2.5 rounded-2xl bg-amber-50/90 border border-amber-200/80 text-amber-800 text-xs flex items-center justify-between gap-2 shadow-xs shrink-0">
+          <div className="flex items-center gap-2 min-w-0">
             <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
-            <span>
-              <strong>TRON Core Offline:</strong> Service not detected at localhost:8080.
-              Please start the Spring Boot backend service.
+            <span className="min-w-0">
+              <strong>{uiLanguage === 'ja' ? '接続できません:' : 'Temporarily unavailable:'}</strong>{' '}
+              {uiLanguage === 'ja'
+                ? 'TRON AIに接続できません。しばらくしてからお試しください。'
+                : 'TRON AI is temporarily unavailable. Please try again.'}
             </span>
           </div>
-          <span className="text-[10px] font-mono text-amber-600 bg-amber-100/80 px-2 py-0.5 rounded-md">
-            127.0.0.1:8080
-          </span>
+          <button
+            type="button"
+            onClick={() => window.location.reload()}
+            className="shrink-0 text-[10px] font-semibold text-amber-700 bg-amber-100/80 px-2 py-0.5 rounded-md hover:bg-amber-100"
+          >
+            {uiLanguage === 'ja' ? '再試行' : 'Retry'}
+          </button>
         </div>
       )}
 
@@ -290,21 +305,7 @@ export const ChatModePage: React.FC = () => {
           onSubmit={handleSubmit}
           className="relative flex items-center rounded-3xl bg-white/95 backdrop-blur-2xl border border-[#D6E6F7] shadow-lg shadow-blue-500/8 px-2 sm:px-4 py-1.5 sm:py-2 transition-all focus-within:border-[#008CFF] focus-within:ring-2 focus-within:ring-blue-500/20 gap-1 sm:gap-2"
         >
-          {/* File Attachment */}
-          <input
-            type="file"
-            ref={fileInputRef}
-            onChange={handleFileAttach}
-            className="hidden"
-          />
-          <button
-            type="button"
-            onClick={() => fileInputRef.current?.click()}
-            className="p-1 sm:p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50/70 rounded-full transition-colors shrink-0"
-            title="Attach file"
-          >
-            <Plus className="w-4 h-4" />
-          </button>
+          {/* File attachment hidden until real chat ingestion is wired end-to-end */}
 
           {/* AI Model Selector (ChatGPT style) */}
           <AiProfileSelector

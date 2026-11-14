@@ -60,17 +60,11 @@ export const LandingSecondaryNav: React.FC<LandingSecondaryNavProps> = ({
       action: () => navigate("/career/cv-builder"),
     },
     {
-      id: "demos",
-      label: isJa ? "キャリア" : "Career Center",
+      id: "profile",
+      label: isJa ? "プロフィール" : "Profile",
       icon: <InteractiveDemoIcon size={15} className="stroke-[2]" />,
       active: false,
-      action: () => {
-        if (onOpenDemos) {
-          onOpenDemos();
-        } else {
-          navigate("/career");
-        }
-      },
+      action: () => navigate("/profile"),
     },
   ];
 

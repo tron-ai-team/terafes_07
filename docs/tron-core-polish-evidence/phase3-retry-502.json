@@ -1,0 +1,51 @@
+{
+  "cvCreate": {
+    "status": 200,
+    "template": "RIREKISHO_JA",
+    "id": true,
+    "raw": "{\"id\":\"2e7b0de0-204f-45a3-beef-85ea5c9d2b17\",\"templateCode\":\"RIREKISHO_JA\",\"versionLabel\":\"draft-1\",\"status\":\"DRAFT\",\"primary\":false,\"payload\":{\"selfPr\":\"\",\"fullName\":\"\",\"dateOfBirth\":\"\",\"education\":[],\"workExperience\":[],\"skills\":[],\"certifications\":[],\"projects\":[],\"languages\":[],\"careerGoals\":\"\"},\"updatedAt\":\"2026-11-14T02:24:41Z\",\"educationPreview\":{\"inputCount\":0,\"keptCount\":0,\"rejectedCount\""
+  },
+  "export-pdf": {
+    "status": 200,
+    "bytes": 253674,
+    "magic": "%PDF",
+    "hasName": false
+  },
+  "export-xlsx": {
+    "status": 200,
+    "bytes": 16963,
+    "magic": "PK\u0003\u0004",
+    "hasName": false
+  },
+  "tts": {
+    "status": 200,
+    "bytes": 170924
+  },
+  "voiceTurn": {
+    "status": 200,
+    "keys": [
+      "aiProfile",
+      "audioContentType",
+      "audio_url",
+      "browserSpeechFallback",
+      "content",
+      "engineModel",
+      "language",
+      "latency_ms",
+      "locked",
+      "model",
+      "provider",
+      "reply",
+      "sessionId",
+      "speechDetail",
+      "speechSupported",
+      "transcript",
+      "ttsProvider"
+    ],
+    "detail": null,
+    "transcript": "Hello, Tron Phase 3.",
+    "replyLen": 77,
+    "audioUrl": "/api/v1/voice/audio/0102994e41be42c4adfcdd2ebcafc75f",
+    "raw": "{\"aiProfile\":\"SMART\",\"audioContentType\":\"audio/wav\",\"audio_url\":\"/api/v1/voice/audio/0102994e41be42c4adfcdd2ebcafc75f\",\"browserSpeechFallback\":false,\"content\":\"I am ready to assist you with precise information in English. How can I help?\",\"engineModel\":\"qwen3.5:9b-q4_K_M\",\"language\":\"en\",\"latency_ms\":{\"stt\":686,\"llm\":1346,\"tts\":1531,\"total\":3568},\"locked\":true,\"model\":\"tron-quality\",\"provider\":\"LO"
+  }
+}

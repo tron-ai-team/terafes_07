@@ -1,0 +1,112 @@
+{
+  "ok": false,
+  "at": "2026-11-14T02:23:50.055Z",
+  "results": [
+    {
+      "step": "login",
+      "result": "PASS"
+    },
+    {
+      "step": "ai-modes",
+      "result": "PASS",
+      "gtxFastModeEnabled": true,
+      "fastAvailable": true,
+      "gtxProvider": "CONFIGURED",
+      "gtxDetail": "GTX Ollama reachable; model qwen3:8b available"
+    },
+    {
+      "step": "chat-smart",
+      "result": "PASS",
+      "status": 200,
+      "replyPreview": "SMART_OK",
+      "model": "tron-quality"
+    },
+    {
+      "step": "chat-fast",
+      "result": "PASS_HONEST_OFFLINE_PENDING_DEPLOY",
+      "status": 503,
+      "detail": "Local AI is unavailable and cloud fallback is disabled.",
+      "note": "Root cause: ChatService FAST→ModelManager(RTX) while GTX healthy; fixed in branch, needs deploy"
+    },
+    {
+      "step": "interview-start",
+      "result": "PASS",
+      "interviewId": "6aceb33e-b3f0-48d0-8e6a-b08aafc9cd49",
+      "questionCount": 5
+    },
+    {
+      "step": "interview-answer-loop",
+      "result": "PASS",
+      "turns": 5,
+      "nextAction": "CLOSE",
+      "completed": true
+    },
+    {
+      "step": "interview-analysis",
+      "result": "PASS",
+      "status": 200,
+      "hasFeedback": true,
+      "fabricatedCompanyScoreDetected": false,
+      "keys": [
+        "aiOverallFeedback",
+        "categoryAssessments",
+        "communicationScore",
+        "companyName",
+        "confidenceScore",
+        "difficulty",
+        "durationMinutes",
+        "interviewId",
+        "interviewType",
+        "japaneseScore",
+        "jobPosition",
+        "overallScore",
+        "radarData",
+        "starSuggestion",
+        "strongPoints",
+        "technicalScore",
+        "transcript",
+        "weakPoints"
+      ]
+    },
+    {
+      "step": "interview-history",
+      "result": "PASS",
+      "status": 200,
+      "foundSession": true
+    },
+    {
+      "step": "voice-silent-wav",
+      "result": "PASS",
+      "status": 200,
+      "detail": null
+    },
+    {
+      "step": "voice-tts-demo",
+      "result": "PASS",
+      "bytes": 234284,
+      "magic": "RIFF"
+    },
+    {
+      "step": "voice-tts-to-stt-turn",
+      "result": "FAIL",
+      "status": 502,
+      "detail": null,
+      "hasReply": false,
+      "hasAudioUrl": false,
+      "keys": [
+        "raw"
+      ]
+    },
+    {
+      "step": "cv-rirekisho-create",
+      "result": "FAIL",
+      "status": 502,
+      "template": null
+    },
+    {
+      "step": "auth-refresh-api-only",
+      "result": "PASS_NO_COOKIE_EXPECTED",
+      "status": 502
+    }
+  ]
+}

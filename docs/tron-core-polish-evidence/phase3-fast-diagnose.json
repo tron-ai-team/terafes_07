@@ -1,0 +1,84 @@
+{
+  "at": "2026-11-14T02:18:44.075Z",
+  "gtxFastModeEnabled": true,
+  "rtxSmartModeEnabled": true,
+  "modesHttp": 200,
+  "fastMode": {
+    "id": "FAST",
+    "available": true,
+    "description": "GTX-powered Qwen3 8B via local Ollama (no RTX/cloud fallback).",
+    "model": null
+  },
+  "smartMode": {
+    "id": "SMART",
+    "available": true,
+    "description": "RTX-powered Qwen 3.5 9B via local Ollama (no cloud fallback).",
+    "model": null
+  },
+  "providersHttp": 200,
+  "providers": [
+    {
+      "id": "GEMINI",
+      "status": "DISABLED",
+      "model": null,
+      "detail": ""
+    },
+    {
+      "id": "MISTRAL",
+      "status": "CONFIGURED",
+      "model": null,
+      "detail": ""
+    },
+    {
+      "id": "OLLAMA_GTX",
+      "status": "CONFIGURED",
+      "model": null,
+      "detail": "GTX Ollama reachable; model qwen3:8b available"
+    },
+    {
+      "id": "OLLAMA",
+      "status": "CONFIGURED",
+      "model": null,
+      "detail": ""
+    },
+    {
+      "id": "OPENROUTER",
+      "status": "CONFIGURED",
+      "model": null,
+      "detail": ""
+    },
+    {
+      "id": "GROQ",
+      "status": "CONFIGURED",
+      "model": null,
+      "detail": ""
+    },
+    {
+      "id": "CLOUDFLARE_WORKERS_AI",
+      "status": "CONFIGURED",
+      "model": null,
+      "detail": ""
+    }
+  ],
+  "fastChat": {
+    "status": 503,
+    "detail": "Local AI is unavailable and cloud fallback is disabled.",
+    "aiProfile": null,
+    "model": null,
+    "provider": null,
+    "replyLen": 0,
+    "replyPreview": null,
+    "keys": [
+      "detail"
+    ]
+  },
+  "smartChat": {
+    "status": 200,
+    "detail": null,
+    "aiProfile": "SMART",
+    "model": "tron-quality",
+    "provider": null,
+    "replyLen": 8,
+    "replyPreview": "SMART_OK"
+  }
+}

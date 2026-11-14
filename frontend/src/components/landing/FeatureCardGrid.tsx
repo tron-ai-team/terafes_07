@@ -56,7 +56,7 @@ export const FeatureCardGrid: React.FC = () => {
       image: '/images/features/coding.png',
       accentColor: '#0d9488',
       gradient: 'from-teal-500/10 via-cyan-500/5 to-transparent',
-      routePath: '/workspace/agent',
+      routePath: '/career/cv-builder',
       keyFeatures: t.features.coding.keyFeatures,
     },
     {
@@ -68,7 +68,7 @@ export const FeatureCardGrid: React.FC = () => {
       image: '/images/features/career.png',
       accentColor: '#f43f5e',
       gradient: 'from-rose-500/10 via-orange-500/5 to-transparent',
-      routePath: '/career',
+      routePath: '/career/interview',
       keyFeatures: t.features.career.keyFeatures,
     },
   ];

@@ -341,6 +341,31 @@ class CvBuilderV2BackendIT {
                 .andExpect(status().isNotFound());
     }
 
+    @Test
+    @DisplayName("Public templates include RIREKISHO_JA and RESUME_EN; create accepts both; SHOKUMU_JA blocked for new drafts")
+    void publicTemplatesAndCreateResumeEn() throws Exception {
+        mockMvc.perform(get("/api/v1/career/cv-builder/templates").header("Authorization", authA))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[?(@.code=='RIREKISHO_JA')]").exists())
+                .andExpect(jsonPath("$[?(@.code=='RESUME_EN')]").exists())
+                .andExpect(jsonPath("$[?(@.code=='SHOKUMU_JA')]").doesNotExist());
+
+        MvcResult en = mockMvc.perform(post("/api/v1/career/cv-builder/drafts")
+                        .header("Authorization", authA)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"templateCode\":\"RESUME_EN\",\"versionLabel\":\"en-1\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.templateCode").value("RESUME_EN"))
+                .andReturn();
+        assertThat(objectMapper.readTree(en.getResponse().getContentAsString()).get("id").asText()).isNotBlank();
+
+        mockMvc.perform(post("/api/v1/career/cv-builder/drafts")
+                        .header("Authorization", authA)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"templateCode\":\"SHOKUMU_JA\"}"))
+                .andExpect(status().isBadRequest());
+    }
+
     private void seedProfile(String auth) throws Exception {
         mockMvc.perform(put("/api/v1/career/profile")
                         .header("Authorization", auth)

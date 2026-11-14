@@ -7,13 +7,14 @@ import { NeonButton } from '../components/common/NeonButton';
 import { User, Mail, Lock, ArrowRight, Loader2 } from 'lucide-react';
 import { CORE_API_URL } from '../config/api';
 import { authApi } from '../services/httpClient';
+import { consumeAuthReturnTo, storeAuthReturnTo } from '../utils/safeReturnTo';
 
 type GoogleProviderState = 'LOADING' | 'AVAILABLE' | 'UNAVAILABLE' | 'ERROR';
 
 export const AuthPage: React.FC = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const { login, register } = useApp();
+  const { login, register, isAuthenticated, isLoadingAuth } = useApp();
 
   const [mode, setMode] = useState<'signin' | 'signup'>(() => {
     return searchParams.get('mode') === 'signin' ? 'signin' : 'signup';
@@ -31,17 +32,24 @@ export const AuthPage: React.FC = () => {
   // Provider states: LOADING, AVAILABLE, UNAVAILABLE, ERROR
   const [googleState, setGoogleState] = useState<GoogleProviderState>('LOADING');
 
-  // Preserve redirect parameter if present (e.g. from /connect-device)
+  // Preserve redirect parameter if present (sanitize against open redirects)
   useEffect(() => {
     const redirect = searchParams.get('redirect') || searchParams.get('returnTo');
     if (redirect) {
-      sessionStorage.setItem('tron_auth_return_url', redirect);
+      storeAuthReturnTo(redirect);
     }
     if (searchParams.get('session') === 'expired') {
       setSessionNotice('Your session expired. Please sign in again to continue.');
       setMode('signin');
     }
   }, [searchParams]);
+
+  // Already signed-in users should not loop on the auth page
+  useEffect(() => {
+    if (!isLoadingAuth && isAuthenticated) {
+      navigate(consumeAuthReturnTo('/chat'), { replace: true });
+    }
+  }, [isAuthenticated, isLoadingAuth, navigate]);
 
   // Check auth providers configuration on mount before rendering final Google state
   useEffect(() => {
@@ -121,13 +129,7 @@ export const AuthPage: React.FC = () => {
       } else {
         await login(email.trim(), password);
       }
-      const returnUrl = sessionStorage.getItem('tron_auth_return_url');
-      if (returnUrl) {
-        sessionStorage.removeItem('tron_auth_return_url');
-        navigate(returnUrl, { replace: true });
-      } else {
-        navigate('/chat');
-      }
+      navigate(consumeAuthReturnTo('/chat'), { replace: true });
     } catch (err: any) {
       setError(err?.detail || err?.message || 'Authentication failed. Please verify your credentials.');
     } finally {

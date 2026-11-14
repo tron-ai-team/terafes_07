@@ -56,12 +56,12 @@ export const QuickLaunchBar: React.FC<QuickLaunchBarProps> = ({
       action: () => onNavigate("/career/cv-builder"),
     },
     {
-      id: "demos",
-      label: isJa ? "キャリア" : "Career",
+      id: "profile",
+      label: isJa ? "プロフィール" : "Profile",
       icon: <InteractiveDemoIcon size={15} className="stroke-[2]" />,
       iconClass: "text-cyan-600 group-hover:text-white group-hover:bg-cyan-600",
       pillHoverClass: "hover:border-cyan-400 hover:shadow-[0_4px_16px_rgba(2,132,199,0.2)]",
-      action: () => onNavigate("/career"),
+      action: () => onNavigate("/profile"),
     },
   ];
 

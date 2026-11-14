@@ -6,6 +6,7 @@ import { CORE_API_URL } from '../config/api';
 import { TronLogo } from '../components/common/TronLogo';
 import { Loader2, AlertCircle, CheckCircle2, ArrowRight, RotateCw } from 'lucide-react';
 import { NeonButton } from '../components/common/NeonButton';
+import { consumeAuthReturnTo } from '../utils/safeReturnTo';
 
 export const AuthCallbackPage: React.FC = () => {
   const [searchParams] = useSearchParams();
@@ -60,15 +61,10 @@ export const AuthCallbackPage: React.FC = () => {
           setStatus('success');
           addToast(`Welcome back, ${meUser.displayName || meUser.email}!`, 'success');
 
-          // 5. Check if there is an intended return route (e.g. from /connect-device)
-          const returnUrl = sessionStorage.getItem('tron_auth_return_url');
+          // 5. Safe internal return route only (never external / open redirect)
+          const returnUrl = consumeAuthReturnTo('/chat');
           setTimeout(() => {
-            if (returnUrl) {
-              sessionStorage.removeItem('tron_auth_return_url');
-              navigate(returnUrl, { replace: true });
-            } else {
-              navigate('/chat', { replace: true });
-            }
+            navigate(returnUrl, { replace: true });
           }, 500);
         } catch (err: any) {
           setStatus('error');

@@ -8,6 +8,7 @@ import com.tronai.ai.AiProviderUnavailableException;
 import com.tronai.ai.FallbackAiProvider;
 import com.tronai.ai.gateway.AiFeature;
 import com.tronai.ai.gateway.AiGateway;
+import com.tronai.ai.gateway.AiGatewayProperties;
 import com.tronai.ai.gateway.AiMode;
 import com.tronai.ai.gateway.AiQuotaExceededException;
 import com.tronai.ai.gateway.AiRequestContext;
@@ -57,6 +58,7 @@ public class ChatService {
     private final AiProfileService aiProfileService;
     private final AiProfileResolver aiProfileResolver;
     private final AiGateway aiGateway;
+    private final AiGatewayProperties aiGatewayProperties;
     private final HybridRoutingService hybrid;
     private final LanguageService languageService;
     private final ChatSessionRepository chatSessionRepository;
@@ -67,6 +69,7 @@ public class ChatService {
                        AiProfileService aiProfileService,
                        AiProfileResolver aiProfileResolver,
                        AiGateway aiGateway,
+                       AiGatewayProperties aiGatewayProperties,
                        HybridRoutingService hybrid,
                        LanguageService languageService,
                        ChatSessionRepository chatSessionRepository,
@@ -76,6 +79,7 @@ public class ChatService {
         this.aiProfileService = aiProfileService;
         this.aiProfileResolver = aiProfileResolver;
         this.aiGateway = aiGateway;
+        this.aiGatewayProperties = aiGatewayProperties != null ? aiGatewayProperties : new AiGatewayProperties();
         this.hybrid = hybrid;
         this.languageService = languageService;
         this.chatSessionRepository = chatSessionRepository;
@@ -412,8 +416,14 @@ public class ChatService {
             throw new ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS, "AI request queue saturated");
         }
         try {
+            // GTX FAST lock: always use the AI gateway (OLLAMA_GTX). Never RTX ModelManager
+            // and never silent cloud fallback — health/modes already advertise GTX exclusively.
+            if (mode == AiMode.FAST && aiGatewayProperties.isGtxFastModeEnabled()) {
+                return generateViaGateway(mode, promptMessages, profile, numPredict, userId);
+            }
+
             boolean preferLocal = "LOCAL_OLLAMA".equals(route);
-            // FAST/QUALITY: local ModelManager when hybrid allows local — never charges Ultra credits.
+            // Legacy FAST/QUALITY: local ModelManager when hybrid allows local — never charges Ultra credits.
             if (preferLocal && (mode == AiMode.FAST || mode == AiMode.QUALITY)) {
                 if (modelProfile == null) {
                     throw new IllegalStateException("Local AI model profile is unavailable");

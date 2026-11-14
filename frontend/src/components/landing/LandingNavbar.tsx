@@ -6,7 +6,6 @@ import {
   ChevronDown,
   Check,
   User,
-  LayoutGrid,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useApp } from "../../context/AppContext";
@@ -88,12 +87,6 @@ export const LandingNavbar: React.FC<LandingNavbarProps> = ({
       desc: lang === "ja" ? "JIS規格履歴書 & 職務経歴書" : "Bilingual resume & CV builder",
       route: "/career/cv-builder",
       icon: <CreateCvIcon size={18} className="stroke-[2] text-orange-500" />,
-    },
-    {
-      title: "Desktop Agent",
-      desc: lang === "ja" ? "自律型タスク実行システム" : "Autonomous workspace task execution",
-      route: "/workspace/agent",
-      icon: <NavFeaturesIcon size={18} className="text-cyan-500" />,
     },
   ];
 
@@ -282,16 +275,16 @@ export const LandingNavbar: React.FC<LandingNavbarProps> = ({
               )}
             </div>
 
-            {/* Sign In Button / Workspace Button */}
+            {/* Sign In Button / Open Chat */}
             {isAuthenticated && user ? (
               <div className="flex items-center gap-2">
                 <button
                   type="button"
-                  onClick={() => navigate("/workspace")}
+                  onClick={() => navigate("/chat")}
                   className="px-4 py-2 rounded-full text-xs font-bold text-white tron-primary-cta flex items-center gap-1.5 cursor-pointer"
                 >
-                  <LayoutGrid className="w-3.5 h-3.5" />
-                  <span>{t.common.openWorkspace}</span>
+                  <AiChatIcon size={14} className="stroke-[2]" />
+                  <span>{lang === "ja" ? "チャットを開く" : "Open Chat"}</span>
                 </button>
                 <button
                   type="button"
@@ -406,12 +399,12 @@ export const LandingNavbar: React.FC<LandingNavbarProps> = ({
                 type="button"
                 onClick={() => {
                   setIsMobileMenuOpen(false);
-                  navigate("/workspace");
+                  navigate("/chat");
                 }}
                 className="w-full py-2.5 rounded-xl text-xs font-bold text-white tron-primary-cta flex items-center justify-center gap-2"
               >
-                <LayoutGrid className="w-4 h-4" />
-                <span>{t.common.openWorkspace}</span>
+                <AiChatIcon size={16} className="stroke-[2]" />
+                <span>{lang === "ja" ? "チャットを開く" : "Open Chat"}</span>
               </button>
             ) : (
               <button

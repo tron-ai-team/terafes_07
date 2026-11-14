@@ -6,6 +6,7 @@ import com.tronai.ai.ChatGenerationResult;
 import com.tronai.ai.ChatMessage;
 import com.tronai.ai.gateway.AiFeature;
 import com.tronai.ai.gateway.AiGateway;
+import com.tronai.ai.gateway.AiGatewayProperties;
 import com.tronai.ai.gateway.AiGenerationResult;
 import com.tronai.ai.gateway.AiMode;
 import com.tronai.ai.gateway.AiRequestContext;
@@ -51,16 +52,20 @@ class ChatHybridRoutingUnitTest {
     @Mock UserRepository userRepository;
     @Mock AiProvider localProvider;
 
+    AiGatewayProperties gatewayProperties;
     ChatService chatService;
     ModelProfile localProfile;
 
     @BeforeEach
     void setUp() {
+        gatewayProperties = new AiGatewayProperties();
+        gatewayProperties.setGtxFastModeEnabled(false);
         chatService = new ChatService(
                 modelManager,
                 aiProfileService,
                 aiProfileResolver,
                 aiGateway,
+                gatewayProperties,
                 hybrid,
                 languageService,
                 chatSessionRepository,
@@ -73,7 +78,7 @@ class ChatHybridRoutingUnitTest {
     }
 
     @Test
-    @DisplayName("FAST uses local ModelManager when hybrid selects LOCAL_OLLAMA")
+    @DisplayName("FAST uses local ModelManager when hybrid selects LOCAL_OLLAMA (legacy, GTX off)")
     void fastUsesLocalWhenHybridAllows() {
         when(hybrid.selectInferenceRoute()).thenReturn("LOCAL_OLLAMA");
         when(modelManager.getProvider(ModelProviderType.OLLAMA)).thenReturn(localProvider);
@@ -93,7 +98,29 @@ class ChatHybridRoutingUnitTest {
     }
 
     @Test
-    @DisplayName("FAST uses cloud gateway when hybrid FORCE_OFFLINE / CLOUD_GATEWAY")
+    @DisplayName("GTX FAST mode always uses gateway even when hybrid selects LOCAL_OLLAMA")
+    void gtxFastModeBypassesLocalModelManager() {
+        gatewayProperties.setGtxFastModeEnabled(true);
+        when(hybrid.selectInferenceRoute()).thenReturn("LOCAL_OLLAMA");
+        when(aiGateway.generate(any())).thenReturn(AiGenerationResult.builder()
+                .text("GTX_FAST_OK")
+                .provider(GatewayProviderId.OLLAMA_GTX)
+                .modelId("qwen3:8b")
+                .mode(AiMode.FAST)
+                .build());
+
+        ChatGenerationResult result = invokeGenerate(AiProfile.FAST, localProfile);
+
+        assertThat(result.getText()).isEqualTo("GTX_FAST_OK");
+        ArgumentCaptor<AiRequestContext> captor = ArgumentCaptor.forClass(AiRequestContext.class);
+        verify(aiGateway).generate(captor.capture());
+        assertThat(captor.getValue().getMode()).isEqualTo(AiMode.FAST);
+        verify(modelManager, never()).getProvider(any());
+        verify(hybrid).releaseAiSlot();
+    }
+
+    @Test
+    @DisplayName("FAST uses cloud gateway when hybrid FORCE_OFFLINE / CLOUD_GATEWAY (legacy, GTX off)")
     void fastUsesCloudWhenLocalForcedOffline() {
         when(hybrid.selectInferenceRoute()).thenReturn("CLOUD_GATEWAY");
         when(hybrid.allowsCloudInference()).thenReturn(true);

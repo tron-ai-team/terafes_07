@@ -109,11 +109,26 @@ export const VoiceModePage: React.FC = () => {
     voiceStateRef.current = voiceState;
   }, [voiceState]);
 
-  // Cleanup on unmount
+  // Cleanup on unmount and when the tab is hidden for a long period
   useEffect(() => {
+    const onVisibility = () => {
+      if (document.visibilityState === 'hidden' && isActiveRef.current) {
+        // Pause aggressive capture when backgrounded; full stop releases mic safely.
+        stopVoiceSession();
+        addToast(
+          uiLanguage === 'ja'
+            ? 'タブが非表示になったため音声セッションを停止しました。'
+            : 'Voice session stopped because the tab was hidden.',
+          'info',
+        );
+      }
+    };
+    document.addEventListener('visibilitychange', onVisibility);
     return () => {
+      document.removeEventListener('visibilitychange', onVisibility);
       stopVoiceSession();
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- mount/unmount lifecycle only
   }, []);
 
   // ── VAD State Reset ──────────────────────────────────────────────────────────

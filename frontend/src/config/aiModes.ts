@@ -345,8 +345,9 @@ export function parseAIError(err: any): AIErrorDetail {
     return {
       type: 'provider_unavailable',
       title: 'AI Provider Temporarily Unavailable',
-      message: 'The selected AI provider service is currently unavailable. Automatic failover is standing by.',
-      actionLabel: 'Continue with Smart',
+      message:
+        'The selected AI mode is unavailable. There is no silent fallback — please choose another mode explicitly.',
+      actionLabel: 'Choose Smart',
       actionTarget: 'switch_smart',
     };
   }

@@ -122,9 +122,10 @@ Running 16 tests using 4 workers
 ## 6. Git Branch, Commit, and PR Status
 
 - **Working Branch:** `feature/tron-mobile-chat-ui-20261114`
-- **Initial Implementation Commit:** `e5d765c2`
+- **Implementation Commit SHA:** `e5d765c2`
+- **Documentation Commit SHA:** `a2071b14`
 - **Stacked Base Branch:** `feature/tron-mobile-home-reference-20261114` (PR #27)
-- **Draft Stacked PR:** To be opened targeting `feature/tron-mobile-home-reference-20261114`.
+- **Stacked PR Comparison / Creation URL:** [Create Stacked PR on GitHub](https://github.com/tron-ai-team/terafes_07/compare/feature/tron-mobile-home-reference-20261114...feature/tron-mobile-chat-ui-20261114?expand=1)
 
 > [!IMPORTANT]
-> In accordance with project instructions, this branch is kept isolated as a stacked draft PR against PR #27. No production deployments or unauthorized merges to `main` have been executed.
+> In accordance with project instructions, this branch is pushed to origin and isolated as a stacked draft PR targeting `feature/tron-mobile-home-reference-20261114` (PR #27). No production deployments or unauthorized merges to `main` have been executed.

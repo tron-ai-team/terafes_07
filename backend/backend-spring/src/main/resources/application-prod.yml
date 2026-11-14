@@ -145,8 +145,10 @@ tron:
   # Global application.yml keeps search OFF. This prod profile alone turns on
   # private SearXNG for FAST/SMART grounding when SPRING_PROFILES_ACTIVE=prod.
   #
-  # Explicit env overrides still win, e.g. TRON_WEB_SEARCH_V1_ENABLED=false is
-  # an immediate kill switch without rebuilding the image.
+  # Explicit env overrides still win at Spring bind time (e.g.
+  # TRON_WEB_SEARCH_V1_ENABLED=false). Do not use ad-hoc production env edits
+  # as the emergency recovery path — they can break the protected release
+  # controller's rollback fingerprint. Prefer protected image rollback.
   #
   # Merging this change to main and deploying the resulting image via the
   # protected release controller WILL enable web search in production.

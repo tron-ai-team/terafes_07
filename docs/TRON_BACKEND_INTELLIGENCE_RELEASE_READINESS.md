@@ -14,7 +14,7 @@ Final hardening report: [`docs/TRON_BACKEND_INTELLIGENCE_V1_FINAL_HARDENING.md`]
 |---|---|
 | Verified base `origin/main` | `740d6b91df5c9cb08854efc5ebf57fef49bbba53` |
 | Feature branch | `feature/tron-backend-intelligence-v1` |
-| Feature tip | `959979aee9b467e978811da65588ab44f7ef2db5` |
+| Feature tip | `0c029b249ab6611aaa010fe302cc3ba2ebd889dd` |
 | DRAFT PR | https://github.com/tron-ai-team/terafes_07/pull/28 (NOT MERGED) |
 
 ## Worktree safety

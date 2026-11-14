@@ -77,9 +77,10 @@ CI Docker/GHCR build remains the authoritative image check after push.
 
 ## 4. Final commit SHA
 
-Feature tip (Step 7 hardening):
-
-`959979aee9b467e978811da65588ab44f7ef2db5`
+| Item | SHA |
+|---|---|
+| Hardening implementation | `959979aee9b467e978811da65588ab44f7ef2db5` |
+| Branch tip (docs SHA pointer) | `0c029b249ab6611aaa010fe302cc3ba2ebd889dd` |
 
 ---
 

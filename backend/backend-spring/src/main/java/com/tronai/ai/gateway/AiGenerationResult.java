@@ -22,6 +22,7 @@ public class AiGenerationResult {
     private String errorCategory;
     private List<String> streamChunks = new ArrayList<>();
     private List<ToolCall> toolCalls = new ArrayList<>();
+    private List<Citation> citations = new ArrayList<>();
 
     public static Builder builder() {
         return new Builder();
@@ -37,6 +38,7 @@ public class AiGenerationResult {
                 .logicalProfile(mode == null ? null : mode.name())
                 .actualModelId(modelId)
                 .providerType(provider != null && provider.isLocalOllama() ? ProviderType.LOCAL : ProviderType.CLOUD)
+                .citations(citations)
                 .build();
         return result;
     }
@@ -69,8 +71,13 @@ public class AiGenerationResult {
     public void setStreamChunks(List<String> streamChunks) { this.streamChunks = streamChunks != null ? streamChunks : new ArrayList<>(); }
     public List<ToolCall> getToolCalls() { return toolCalls; }
     public void setToolCalls(List<ToolCall> toolCalls) { this.toolCalls = toolCalls != null ? toolCalls : new ArrayList<>(); }
+    public List<Citation> getCitations() { return citations; }
+    public void setCitations(List<Citation> citations) { this.citations = citations != null ? citations : new ArrayList<>(); }
 
     public record ToolCall(String id, String name, String argumentsJson) {}
+
+    /** Provider-exposed web citation — never invent these client-side. */
+    public record Citation(String title, String url, String snippet) {}
 
     public static final class Builder {
         private final AiGenerationResult result = new AiGenerationResult();
@@ -89,6 +96,7 @@ public class AiGenerationResult {
         public Builder errorCategory(String errorCategory) { result.errorCategory = errorCategory; return this; }
         public Builder streamChunks(List<String> streamChunks) { result.setStreamChunks(streamChunks); return this; }
         public Builder toolCalls(List<ToolCall> toolCalls) { result.setToolCalls(toolCalls); return this; }
+        public Builder citations(List<Citation> citations) { result.setCitations(citations); return this; }
         public AiGenerationResult build() { return result; }
     }
 }

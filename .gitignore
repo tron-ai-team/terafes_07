@@ -14,7 +14,9 @@ docs/tron-core-polish-evidence/live-smoke.*
 docs/tron-core-polish-evidence/phase3-cv*
 docs/tron-core-polish-evidence/phase3-tts*
 backend/backend-spring/target/
+backend/backend-spring/data/
 desktop-agent/target/
+data/
 *.log
 .DS_Store
 

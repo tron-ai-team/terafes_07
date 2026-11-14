@@ -18,6 +18,13 @@ import com.tronai.ai.model.ModelProfile;
 import com.tronai.ai.profile.AiProfile;
 import com.tronai.ai.profile.AiProfileResolver;
 import com.tronai.ai.profile.AiProfileService;
+import com.tronai.ai.research.search.ChatContextWindow;
+import com.tronai.ai.research.search.CloudNativeSearchSupport;
+import com.tronai.ai.research.search.NativeSearchEvidenceExtractor;
+import com.tronai.ai.research.search.SearchBundle;
+import com.tronai.ai.research.search.SearchGrounding;
+import com.tronai.ai.research.search.SearchOrchestrator;
+import com.tronai.ai.research.search.WebSearchProperties;
 import com.tronai.auth.SecurityUtils;
 import com.tronai.auth.UserPrincipal;
 import com.tronai.chat.dto.*;
@@ -64,6 +71,9 @@ public class ChatService {
     private final ChatSessionRepository chatSessionRepository;
     private final ChatMessageRepository chatMessageRepository;
     private final UserRepository userRepository;
+    private final SearchOrchestrator searchOrchestrator;
+    private final WebSearchProperties webSearchProperties;
+    private final CloudNativeSearchSupport cloudNativeSearchSupport;
 
     public ChatService(ModelManager modelManager,
                        AiProfileService aiProfileService,
@@ -74,7 +84,10 @@ public class ChatService {
                        LanguageService languageService,
                        ChatSessionRepository chatSessionRepository,
                        ChatMessageRepository chatMessageRepository,
-                       UserRepository userRepository) {
+                       UserRepository userRepository,
+                       SearchOrchestrator searchOrchestrator,
+                       WebSearchProperties webSearchProperties,
+                       CloudNativeSearchSupport cloudNativeSearchSupport) {
         this.modelManager = modelManager;
         this.aiProfileService = aiProfileService;
         this.aiProfileResolver = aiProfileResolver;
@@ -85,6 +98,11 @@ public class ChatService {
         this.chatSessionRepository = chatSessionRepository;
         this.chatMessageRepository = chatMessageRepository;
         this.userRepository = userRepository;
+        this.searchOrchestrator = searchOrchestrator;
+        this.webSearchProperties = webSearchProperties != null ? webSearchProperties : new WebSearchProperties();
+        this.cloudNativeSearchSupport = cloudNativeSearchSupport != null
+                ? cloudNativeSearchSupport
+                : new CloudNativeSearchSupport(this.webSearchProperties, this.aiGatewayProperties);
     }
 
     public static int outputBudget(String text) {
@@ -135,19 +153,6 @@ public class ChatService {
         }
 
         String resolvedLanguage = languageService.resolveLanguage(request.getLanguage(), userText);
-
-        List<ChatMessage> promptMessages = new ArrayList<>();
-        promptMessages.add(ChatMessage.builder()
-                .role("system")
-                .content(languageService.buildSystemPrompt(resolvedLanguage, request.getSearchMode()))
-                .build());
-
-        for (ChatMessageIn msg : nonSystemMessages) {
-            promptMessages.add(ChatMessage.builder()
-                    .role(msg.getRole().toLowerCase())
-                    .content(msg.getContent())
-                    .build());
-        }
 
         String sessionId = request.getSessionId();
         if (sessionId == null || sessionId.trim().isEmpty()) {
@@ -221,6 +226,32 @@ public class ChatService {
             effectiveProfile = aiProfileResolver.resolve(request.getAiProfile());
         }
 
+        // Search BEFORE generation so grounding can enter the prompt. Never changes inference provider.
+        SearchBundle searchBundle = searchOrchestrator.orchestrate(
+                request.getSearchMode(), userText, resolvedLanguage, effectiveProfile);
+
+        List<ChatMessage> promptMessages = new ArrayList<>();
+        promptMessages.add(ChatMessage.builder()
+                .role("system")
+                .content(languageService.buildSystemPrompt(resolvedLanguage, request.getSearchMode(), searchBundle))
+                .build());
+
+        String evidence = SearchGrounding.buildEvidenceBlock(searchBundle, webSearchProperties.getMaxContextChars());
+        if (!evidence.isBlank()) {
+            promptMessages.add(ChatMessage.builder()
+                    .role("system")
+                    .content(evidence)
+                    .build());
+        }
+
+        for (ChatMessageIn msg : nonSystemMessages) {
+            promptMessages.add(ChatMessage.builder()
+                    .role(msg.getRole().toLowerCase())
+                    .content(msg.getContent())
+                    .build());
+        }
+        promptMessages = ChatContextWindow.truncate(promptMessages, webSearchProperties.getMaxChatHistoryMessages());
+
         // Local profiles require ModelManager resolution; gateway profiles may skip when local QUALITY is down.
         ModelProfile modelProfile = null;
         AiMode requestedMode = toAiMode(effectiveProfile);
@@ -249,7 +280,8 @@ public class ChatService {
                     modelProfile,
                     promptMessages,
                     numPredict,
-                    userIdForSession(persistedSession));
+                    userIdForSession(persistedSession),
+                    searchBundle);
         } catch (GatewayProviderException | IllegalStateException ex) {
             throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, ex.getMessage());
         } catch (AiQuotaExceededException ex) {
@@ -275,7 +307,12 @@ public class ChatService {
             chatSessionRepository.save(persistedSession);
         }
 
-        SearchInfo searchInfo = buildSearchInfo(request.getSearchMode());
+        if (searchBundle != null && searchBundle.useNativeCloudTool()) {
+            searchBundle = cloudNativeSearchSupport.finalizeNativeBundle(
+                    searchBundle,
+                    NativeSearchEvidenceExtractor.fromChatResult(result, searchBundle.nativeCloudProvider()));
+        }
+        SearchInfo searchInfo = searchBundle.toSearchInfo();
 
         return ChatResponse.builder()
                 .sessionId(sessionId)
@@ -374,36 +411,13 @@ public class ChatService {
         }
     }
 
-    private SearchInfo buildSearchInfo(String searchMode) {
-        String mode = searchMode != null ? searchMode.toLowerCase() : "auto";
-        if ("off".equals(mode)) {
-            return SearchInfo.builder()
-                    .mode("off")
-                    .performed(false)
-                    .status("skipped")
-                    .query("")
-                    .detail("Search is turned off")
-                    .results(List.of())
-                    .build();
-        }
-
-        String finalMode = "on".equals(mode) ? "on" : "auto";
-        return SearchInfo.builder()
-                .mode(finalMode)
-                .performed(false)
-                .status("unavailable")
-                .query(null)
-                .detail("Search provider not configured")
-                .results(List.of())
-                .build();
-    }
-
     private ChatGenerationResult generateWithGatewayOrLocal(
             AiProfile profile,
             ModelProfile modelProfile,
             List<ChatMessage> promptMessages,
             int numPredict,
-            Long userId) {
+            Long userId,
+            SearchBundle searchBundle) {
         AiMode mode = toAiMode(profile);
         String route = hybrid.selectInferenceRoute();
         if ("PAUSED".equals(route)) {
@@ -419,7 +433,7 @@ public class ChatService {
             // GTX FAST lock: always use the AI gateway (OLLAMA_GTX). Never RTX ModelManager
             // and never silent cloud fallback — health/modes already advertise GTX exclusively.
             if (mode == AiMode.FAST && aiGatewayProperties.isGtxFastModeEnabled()) {
-                return generateViaGateway(mode, promptMessages, profile, numPredict, userId);
+                return generateViaGateway(mode, promptMessages, profile, numPredict, userId, searchBundle);
             }
 
             boolean preferLocal = "LOCAL_OLLAMA".equals(route);
@@ -445,7 +459,7 @@ public class ChatService {
                         throw localDown;
                     }
                     log.info("Local FAST/QUALITY failed; falling back to cloud gateway under hybrid policy");
-                    return generateViaGateway(mode, promptMessages, profile, numPredict, userId);
+                    return generateViaGateway(mode, promptMessages, profile, numPredict, userId, searchBundle);
                 }
             }
 
@@ -454,7 +468,7 @@ public class ChatService {
             if (!preferLocal && !hybrid.allowsCloudInference()) {
                 throw new IllegalStateException("Cloud AI routing is disabled while local inference is unavailable");
             }
-            return generateViaGateway(mode, promptMessages, profile, numPredict, userId);
+            return generateViaGateway(mode, promptMessages, profile, numPredict, userId, searchBundle);
         } finally {
             hybrid.releaseAiSlot();
         }
@@ -465,7 +479,8 @@ public class ChatService {
             List<ChatMessage> promptMessages,
             AiProfile profile,
             int numPredict,
-            Long userId) {
+            Long userId,
+            SearchBundle searchBundle) {
         AiRequestContext.Builder ctx = AiRequestContext.builder()
                 .feature(AiFeature.CHAT)
                 .mode(mode)
@@ -474,6 +489,10 @@ public class ChatService {
                 .temperature(profile.getDefaultTemperature())
                 .maxTokens(numPredict)
                 .idempotencyKey(UUID.randomUUID().toString());
+        if (searchBundle != null && searchBundle.useNativeCloudTool()) {
+            ctx.enableNativeWebSearch(true);
+            ctx.nativeWebSearchProvider(searchBundle.nativeCloudProvider());
+        }
         return aiGateway.generate(ctx.build()).toChatGenerationResult();
     }
 

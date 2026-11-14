@@ -5,6 +5,7 @@ import com.tronai.ai.gateway.AiGenerationResult;
 import com.tronai.ai.gateway.AiRequestContext;
 import com.tronai.ai.gateway.GatewayProviderId;
 import com.tronai.ai.gateway.ProviderHealthStatus;
+import com.tronai.ai.research.search.CloudNativeSearchSupport;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -53,6 +54,14 @@ public class GroqGatewayProvider implements GatewayProvider {
             throw new GatewayProviderException(GatewayProviderException.UNAVAILABLE, 503, "Groq is not configured");
         }
         String model = hasText(modelId) ? modelId : properties.getGroqModelSmart();
+        List<Map<String, Object>> tools = null;
+        // browser_search is Exa-backed and only valid on compatible GPT-OSS models.
+        if (context.isEnableNativeWebSearch()
+                && "GROQ_BROWSER_SEARCH".equalsIgnoreCase(context.getNativeWebSearchProvider())
+                && CloudNativeSearchSupport.isGroqBrowserCompatibleModel(model)
+                && !context.isJsonMode()) {
+            tools = List.of(Map.of("type", "browser_search"));
+        }
         AiGenerationResult result = client.generate(
                 BASE_URL,
                 properties.getGroqApiKey().trim(),
@@ -62,7 +71,8 @@ public class GroqGatewayProvider implements GatewayProvider {
                 context.getMaxTokens(),
                 context.isJsonMode(),
                 Map.of(),
-                properties.getRequestTimeoutSeconds());
+                properties.getRequestTimeoutSeconds(),
+                tools);
         enrich(result, context, model);
         return result;
     }

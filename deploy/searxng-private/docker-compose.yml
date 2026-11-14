@@ -1,0 +1,20 @@
+# SAMPLE ONLY — private SearXNG for future owner-approved install.
+# Do NOT merge this into production compose.prod.yml.
+# Bind is localhost-only by default.
+services:
+  searxng:
+    image: searxng/searxng:latest
+    container_name: tron-searxng-private
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8888:8080"
+    volumes:
+      - ./settings.yml:/etc/searxng/settings.yml:ro
+    environment:
+      - SEARXNG_BASE_URL=http://127.0.0.1:8888/
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 512M
+    # Prefer adding Tailnet ACL + host firewall before any non-loopback bind.

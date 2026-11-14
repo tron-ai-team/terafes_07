@@ -5,12 +5,22 @@ Centralized, backend-only configuration for TRON AI hybrid providers.
 ## Architecture
 
 ```text
-React → Spring API → AiGateway (LLM) + WebResearchService (search/extract)
-                         │                        │
-              Groq / OpenRouter / … / Ollama    Tavily / Firecrawl / SafeUrlFetcher
+React → Spring API → AiGateway (LLM) + WebResearchService (company) + SearchOrchestrator (chat/voice)
+                         │                        │                         │
+              Groq / OpenRouter / … / Ollama    Tavily / Firecrawl    SearXNG / Serper / native tools
 ```
 
 LLM inference, web search, and web extraction are **separate capabilities**.
+
+### Backend Intelligence V1 (chat/voice search)
+
+Default **off** (`TRON_WEB_SEARCH_V1_ENABLED=false`). When enabled:
+
+- FAST/SMART → private SearXNG (`TRON_SEARCH_SEARXNG_*`)
+- CLOUD → Groq `browser_search` / OpenRouter `openrouter:web_search` when flagged
+- Serper Google results → opt-in only (`TRON_SEARCH_SERPER_ENABLED`, daily max, no silent local paid fallback)
+
+See `docs/TRON_BACKEND_INTELLIGENCE_ARCHITECTURE.md` and `docs/TRON_SEARCH_FRONTEND_API_CONTRACT.md`.
 
 ## Secret sources (priority)
 

@@ -8,6 +8,7 @@ import com.tronai.ai.ChatMessage;
 import com.tronai.ai.ProviderType;
 import com.tronai.ai.gateway.AiFeature;
 import com.tronai.ai.gateway.AiGateway;
+import com.tronai.ai.gateway.AiGatewayProperties;
 import com.tronai.ai.gateway.AiMode;
 import com.tronai.ai.gateway.AiRequestContext;
 import com.tronai.ai.model.ModelManager;
@@ -15,6 +16,10 @@ import com.tronai.ai.model.ModelProfile;
 import com.tronai.ai.profile.AiProfile;
 import com.tronai.ai.profile.AiProfileResolver;
 import com.tronai.ai.profile.AiProfileService;
+import com.tronai.ai.research.search.SearchBundle;
+import com.tronai.ai.research.search.SearchGrounding;
+import com.tronai.ai.research.search.SearchOrchestrator;
+import com.tronai.ai.research.search.WebSearchProperties;
 import com.tronai.auth.SecurityUtils;
 import com.tronai.auth.UserPrincipal;
 import com.tronai.chat.LanguageService;
@@ -60,11 +65,14 @@ public class VoiceService {
     private final AiProfileService aiProfileService;
     private final AiProfileResolver aiProfileResolver;
     private final AiGateway aiGateway;
+    private final AiGatewayProperties aiGatewayProperties;
     private final HybridRoutingService hybrid;
     private final LanguageService languageService;
     private final VoiceSessionRepository voiceSessionRepository;
     private final UserRepository userRepository;
     private final VoiceProperties voiceProperties;
+    private final SearchOrchestrator searchOrchestrator;
+    private final WebSearchProperties webSearchProperties;
 
     // In-memory conversation dialogue history keyed by sessionId
     private final Map<String, List<ChatMessage>> sessions = new ConcurrentHashMap<>();
@@ -76,11 +84,14 @@ public class VoiceService {
                         AiProfileService aiProfileService,
                         AiProfileResolver aiProfileResolver,
                         AiGateway aiGateway,
+                        AiGatewayProperties aiGatewayProperties,
                         HybridRoutingService hybrid,
                         LanguageService languageService,
                         VoiceSessionRepository voiceSessionRepository,
                         UserRepository userRepository,
-                        VoiceProperties voiceProperties) {
+                        VoiceProperties voiceProperties,
+                        SearchOrchestrator searchOrchestrator,
+                        WebSearchProperties webSearchProperties) {
         this.speechToTextProvider = speechToTextProvider;
         this.speechSynthesisRouter = speechSynthesisRouter;
         this.audioStoreService = audioStoreService;
@@ -88,16 +99,26 @@ public class VoiceService {
         this.aiProfileService = aiProfileService;
         this.aiProfileResolver = aiProfileResolver;
         this.aiGateway = aiGateway;
+        this.aiGatewayProperties = aiGatewayProperties != null ? aiGatewayProperties : new AiGatewayProperties();
         this.hybrid = hybrid;
         this.languageService = languageService;
         this.voiceSessionRepository = voiceSessionRepository;
         this.userRepository = userRepository;
         this.voiceProperties = voiceProperties;
+        this.searchOrchestrator = searchOrchestrator;
+        this.webSearchProperties = webSearchProperties != null ? webSearchProperties : new WebSearchProperties();
     }
 
     @Transactional
     public V1VoiceTurnResponse handleVoiceTurn(byte[] audioBytes, String filename, String contentType,
                                               String sessionId, String requestedLanguage, String requestedProfileStr) {
+        return handleVoiceTurn(audioBytes, filename, contentType, sessionId, requestedLanguage, requestedProfileStr, "auto");
+    }
+
+    @Transactional
+    public V1VoiceTurnResponse handleVoiceTurn(byte[] audioBytes, String filename, String contentType,
+                                              String sessionId, String requestedLanguage, String requestedProfileStr,
+                                              String searchMode) {
         long totalStarted = System.currentTimeMillis();
 
         // 1. Language validation and resolution
@@ -194,11 +215,20 @@ public class VoiceService {
             return Collections.synchronizedList(new ArrayList<>());
         });
 
-        // 5. LLM Generation with consistent Profile Routing
-        String systemPrompt = buildVoiceSystemPrompt(normalizedLanguage);
+        // 5. Optional controlled search (AUTO by default — avoids searching every utterance)
+        String effectiveSearchMode = (searchMode == null || searchMode.isBlank()) ? "auto" : searchMode;
+        SearchBundle searchBundle = searchOrchestrator.orchestrate(
+                effectiveSearchMode, transcript, normalizedLanguage, effectiveProfile);
+
+        // 6. LLM Generation with consistent Profile Routing
+        String systemPrompt = buildVoiceSystemPrompt(normalizedLanguage, searchBundle);
 
         List<ChatMessage> messages = new ArrayList<>();
         messages.add(ChatMessage.builder().role("system").content(systemPrompt).build());
+        String evidence = SearchGrounding.buildEvidenceBlock(searchBundle, Math.min(1200, webSearchProperties.getMaxContextChars()));
+        if (!evidence.isBlank()) {
+            messages.add(ChatMessage.builder().role("system").content(evidence).build());
+        }
         synchronized (history) {
             int start = Math.max(0, history.size() - maxHistory);
             for (int i = start; i < history.size(); i++) {
@@ -209,7 +239,7 @@ public class VoiceService {
 
         int answerBudget = resolveAnswerBudget(effectiveProfile);
         long llmStarted = System.currentTimeMillis();
-        ChatGenerationResult genResult = generateVoiceReply(effectiveProfile, messages, answerBudget);
+        ChatGenerationResult genResult = generateVoiceReply(effectiveProfile, messages, answerBudget, searchBundle);
         int llmMs = (int) (System.currentTimeMillis() - llmStarted);
 
         String replyText = genResult.getText() == null ? "" : genResult.getText().trim();
@@ -299,7 +329,12 @@ public class VoiceService {
     }
 
     static String buildVoiceSystemPrompt(String normalizedLanguage) {
+        return buildVoiceSystemPrompt(normalizedLanguage, null);
+    }
+
+    static String buildVoiceSystemPrompt(String normalizedLanguage, SearchBundle searchBundle) {
         String langName = LanguageService.SUPPORTED_LANGUAGES.getOrDefault(normalizedLanguage, "English");
+        String searchNote = SearchGrounding.systemSearchNote(searchBundle);
         return "You are TRON AI, a precise bilingual voice assistant in a live spoken conversation. "
                 + "Reply only in " + langName + ", even if the user mixed languages. "
                 + "Understand the user's latest question using prior conversation turns as context. "
@@ -308,7 +343,9 @@ public class VoiceService {
                 + "Do not give vague, generic, or unrelated answers. "
                 + "Keep answers concise for speech (typically 1–3 short sentences) without sacrificing correctness. "
                 + "For math, facts, or follow-ups, state the answer clearly first, then a brief reason if needed. "
-                + "Do not use markdown, bullet lists, or code fences.";
+                + "Do not invent citations or current facts when search is unavailable. "
+                + "Do not use markdown, bullet lists, or code fences. "
+                + searchNote;
     }
 
     private int resolveAnswerBudget(AiProfile profile) {
@@ -322,7 +359,8 @@ public class VoiceService {
     private ChatGenerationResult generateVoiceReply(
             AiProfile profile,
             List<ChatMessage> messages,
-            int answerBudget) {
+            int answerBudget,
+            SearchBundle searchBundle) {
         AiMode mode = toAiMode(profile);
         Long userId = SecurityUtils.getCurrentUser().map(UserPrincipal::getId).orElse(null);
         String route = hybrid.selectInferenceRoute();
@@ -336,6 +374,10 @@ public class VoiceService {
             throw new ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS, "AI request queue saturated");
         }
         try {
+            // Align with Chat: GTX FAST lock uses gateway OLLAMA_GTX only — no silent cloud fallback.
+            if (mode == AiMode.FAST && aiGatewayProperties.isGtxFastModeEnabled()) {
+                return generateVoiceViaGateway(mode, messages, profile, answerBudget, userId, searchBundle);
+            }
             boolean preferLocal = "LOCAL_OLLAMA".equals(route);
             if (preferLocal && (mode == AiMode.FAST || mode == AiMode.QUALITY)) {
                 ModelProfile modelProfile = aiProfileService.resolveModel(profile);
@@ -360,13 +402,13 @@ public class VoiceService {
                         throw localDown;
                     }
                     log.info("Local voice FAST/QUALITY failed; falling back to cloud gateway");
-                    return generateVoiceViaGateway(resolveCloudVoiceMode(mode), messages, profile, answerBudget, userId);
+                    return generateVoiceViaGateway(resolveCloudVoiceMode(mode), messages, profile, answerBudget, userId, searchBundle);
                 }
             }
             if (!preferLocal && !hybrid.allowsCloudInference()) {
                 throw new IllegalStateException("Cloud AI routing is disabled while local inference is unavailable");
             }
-            return generateVoiceViaGateway(resolveCloudVoiceMode(mode), messages, profile, answerBudget, userId);
+            return generateVoiceViaGateway(resolveCloudVoiceMode(mode), messages, profile, answerBudget, userId, searchBundle);
         } finally {
             hybrid.releaseAiSlot();
         }
@@ -396,15 +438,29 @@ public class VoiceService {
             AiProfile profile,
             int answerBudget,
             Long userId) {
-        return aiGateway.generate(AiRequestContext.builder()
+        return generateVoiceViaGateway(mode, messages, profile, answerBudget, userId, null);
+    }
+
+    private ChatGenerationResult generateVoiceViaGateway(
+            AiMode mode,
+            List<ChatMessage> messages,
+            AiProfile profile,
+            int answerBudget,
+            Long userId,
+            SearchBundle searchBundle) {
+        AiRequestContext.Builder ctx = AiRequestContext.builder()
                 .feature(AiFeature.VOICE_REASONING)
                 .mode(mode)
                 .userId(userId)
                 .messages(messages)
                 .temperature(Math.min(0.55, profile.getDefaultTemperature()))
                 .maxTokens(answerBudget)
-                .idempotencyKey(UUID.randomUUID().toString())
-                .build()).toChatGenerationResult();
+                .idempotencyKey(UUID.randomUUID().toString());
+        if (searchBundle != null && searchBundle.useNativeCloudTool()) {
+            ctx.enableNativeWebSearch(true);
+            ctx.nativeWebSearchProvider(searchBundle.nativeCloudProvider());
+        }
+        return aiGateway.generate(ctx.build()).toChatGenerationResult();
     }
 
     private static AiMode toAiMode(AiProfile profile) {

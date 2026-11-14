@@ -156,6 +156,42 @@ tron:
     firecrawl:
       api-key: ${FIRECRAWL_API_KEY:}
       base-url: ${FIRECRAWL_BASE_URL:https://api.firecrawl.dev}
+  # Backend Intelligence V1 — all flags default OFF (identical legacy chat search stub).
+  search:
+    web-search-v1-enabled: ${TRON_WEB_SEARCH_V1_ENABLED:false}
+    max-queries-fast: ${TRON_SEARCH_MAX_QUERIES_FAST:1}
+    max-queries-smart: ${TRON_SEARCH_MAX_QUERIES_SMART:2}
+    max-results-fast: ${TRON_SEARCH_MAX_RESULTS_FAST:3}
+    max-results-smart: ${TRON_SEARCH_MAX_RESULTS_SMART:5}
+    max-results-cloud: ${TRON_SEARCH_MAX_RESULTS_CLOUD:5}
+    max-snippet-chars: ${TRON_SEARCH_MAX_SNIPPET_CHARS:400}
+    max-query-chars: ${TRON_SEARCH_MAX_QUERY_CHARS:240}
+    max-context-chars: ${TRON_SEARCH_MAX_CONTEXT_CHARS:3500}
+    cache-ttl-seconds: ${TRON_SEARCH_CACHE_TTL_SECONDS:300}
+    max-concurrent-searches: ${TRON_SEARCH_MAX_CONCURRENT:4}
+    local-paid-fallback-enabled: ${TRON_SEARCH_LOCAL_PAID_FALLBACK_ENABLED:false}
+    max-chat-history-messages: ${TRON_SEARCH_MAX_CHAT_HISTORY:24}
+    searxng:
+      enabled: ${TRON_SEARCH_SEARXNG_ENABLED:false}
+      base-url: ${TRON_SEARCH_SEARXNG_BASE_URL:http://127.0.0.1:8888}
+      connect-timeout-ms: ${TRON_SEARCH_SEARXNG_CONNECT_TIMEOUT_MS:1500}
+      read-timeout-ms: ${TRON_SEARCH_SEARXNG_TIMEOUT_MS:6000}
+      max-results: ${TRON_SEARCH_SEARXNG_MAX_RESULTS:5}
+      language: ${TRON_SEARCH_SEARXNG_LANGUAGE:en}
+    serper:
+      enabled: ${TRON_SEARCH_SERPER_ENABLED:false}
+      api-key: ${SERPER_API_KEY:}
+      base-url: ${TRON_SEARCH_SERPER_BASE_URL:https://google.serper.dev}
+      connect-timeout-ms: ${TRON_SEARCH_SERPER_CONNECT_TIMEOUT_MS:2000}
+      read-timeout-ms: ${TRON_SEARCH_SERPER_READ_TIMEOUT_MS:6000}
+      daily-max-calls: ${TRON_SEARCH_SERPER_DAILY_MAX_CALLS:0}
+      max-results: ${TRON_SEARCH_SERPER_MAX_RESULTS:5}
+      # Absolute persistent path required when Serper is enabled (relative = fail-closed).
+      budget-ledger-path: ${TRON_SEARCH_SERPER_BUDGET_LEDGER:data/serper-daily-budget.ledger}
+    groq-native:
+      browser-search-enabled: ${TRON_SEARCH_GROQ_BROWSER_ENABLED:false}
+    open-router-native:
+      web-search-tool-enabled: ${TRON_SEARCH_OPENROUTER_TOOL_ENABLED:false}
   rabbitmq:
     # Default on for local/dev. Production compose sets TRON_RABBITMQ_ENABLED=false.
     enabled: ${TRON_RABBITMQ_ENABLED:true}

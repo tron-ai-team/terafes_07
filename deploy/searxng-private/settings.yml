@@ -1,0 +1,14 @@
+# Minimal SearXNG settings fragment — enable JSON for the Spring client.
+# Merge with image defaults as needed on the target host.
+use_default_settings: true
+
+server:
+  # Instance is private; do not publish without ACL/auth.
+  limiter: false
+  image_proxy: false
+
+search:
+  safe_search: 1
+  formats:
+    - html
+    - json

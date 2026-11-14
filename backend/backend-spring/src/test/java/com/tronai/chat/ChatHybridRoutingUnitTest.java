@@ -17,6 +17,8 @@ import com.tronai.ai.model.ModelProviderType;
 import com.tronai.ai.profile.AiProfile;
 import com.tronai.ai.profile.AiProfileResolver;
 import com.tronai.ai.profile.AiProfileService;
+import com.tronai.ai.research.search.SearchOrchestrator;
+import com.tronai.ai.research.search.WebSearchProperties;
 import com.tronai.hybrid.HybridRoutingService;
 import com.tronai.user.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -51,6 +53,7 @@ class ChatHybridRoutingUnitTest {
     @Mock ChatMessageRepository chatMessageRepository;
     @Mock UserRepository userRepository;
     @Mock AiProvider localProvider;
+    @Mock SearchOrchestrator searchOrchestrator;
 
     AiGatewayProperties gatewayProperties;
     ChatService chatService;
@@ -70,7 +73,10 @@ class ChatHybridRoutingUnitTest {
                 languageService,
                 chatSessionRepository,
                 chatMessageRepository,
-                userRepository);
+                userRepository,
+                searchOrchestrator,
+                new WebSearchProperties(),
+                null);
         localProfile = new ModelProfile();
         localProfile.setProvider(ModelProviderType.OLLAMA);
         localProfile.setProviderModelName("tron-fast");
@@ -175,6 +181,7 @@ class ChatHybridRoutingUnitTest {
                 modelProfile,
                 messages,
                 64,
-                1L);
+                1L,
+                null);
     }
 }

@@ -40,6 +40,21 @@ public class OpenAiCompatibleClient {
             boolean jsonMode,
             Map<String, String> extraHeaders,
             int timeoutSeconds) {
+        return generate(baseUrl, apiKey, model, messages, temperature, maxTokens, jsonMode,
+                extraHeaders, timeoutSeconds, null);
+    }
+
+    public AiGenerationResult generate(
+            String baseUrl,
+            String apiKey,
+            String model,
+            List<ChatMessage> messages,
+            Double temperature,
+            Integer maxTokens,
+            boolean jsonMode,
+            Map<String, String> extraHeaders,
+            int timeoutSeconds,
+            List<Map<String, Object>> tools) {
 
         long start = System.currentTimeMillis();
         SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
@@ -60,8 +75,12 @@ public class OpenAiCompatibleClient {
         if (maxTokens != null && maxTokens > 0) {
             body.put("max_tokens", maxTokens);
         }
-        if (jsonMode) {
+        // Structured JSON mode is incompatible with some tool-calling paths — skip when tools present.
+        if (jsonMode && (tools == null || tools.isEmpty())) {
             body.put("response_format", Map.of("type", "json_object"));
+        }
+        if (tools != null && !tools.isEmpty()) {
+            body.put("tools", tools);
         }
 
         try {
@@ -107,16 +126,22 @@ public class OpenAiCompatibleClient {
         List<Map<String, Object>> choices = (List<Map<String, Object>>) root.get("choices");
         String text = "";
         String finishReason = "stop";
+        List<AiGenerationResult.Citation> citations = new ArrayList<>();
         if (choices != null && !choices.isEmpty()) {
             Map<String, Object> choice = choices.get(0);
             if (choice.get("finish_reason") != null) {
                 finishReason = choice.get("finish_reason").toString();
             }
             Map<String, Object> message = (Map<String, Object>) choice.get("message");
-            if (message != null && message.get("content") != null) {
-                text = message.get("content").toString();
+            if (message != null) {
+                if (message.get("content") != null) {
+                    text = message.get("content").toString();
+                }
+                citations.addAll(extractCitations(message));
             }
         }
+        // Some providers attach citations at the root (never invent if absent).
+        citations.addAll(extractCitations(root));
         int promptTokens = 0;
         int completionTokens = 0;
         Map<String, Object> usage = (Map<String, Object>) root.get("usage");
@@ -136,7 +161,83 @@ public class OpenAiCompatibleClient {
                 .promptTokens(promptTokens)
                 .completionTokens(completionTokens)
                 .latencyMs(latencyMs)
+                .citations(dedupeCitations(citations))
                 .build();
+    }
+
+    @SuppressWarnings("unchecked")
+    private static List<AiGenerationResult.Citation> extractCitations(Map<String, Object> node) {
+        List<AiGenerationResult.Citation> out = new ArrayList<>();
+        if (node == null) {
+            return out;
+        }
+        Object annotations = node.get("annotations");
+        if (annotations instanceof List<?> list) {
+            for (Object item : list) {
+                if (!(item instanceof Map<?, ?> map)) {
+                    continue;
+                }
+                String type = stringVal(map.get("type"));
+                if ("url_citation".equalsIgnoreCase(type) || type.isBlank()) {
+                    Object citationObj = map.get("url_citation");
+                    if (citationObj instanceof Map<?, ?> citationMap) {
+                        out.add(citationFromMap(citationMap));
+                    } else {
+                        out.add(citationFromMap(map));
+                    }
+                }
+            }
+        }
+        Object citations = node.get("citations");
+        if (citations instanceof List<?> list) {
+            for (Object item : list) {
+                if (item instanceof String url && !url.isBlank()) {
+                    out.add(new AiGenerationResult.Citation("", url, ""));
+                } else if (item instanceof Map<?, ?> map) {
+                    out.add(citationFromMap(map));
+                }
+            }
+        }
+        return out;
+    }
+
+    private static AiGenerationResult.Citation citationFromMap(Map<?, ?> map) {
+        String url = firstNonBlank(stringVal(map.get("url")), stringVal(map.get("link")));
+        String title = firstNonBlank(stringVal(map.get("title")), stringVal(map.get("name")));
+        String snippet = firstNonBlank(stringVal(map.get("snippet")), stringVal(map.get("content")),
+                stringVal(map.get("text")));
+        return new AiGenerationResult.Citation(title, url, snippet);
+    }
+
+    private static List<AiGenerationResult.Citation> dedupeCitations(List<AiGenerationResult.Citation> in) {
+        List<AiGenerationResult.Citation> out = new ArrayList<>();
+        java.util.HashSet<String> seen = new java.util.HashSet<>();
+        for (AiGenerationResult.Citation c : in) {
+            if (c == null || c.url() == null || c.url().isBlank()) {
+                continue;
+            }
+            String key = c.url().trim().toLowerCase(java.util.Locale.ROOT);
+            if (seen.add(key)) {
+                out.add(c);
+            }
+        }
+        return out;
+    }
+
+    private static String stringVal(Object o) {
+        return o == null ? "" : o.toString().trim();
+    }
+
+    private static String firstNonBlank(String... values) {
+        if (values == null) {
+            return "";
+        }
+        for (String v : values) {
+            if (v != null && !v.isBlank()) {
+                return v;
+            }
+        }
+        return "";
     }
 
     private GatewayProviderException mapHttpError(RestClientResponseException e) {

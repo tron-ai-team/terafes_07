@@ -1,5 +1,7 @@
 package com.tronai.chat;
 
+import com.tronai.ai.research.search.SearchBundle;
+import com.tronai.ai.research.search.SearchGrounding;
 import com.tronai.language.ExperienceLanguage;
 import org.springframework.stereotype.Service;
 
@@ -70,18 +72,23 @@ public class LanguageService {
     }
 
     public String buildSystemPrompt(String language) {
-        return buildSystemPrompt(language, "auto");
+        return buildSystemPrompt(language, "auto", null);
     }
 
     public String buildSystemPrompt(String language, String searchMode) {
+        return buildSystemPrompt(language, searchMode, null);
+    }
+
+    public String buildSystemPrompt(String language, String searchMode, SearchBundle searchBundle) {
         String langName = SUPPORTED_LANGUAGES.getOrDefault(language, "English");
-        String searchNote;
-        if ("off".equalsIgnoreCase(searchMode)) {
-            searchNote = "Web search was not performed. Do not claim that you searched the web or cite sources.";
-        } else {
-            searchNote = "Web search is not configured, so no sources were retrieved. "
-                    + "If the user asked for current facts, say that web results are unavailable. Do not invent links.";
+        SearchBundle effective = searchBundle;
+        if (effective == null) {
+            var mode = com.tronai.ai.research.search.ResolvedSearchMode.fromRaw(searchMode);
+            effective = mode == com.tronai.ai.research.search.ResolvedSearchMode.OFF
+                    ? SearchBundle.skipped(mode, "Search is turned off")
+                    : SearchBundle.unavailable(mode, "Search provider not configured");
         }
+        String searchNote = SearchGrounding.systemSearchNote(effective);
 
         return "You are TRON AI, a careful local assistant. "
                 + "Reply only in " + langName + ", even if the user writes in another language. Do not mix languages. "
@@ -89,7 +96,8 @@ public class LanguageService {
                 + "Do not default to Japanese unless Japanese is the selected language. "
                 + "Match the length to the request: answer a short question briefly, and answer a coding or "
                 + "explanation request completely. Use fenced Markdown for code, keep its indentation, and close every fence. "
-                + "Do not invent tools, citations, company facts, or search results. "
+                + "Be honest when you do not know. Prefer step-by-step reasoning for complex tasks, concise answers for simple ones. "
+                + "Do not invent tools, citations, company facts, education, work experience, or search results. "
                 + "Do not act as a job interviewer. Use only this conversation plus the search note below. "
                 + searchNote;
     }

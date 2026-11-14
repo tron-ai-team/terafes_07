@@ -12,7 +12,7 @@
 
 - **Feature Branch:** `feature/tron-mobile-home-reference-20261114`
 - **Base Branch:** `origin/main` at `740d6b91` (verified containing merged Core Polish PR #26)
-- **Commit SHA:** `b6085218`
+- **Commit SHA:** `d2d7a005` (Tip: feature branch HEAD)
 - **Repository:** `tron-ai-team/terafes_07`
 - **Remote Push:** `origin/feature/tron-mobile-home-reference-20261114` (Up to date)
 - **PR URL / Creation Link:** [Create PR on GitHub](https://github.com/tron-ai-team/terafes_07/pull/new/feature/tron-mobile-home-reference-20261114)

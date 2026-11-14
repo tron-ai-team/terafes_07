@@ -4,6 +4,12 @@ DELETE_LATER/
 node_modules/
 frontend/node_modules/
 frontend/dist/
+frontend/playwright-report/
+frontend/test-results/
+frontend/.env.e2e.local
+docs/tron-core-polish-evidence/*.pdf
+docs/tron-core-polish-evidence/*.xlsx
+docs/tron-core-polish-evidence/live-smoke.*
 backend/backend-spring/target/
 desktop-agent/target/
 *.log

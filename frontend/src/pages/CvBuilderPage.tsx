@@ -63,6 +63,8 @@ export const CvBuilderPage: React.FC = () => {
   const [busy, setBusy] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /** Public new-document templates only (SHOKUMU_JA not offered). */
+  const [createTemplateCode, setCreateTemplateCode] = useState<'RIREKISHO_JA' | 'RESUME_EN'>('RIREKISHO_JA');
 
   // ── Versions & Photo ────────────────────────────────────────────────────────
   const [versions, setVersions] = useState<CvVersionSummary[]>([]);
@@ -285,7 +287,7 @@ export const CvBuilderPage: React.FC = () => {
   }, [hasUnsavedChanges, busy, draft, payload, expectedUpdatedAt]);
 
   // ── Draft Actions: Create, Select, Delete ────────────────────────────────────
-  const handleCreateDraft = async () => {
+  const handleCreateDraft = async (templateCode: 'RIREKISHO_JA' | 'RESUME_EN' = createTemplateCode) => {
     if (hasUnsavedChanges) {
       const confirmDiscard = window.confirm(
         ja
@@ -300,9 +302,10 @@ export const CvBuilderPage: React.FC = () => {
     try {
       setMagicSuggestions([]);
       setMagicWarnings([]);
+      const labelPrefix = templateCode === 'RESUME_EN' ? 'Resume' : ja ? '履歴書' : 'Rirekisho';
       const created = await careerCenterClient.createDraft({
-        templateCode: 'RIREKISHO_JA',
-        versionLabel: `履歴書-${new Date().toISOString().slice(0, 10)}`,
+        templateCode,
+        versionLabel: `${labelPrefix}-${new Date().toISOString().slice(0, 10)}`,
       });
       const full = await careerCenterClient.getDraft(created.id);
       applyDraft(full, true);
@@ -310,7 +313,13 @@ export const CvBuilderPage: React.FC = () => {
       setDrafts(list);
       await loadVersions(full.id);
       addToast(
-        ja ? '新規履歴書を作成しました（プロフィールから初期化）' : 'Created Japanese CV draft from profile',
+        templateCode === 'RESUME_EN'
+          ? ja
+            ? '英語レジュメの下書きを作成しました'
+            : 'Created English résumé draft from profile'
+          : ja
+            ? '新規履歴書を作成しました（プロフィールから初期化）'
+            : 'Created Japanese CV draft from profile',
         'success'
       );
     } catch (err: any) {
@@ -1016,16 +1025,46 @@ export const CvBuilderPage: React.FC = () => {
           </div>
           <div className="space-y-2">
             <h3 className="text-xl font-bold text-slate-900">
-              {ja ? '日本標準の履歴書を作成しましょう' : 'Create Your Japanese 履歴書'}
+              {ja ? '履歴書 / レジュメを作成しましょう' : 'Create a CV or résumé'}
             </h3>
             <p className="text-sm text-slate-500 leading-relaxed">
               {ja
-                ? 'TRON AI 履歴書ビルダーは、JIS規格に準拠した美しい2ページA4履歴書を作成できます。登録済みの候補者プロフィールからワンクリックでデータを初期化できます。'
-                : 'Build an official 2-page JIS Japanese CV with candidate profile sync, AI Magic Fill, real-time A4 preview, and Chromium PDF rendering.'}
+                ? '日本語のJIS履歴書（RIREKISHO_JA）または英語レジュメ（RESUME_EN）を作成できます。候補者プロフィールから初期化できます。'
+                : 'Create a Japanese JIS 履歴書 (RIREKISHO_JA) or English résumé (RESUME_EN). Candidate Profile can initialize fields.'}
             </p>
           </div>
-          <NeonButton onClick={() => void handleCreateDraft()} isLoading={busy} size="lg">
-            {ja ? '新規履歴書を作成する' : 'Create New CV'}
+          <div className="flex flex-col sm:flex-row gap-2 justify-center">
+            <button
+              type="button"
+              onClick={() => setCreateTemplateCode('RIREKISHO_JA')}
+              className={`px-4 py-2 rounded-xl text-xs font-bold border transition-colors ${
+                createTemplateCode === 'RIREKISHO_JA'
+                  ? 'bg-blue-600 text-white border-blue-600'
+                  : 'bg-white text-slate-700 border-[#E2EEF8]'
+              }`}
+            >
+              {ja ? '日本語 履歴書' : 'Japanese 履歴書'}
+            </button>
+            <button
+              type="button"
+              onClick={() => setCreateTemplateCode('RESUME_EN')}
+              className={`px-4 py-2 rounded-xl text-xs font-bold border transition-colors ${
+                createTemplateCode === 'RESUME_EN'
+                  ? 'bg-blue-600 text-white border-blue-600'
+                  : 'bg-white text-slate-700 border-[#E2EEF8]'
+              }`}
+            >
+              {ja ? '英語 Résumé' : 'English Résumé'}
+            </button>
+          </div>
+          <NeonButton onClick={() => void handleCreateDraft(createTemplateCode)} isLoading={busy} size="lg">
+            {createTemplateCode === 'RESUME_EN'
+              ? ja
+                ? '英語レジュメを作成'
+                : 'Create English Résumé'
+              : ja
+                ? '新規履歴書を作成する'
+                : 'Create Japanese CV'}
           </NeonButton>
         </GlassCard>
       ) : (

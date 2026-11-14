@@ -118,10 +118,18 @@ interface CodeBlockCardProps {
 const CodeBlockCard: React.FC<CodeBlockCardProps> = ({ language, code }) => {
   const [copied, setCopied] = useState(false);
 
-  const handleCopy = () => {
-    navigator.clipboard.writeText(code);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+  const handleCopy = async () => {
+    try {
+      if (!navigator.clipboard?.writeText) {
+        throw new Error('Clipboard unavailable');
+      }
+      await navigator.clipboard.writeText(code);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // Honest failure — do not claim copied.
+      setCopied(false);
+    }
   };
 
   const lineCount = code.split('\n').length;

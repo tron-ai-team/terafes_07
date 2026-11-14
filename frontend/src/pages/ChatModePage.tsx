@@ -78,8 +78,12 @@ export const ChatModePage: React.FC = () => {
     const text = input.trim();
     if (!text || isChatSending) return;
 
+    // Clear composer optimistically; restore on failure so the user never loses typed text.
     setInput('');
-    await sendChatMessage(text);
+    const ok = await sendChatMessage(text);
+    if (!ok) {
+      setInput(text);
+    }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {

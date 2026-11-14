@@ -73,14 +73,22 @@ public class CvBuilderService {
         this.languageHelper = languageHelper;
     }
 
-    /** TRON AI Final Decision: Support ONLY Japanese 履歴書 (RIREKISHO_JA). */
+    /**
+     * Public new-document templates: Japanese 履歴書 + English résumé.
+     * SHOKUMU_JA remains loadable for legacy drafts but is not offered for new creation.
+     */
     public List<Map<String, Object>> listTemplates() {
         return List.of(
                 Map.of(
                         "code", "RIREKISHO_JA",
                         "displayName", "履歴書（JIS規格・2ページ）",
                         "locale", "ja",
-                        "description", "日本標準の2ページ履歴書（学歴・職歴・免許資格・自己PR）。A4判2枚出力。")
+                        "description", "日本標準の2ページ履歴書（学歴・職歴・免許資格・自己PR）。A4判2枚出力。"),
+                Map.of(
+                        "code", "RESUME_EN",
+                        "displayName", "English Résumé",
+                        "locale", "en",
+                        "description", "English résumé template for international applications.")
         );
     }
 
@@ -97,9 +105,16 @@ public class CvBuilderService {
     @Transactional
     public Map<String, Object> createDraft(Long userId, Map<String, Object> body) {
         User user = userRepository.findById(userId).orElseThrow();
-        // Owner decision: new CVs are Japanese 履歴書 only. Legacy codes remain loadable for existing rows.
-        String template = "RIREKISHO_JA";
-        Map<String, Object> payload = body.containsKey("payload")
+        String requested = body != null && body.get("templateCode") != null
+                ? String.valueOf(body.get("templateCode"))
+                : "RIREKISHO_JA";
+        String template = normalizeTemplateCode(requested);
+        // New creation: RIREKISHO_JA or RESUME_EN only (legacy SHOKUMU_JA remains loadable).
+        if (!"RIREKISHO_JA".equals(template) && !"RESUME_EN".equals(template)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "New CV drafts must use RIREKISHO_JA or RESUME_EN.");
+        }
+        Map<String, Object> payload = body != null && body.containsKey("payload")
                 ? preparePayload(castMap(body.get("payload")), false)
                 : payloadFromProfile(userId);
         Instant now = Instant.now().truncatedTo(ChronoUnit.SECONDS);
@@ -108,7 +123,7 @@ public class CvBuilderService {
                 .user(user)
                 .profileId(profileRepository.findByUser_Id(userId).map(CandidateProfileEntity::getId).orElse(null))
                 .templateCode(template)
-                .versionLabel(String.valueOf(body.getOrDefault("versionLabel", "draft-1")))
+                .versionLabel(String.valueOf(body != null ? body.getOrDefault("versionLabel", "draft-1") : "draft-1"))
                 .status("DRAFT")
                 .payloadJson(write(payload))
                 .createdAt(now)
@@ -129,10 +144,10 @@ public class CvBuilderService {
         if (body.get("versionLabel") != null) draft.setVersionLabel(String.valueOf(body.get("versionLabel")));
         if (body.get("templateCode") != null) {
             String next = normalizeTemplateCode(String.valueOf(body.get("templateCode")));
-            // User-facing product is RIREKISHO_JA only — block switching to EN/SHOKUMU.
-            if (!"RIREKISHO_JA".equals(next)) {
+            // Allow RIREKISHO_JA ↔ RESUME_EN; do not promote SHOKUMU_JA as a new public template.
+            if (!"RIREKISHO_JA".equals(next) && !"RESUME_EN".equals(next)) {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                        "Only RIREKISHO_JA is supported for CV Builder updates.");
+                        "CV Builder updates support RIREKISHO_JA or RESUME_EN only.");
             }
             draft.setTemplateCode(next);
         }

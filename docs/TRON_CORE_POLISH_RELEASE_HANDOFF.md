@@ -7,6 +7,8 @@
 - **PR:** https://github.com/tron-ai-team/terafes_07/pull/26 (**DRAFT**)
 - **Production deployment performed by this mission:** **NO**
 - **Merge to main:** **NOT AUTHORIZED** — owner approval required
+- **Phase 2 report:** `docs/TRON_CORE_POLISH_PHASE2_REPORT.md`
+- **Test matrix:** `docs/TRON_CORE_POLISH_TEST_MATRIX.md`
 
 ## Risk assessment
 
@@ -17,6 +19,8 @@
 | Open redirect via returnTo | Mitigated | `sanitizeReturnTo` |
 | GTX/RTX routing regression | Low | Existing Maven router tests pass; no backend routing edits |
 | Visual identity drift | Low | No hero/logo/video edits |
+| RESUME_EN template until backend deploy | Med | Fixed in this PR; production API still coerces until deploy |
+| FAST generation 503 while modes say available | Med (env) | Honest UI 503; no silent CLOUD fallback |
 
 ## Owner test checklist (before merge/deploy)
 

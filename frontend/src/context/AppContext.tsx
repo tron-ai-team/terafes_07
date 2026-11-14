@@ -87,7 +87,8 @@ interface AppContextType {
   createNewChat: () => string;
   selectChat: (sessionId: string) => void;
   deleteChat: (sessionId: string) => void;
-  sendChatMessage: (content: string) => Promise<void>;
+  /** Returns true when an assistant reply was stored; false on validation/send failure. */
+  sendChatMessage: (content: string) => Promise<boolean>;
 
   // Backend Connectivity Status
   backendStatus: 'checking' | 'connected' | 'offline';
@@ -132,14 +133,15 @@ const initialSampleChatSession: ChatSession = {
   title: 'Welcome to TRON AI',
   createdAt: new Date().toISOString(),
   updatedAt: new Date().toISOString(),
-  aiProfile: 'FAST',
-  locked: true,
+  aiProfile: 'SMART',
+  // Welcome tip only — not locked so users can pick FAST/SMART/CLOUD before first real send.
+  locked: false,
   messages: [
     {
       id: 'msg-welcome-ai',
       role: 'assistant',
       content:
-        'Hello! I am TRON AI, your advanced assistant. I can help with general inquiries, Japanese career advice, tech interview prep, and culture. How may I assist you today?',
+        'Hello! I am TRON AI. Choose FAST, SMART, or CLOUD, then send a message to start a real conversation. This welcome note is not a model reply.',
       createdAt: new Date().toISOString(),
     },
   ],
@@ -858,9 +860,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const activeSession = chatSessions.find((s) => s.id === activeChatId) || chatSessions[0];
   const activeChatMessages = activeSession?.messages || [];
 
-  const sendChatMessage = async (content: string) => {
+  const sendChatMessage = async (content: string): Promise<boolean> => {
     const text = content.trim();
-    if (!text || isChatSending) return;
+    if (!text || isChatSending) return false;
 
     const userMsg: ChatMessage = {
       id: 'usr-' + Date.now(),
@@ -881,12 +883,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (ultraCredits.remaining <= 0) {
         setUltraLimitModalOpen(true);
         setChatNotice('Your Ultra credits are finished for today. Please switch to Smart mode.');
-        return;
+        return false;
       }
       consumeUltraCredit(1);
     }
 
-    // Update session title on first message and lock the profile
+    // Snapshot history for this session before optimistic append (avoids stale/wrong-thread mix).
+    const priorMessages = currentSession?.messages || activeChatMessages;
+
+    // Optimistic append + lock profile for this real send
     setChatSessions((prev) => {
       const exists = prev.find((s) => s.id === targetSessionId);
       if (exists) {
@@ -894,7 +899,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           s.id === targetSessionId
             ? {
                 ...s,
-                title: s.title === 'New Conversation' ? text.slice(0, 32) : s.title,
+                title: s.title === 'New Conversation' || s.title === 'Welcome to TRON AI' ? text.slice(0, 32) : s.title,
                 messages: [...s.messages, userMsg],
                 aiProfile: sessionProfile,
                 locked: true,
@@ -902,29 +907,27 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               }
             : s
         );
-      } else {
-        const newSession: ChatSession = {
-          id: targetSessionId!,
-          title: text.slice(0, 32),
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-          aiProfile: sessionProfile,
-          locked: true,
-          messages: [userMsg],
-        };
-        return [newSession, ...prev];
       }
+      const newSession: ChatSession = {
+        id: targetSessionId!,
+        title: text.slice(0, 32),
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        aiProfile: sessionProfile,
+        locked: true,
+        messages: [userMsg],
+      };
+      return [newSession, ...prev];
     });
 
     setIsChatSending(true);
     setChatNotice(null);
 
-    // Call chatClient with selected language, searchMode, and mapped backend aiProfile
     const backendProfile = mapAiModeToBackendProfile(sessionProfile as AiMode);
     try {
       const result = await requestAssistantReply({
         sessionId: targetSessionId!,
-        messages: [...activeChatMessages, userMsg],
+        messages: [...priorMessages, userMsg],
         language: aiLanguage,
         searchMode: searchMode,
         aiProfile: backendProfile,
@@ -934,7 +937,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
       if (result.status === 'unavailable') {
         setChatNotice(`${result.label}: ${result.detail}`);
-      } else if (result.detail) {
+        // Keep the user message visible for context, but unlock so they can switch modes and retry.
+        setChatSessions((prev) =>
+          prev.map((s) =>
+            s.id === targetSessionId
+              ? {
+                  ...s,
+                  locked: s.messages.some((m) => m.role === 'assistant' && m.id !== 'msg-welcome-ai'),
+                  updatedAt: new Date().toISOString(),
+                }
+              : s
+          )
+        );
+        return false;
+      }
+
+      if (result.detail) {
         const aiMsg: ChatMessage = {
           id: 'ai-' + Date.now(),
           role: 'assistant',
@@ -956,10 +974,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               : s
           )
         );
+        return true;
       }
+
+      setChatNotice('Empty response from TRON AI. Please try again.');
+      return false;
     } catch {
       setIsChatSending(false);
-      setChatNotice('Failed to communicate with TRON AI backend');
+      setChatNotice('TRON AI is temporarily unavailable. Please try again.');
+      return false;
     }
   };
 

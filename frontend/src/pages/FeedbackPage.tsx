@@ -72,33 +72,41 @@ export const FeedbackPage: React.FC = () => {
   const [retryEvaluation, setRetryEvaluation] = useState<string | null>(null);
   const [isEvaluatingRetry, setIsEvaluatingRetry] = useState(false);
 
-  // Analysis from AppContext
-  const analysis = lastAnalysis || {
-    interviewId: 'tron-inv-none',
-    companyName: interviewConfig.companyName || 'LINEヤフー株式会社 (LY Corporation)',
-    jobPosition: interviewConfig.jobPosition || 'Software Engineer (Backend)',
-    interviewType: 'Technical Interview',
-    difficulty: 'Intermediate',
-    overallScore: 0,
-    communicationScore: 0,
-    japaneseScore: 0,
-    technicalScore: 0,
-    confidenceScore: 0,
-    radarData: [],
-    strongPoints: [],
-    weakPoints: [],
-    aiOverallFeedback:
-      '面接セッションがまだ完了していません。面接ルームから質問への回答を完了すると、リアルAIによる日本語講評がここに表示されます。',
-    starSuggestion: {
-      situation: '',
-      task: '',
-      action: '',
-      result: '',
-    },
-    durationMinutes: 1,
-    completionDate: new Date().toLocaleDateString('ja-JP'),
-    transcript: [],
-  };
+  // Analysis from AppContext — never invent company/job scores when no session exists.
+  if (!lastAnalysis) {
+    return (
+      <div className="flex-1 flex items-center justify-center py-10 px-4">
+        <div className="max-w-md w-full rounded-3xl bg-white/90 border border-[#E2EEF8] p-8 text-center space-y-4 shadow-sm">
+          <h1 className="text-xl font-extrabold text-slate-900 font-display">
+            {uiLanguage === 'ja' ? 'フィードバックがありません' : 'No interview feedback yet'}
+          </h1>
+          <p className="text-sm text-slate-500">
+            {uiLanguage === 'ja'
+              ? '面接を完了すると、実際のセッション結果に基づくフィードバックが表示されます。'
+              : 'Complete an interview session to see feedback generated from your real answers.'}
+          </p>
+          <div className="flex flex-col sm:flex-row gap-2 justify-center pt-1">
+            <button
+              type="button"
+              onClick={() => navigate('/career/interview/setup')}
+              className="px-5 py-2.5 rounded-2xl text-sm font-semibold text-white bg-gradient-to-r from-[#008CFF] to-[#0066FF]"
+            >
+              {uiLanguage === 'ja' ? '面接を開始' : 'Start Interview'}
+            </button>
+            <button
+              type="button"
+              onClick={() => navigate('/career/history')}
+              className="px-5 py-2.5 rounded-2xl text-sm font-semibold text-slate-700 bg-white border border-[#E2EEF8]"
+            >
+              {uiLanguage === 'ja' ? '履歴を見る' : 'View History'}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const analysis = lastAnalysis;
 
   const hasNumericScores = analysis.overallScore > 0;
   const hasRadarData =

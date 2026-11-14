@@ -148,7 +148,7 @@ export const careerCenterClient = {
     const res = await apiFetch('/api/v1/career/cv-builder/drafts', {
       method: 'POST',
       body: JSON.stringify({
-        templateCode: 'RIREKISHO_JA',
+        templateCode: body?.templateCode || 'RIREKISHO_JA',
         ...body,
       }),
     });

@@ -50,10 +50,10 @@ const DEFAULT_PROFILES: AiProfileDefinition[] = [
   {
     id: 'SMART',
     displayName: 'Smart',
-    description: 'High-reasoning model for complex code, CV, and interview prep',
+    description: 'RTX-powered Qwen 3.5 9B for complex code, CV, and interview prep',
     available: true,
     provider: 'local',
-    modelDisplayName: 'gemma3:12b',
+    modelDisplayName: 'qwen3.5:9b',
     icon: 'brain',
   },
   {

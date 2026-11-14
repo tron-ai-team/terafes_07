@@ -2,9 +2,9 @@ import type { ChatSendRequest, ChatSendResult } from '../types/chat';
 import { CORE_API_URL } from '../config/api';
 import { apiFetch, parseErrorDetail } from './httpClient';
 
-export const AI_NOT_CONNECTED_LABEL = 'AI Backend Offline';
+export const AI_NOT_CONNECTED_LABEL = 'TRON AI Unavailable';
 export const AI_NOT_CONNECTED_DETAIL =
-  'Spring Boot backend service is not running or not responding at localhost:8080. Chat integration is ready to connect once the service is started.';
+  'TRON AI is temporarily unavailable. Please try again in a moment.';
 
 export { CORE_API_URL };
 const CHAT_TIMEOUT_MS = 60000; // 60 seconds for Ollama qwen3:8b execution
@@ -68,6 +68,37 @@ export async function requestAssistantReply(
       };
     } else {
       const detailMsg = await parseErrorDetail(res);
+      // Preserve honest provider/offline semantics (no silent FAST→CLOUD fallback).
+      if (res.status === 503) {
+        const lower = (detailMsg || '').toLowerCase();
+        const isFast =
+          lower.includes('gtx') ||
+          lower.includes('fast') ||
+          lower.includes('local ai is unavailable');
+        return {
+          status: 'unavailable',
+          label: isFast ? 'FAST unavailable' : 'AI provider unavailable',
+          detail:
+            detailMsg ||
+            (isFast
+              ? 'FAST is currently offline. Choose another mode to continue.'
+              : 'The selected AI mode is unavailable. Choose another mode to continue.'),
+        };
+      }
+      if (res.status === 401) {
+        return {
+          status: 'unavailable',
+          label: 'Sign in required',
+          detail: detailMsg || 'Your session expired. Please sign in again.',
+        };
+      }
+      if (res.status === 429) {
+        return {
+          status: 'unavailable',
+          label: 'Rate limited',
+          detail: detailMsg || 'Too many requests. Please wait and try again.',
+        };
+      }
       return {
         status: 'unavailable',
         label: `Server Error (${res.status})`,

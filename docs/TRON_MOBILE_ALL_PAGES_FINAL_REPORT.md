@@ -3,7 +3,7 @@
 ## Branch safety
 - **Base branch and full SHA:** `origin/feature/tron-mobile-chat-ui-20261114` (`0f1b91b93f3ca2b57afc6e7105a9638b01fb35af`)
 - **Verified Home/Chat ancestry:** Grandparent PR #27 `feature/tron-mobile-home-reference-20261114` (`e92f3154a7e5fcc5bec275cdb43fbb03defc8e3e`) is verified direct ancestor of base `0f1b91b9`.
-- **New feature branch:** `feature/tron-mobile-core-pages-20261115` (`dcc3748ee5460ad93276e13b3c44470417a04de1`)
+- **New feature branch:** `feature/tron-mobile-core-pages-20261115` (`66edbb9f0415c38ab4f009f124186d666358b9b8`)
 - **Stacked draft PR URL, head and base:**
   - Head: `feature/tron-mobile-core-pages-20261115`
   - Base: `feature/tron-mobile-chat-ui-20261114`

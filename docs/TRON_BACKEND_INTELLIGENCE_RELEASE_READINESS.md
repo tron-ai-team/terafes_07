@@ -6,13 +6,15 @@
 
 Feature flags default **OFF** — production behavior unchanged until owner enables search.
 
+Final hardening report: [`docs/TRON_BACKEND_INTELLIGENCE_V1_FINAL_HARDENING.md`](./TRON_BACKEND_INTELLIGENCE_V1_FINAL_HARDENING.md)
+
 ## SHAs
 
 | Item | Value |
 |---|---|
 | Verified base `origin/main` | `740d6b91df5c9cb08854efc5ebf57fef49bbba53` |
 | Feature branch | `feature/tron-backend-intelligence-v1` |
-| Feature tip | `007b6fe38b63a0dd67b8297ddb60560a79b64fa3` |
+| Feature tip | _(updated to HEAD after Step 7 hardening commit)_ |
 | DRAFT PR | https://github.com/tron-ai-team/terafes_07/pull/28 (NOT MERGED) |
 
 ## Worktree safety
@@ -24,11 +26,12 @@ Feature flags default **OFF** — production behavior unchanged until owner enab
 ## Production changes
 
 **NONE.** No compose.prod edits, no host installs, no secret writes, no service restarts, no merge.
+SearXNG private instance already installed by owner — not modified by this mission.
 
 ## Enablement checklist (owner)
 
-1. Install private SearXNG per `docs/TRON_SEARXNG_PRIVATE_DEPLOY_RUNBOOK.md`
-2. Set `TRON_WEB_SEARCH_V1_ENABLED=true` and `TRON_SEARCH_SEARXNG_ENABLED=true`
+1. Private SearXNG already verified: `tron-searxng` / `http://tron-searxng:8080` on `tron_ai_internal`
+2. Set in `/etc/tron-ai/tron-ai.env` (future): `TRON_WEB_SEARCH_V1_ENABLED=true`, `TRON_SEARCH_SEARXNG_ENABLED=true`, `TRON_SEARCH_SEARXNG_BASE_URL=http://tron-searxng:8080`
 3. Optionally enable Groq/OpenRouter native tools and/or Serper with daily max &gt; 0
 4. Smoke chat OFF/AUTO/ON on FAST and SMART
 5. Confirm FAST still GTX and SMART still RTX
@@ -39,7 +42,6 @@ Feature flags default **OFF** — production behavior unchanged until owner enab
 
 ## Remaining blockers
 
-- Live SearXNG deployment
-- Live Serper/Groq/OpenRouter search credentials + budgets
 - Owner approval to merge and to change production env
-- Optional: full `CvBuilderV2BackendIT` in CI after push
+- Live FAST/SMART web-search smoke after enablement
+- Optional: CI Docker image confirmation (local Docker daemon unavailable during hardening)

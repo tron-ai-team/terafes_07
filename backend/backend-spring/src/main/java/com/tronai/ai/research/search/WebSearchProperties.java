@@ -222,6 +222,8 @@ public class WebSearchProperties {
         private int readTimeoutMs = 6000;
         private int dailyMaxCalls = 0;
         private int maxResults = 5;
+        /** Durable daily budget ledger path; survives process restarts. */
+        private String budgetLedgerPath = "data/serper-daily-budget.ledger";
 
         public boolean isEnabled() {
             return enabled;
@@ -277,6 +279,14 @@ public class WebSearchProperties {
 
         public void setMaxResults(int maxResults) {
             this.maxResults = maxResults;
+        }
+
+        public String getBudgetLedgerPath() {
+            return budgetLedgerPath;
+        }
+
+        public void setBudgetLedgerPath(String budgetLedgerPath) {
+            this.budgetLedgerPath = budgetLedgerPath == null ? "" : budgetLedgerPath.trim();
         }
 
         public boolean isReady() {

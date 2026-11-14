@@ -55,15 +55,17 @@ public record SearchBundle(
                     .snippet(hit.snippet())
                     .build());
         }
+        boolean verified = succeeded && !results.isEmpty();
         SearchInfo.Builder b = SearchInfo.builder()
                 .mode(mode.wireValue())
-                .performed(succeeded && !results.isEmpty())
+                // Never claim performed=true merely because a native tool was requested.
+                .performed(verified)
                 .status(status)
                 .query(query.isBlank() ? null : query)
                 .detail(detail)
                 .results(hits)
                 .requested(requested)
-                .available(succeeded || "ok".equals(status))
+                .available(verified)
                 .provider(provider.isBlank() ? null : provider)
                 .warnings(warnings.isEmpty() ? null : warnings);
         return b.build();

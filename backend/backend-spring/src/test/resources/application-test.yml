@@ -46,6 +46,12 @@ tron:
   # mock AiProvider exercise the real Chat/Voice path without cloud provider keys.
   hybrid:
     assume-local-healthy: true
+  search:
+    web-search-v1-enabled: false
+    serper:
+      enabled: false
+      daily-max-calls: 0
+      budget-ledger-path: ${java.io.tmpdir}/tron-test-serper-budget.ledger
 
 stt:
   base-url: http://127.0.0.1:8091

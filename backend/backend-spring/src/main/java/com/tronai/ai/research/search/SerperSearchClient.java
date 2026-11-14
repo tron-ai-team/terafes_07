@@ -20,6 +20,7 @@ import java.util.Map;
 
 /**
  * Opt-in Serper.dev Google Search adapter with hard daily budget gates.
+ * Ambiguous network failures do not refund consumed budget.
  */
 @Component
 public class SerperSearchClient {
@@ -76,27 +77,30 @@ public class SerperSearchClient {
                     .body(String.class);
             List<NormalizedSearchHit> hits = parseHits(raw, limit);
             long ms = System.currentTimeMillis() - started;
+            // Never log query text — may contain residual personal content.
             log.info("Serper search ok hits={} latencyMs={} remainingBudget={}",
                     hits.size(), ms, budgetTracker.remaining());
             return new ProviderSearchOutcome("SERPER", query.trim(), true, "ok",
                     "Serper Google results", hits, ms, null);
         } catch (RestClientResponseException e) {
-            budgetTracker.releaseUnused();
             int code = e.getStatusCode().value();
             long ms = System.currentTimeMillis() - started;
             log.warn("Serper search failed status={} latencyMs={}", code, ms);
+            // Refund only when credentials were rejected before a billable search.
             if (code == 401 || code == 403) {
+                budgetTracker.releaseUnused();
                 return ProviderSearchOutcome.failed("SERPER", query, "unavailable", "invalid_credentials");
             }
+            // 429 / 5xx / other HTTP: keep budget consumed (request may have been accepted).
             if (code == 429) {
                 return ProviderSearchOutcome.failed("SERPER", query, "error", "rate_limited");
             }
             return ProviderSearchOutcome.failed("SERPER", query, "error", "upstream_" + code);
         } catch (Exception e) {
-            budgetTracker.releaseUnused();
+            // Ambiguous timeout / network failure: DO NOT refund — request may have been billed.
             String msg = e.getMessage() == null ? "" : e.getMessage().toLowerCase(Locale.ROOT);
             boolean timeout = msg.contains("timed out") || msg.contains("timeout");
-            log.warn("Serper search unavailable: {}", e.getClass().getSimpleName());
+            log.warn("Serper search unavailable (budget retained): {}", e.getClass().getSimpleName());
             return ProviderSearchOutcome.failed("SERPER", query,
                     timeout ? "timeout" : "unavailable",
                     timeout ? "Serper timed out" : "Serper unreachable");

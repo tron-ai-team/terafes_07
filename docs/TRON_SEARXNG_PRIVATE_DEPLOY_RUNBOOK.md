@@ -26,15 +26,18 @@ search:
 Without `json`, `format=json` returns **HTTP 403**.
 
 3. CPU/memory caps (example): `cpus: 1.0`, `mem_limit: 512m`.
-4. Backend env (placeholders):
+4. Attach SearXNG to the existing backend Docker network (`tron_ai_internal`) with DNS name `tron-searxng`.
+5. Backend env (owner-approved future enablement in `/etc/tron-ai/tron-ai.env` — do not set on prod without approval):
 
 ```dotenv
 TRON_WEB_SEARCH_V1_ENABLED=true
 TRON_SEARCH_SEARXNG_ENABLED=true
-TRON_SEARCH_SEARXNG_BASE_URL=http://127.0.0.1:8888
+TRON_SEARCH_SEARXNG_BASE_URL=http://tron-searxng:8080
 ```
 
-If Spring runs in Docker, `127.0.0.1` inside the container is **not** the host. Use Docker DNS / Tailnet hostname instead.
+Host-only validation URL remains `http://127.0.0.1:8888`. The Spring backend container must use Docker DNS `http://tron-searxng:8080`, not host loopback.
+
+Owner-verified infrastructure (2026-11-14): container `tron-searxng-private`, network `tron_ai_internal`, backend DNS `tron-searxng`, Google CSE + Brave OK, DuckDuckGo CAPTCHA observed.
 
 ## Validation (owner-approved host)
 

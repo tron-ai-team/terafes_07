@@ -1,5 +1,9 @@
 package com.tronai.ai;
 
+import com.tronai.ai.gateway.AiGenerationResult;
+
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Objects;
 
 public class ChatGenerationResult {
@@ -11,6 +15,7 @@ public class ChatGenerationResult {
     private String logicalProfile;
     private ProviderType providerType;
     private String actualModelId;
+    private List<AiGenerationResult.Citation> citations = new ArrayList<>();
 
     public ChatGenerationResult() {
     }
@@ -91,6 +96,14 @@ public class ChatGenerationResult {
         this.actualModelId = actualModelId;
     }
 
+    public List<AiGenerationResult.Citation> getCitations() {
+        return citations;
+    }
+
+    public void setCitations(List<AiGenerationResult.Citation> citations) {
+        this.citations = citations != null ? citations : new ArrayList<>();
+    }
+
     public static class Builder {
         private String text;
         private String finishReason = "stop";
@@ -100,6 +113,7 @@ public class ChatGenerationResult {
         private String logicalProfile;
         private ProviderType providerType;
         private String actualModelId;
+        private List<AiGenerationResult.Citation> citations = new ArrayList<>();
 
         public Builder text(String text) {
             this.text = text;
@@ -141,11 +155,17 @@ public class ChatGenerationResult {
             return this;
         }
 
+        public Builder citations(List<AiGenerationResult.Citation> citations) {
+            this.citations = citations != null ? citations : new ArrayList<>();
+            return this;
+        }
+
         public ChatGenerationResult build() {
             ChatGenerationResult result = new ChatGenerationResult(text, finishReason, truncated, evalCount, promptEvalCount);
             result.setLogicalProfile(logicalProfile);
             result.setProviderType(providerType);
             result.setActualModelId(actualModelId);
+            result.setCitations(citations);
             return result;
         }
     }

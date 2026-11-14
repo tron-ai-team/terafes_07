@@ -61,7 +61,7 @@ public class SearchOrchestrator {
             return new SearchBundle(false, false, false, mode, "", "", decision.sanitizedQuery(),
                     "skipped", decision.reason(), List.of(),
                     decision.containsPrivateSignals()
-                            ? List.of("Private signals were generalized or search skipped")
+                            ? List.of("Private signals blocked or generalized; search skipped")
                             : List.of(),
                     0L, false, "");
         }
@@ -70,6 +70,7 @@ public class SearchOrchestrator {
         boolean localLock = isLocalLocked(aiMode);
 
         // Cloud-native tool path: do not also call Serper/SearXNG in the same turn.
+        // Honesty: requesting a native tool is NOT the same as a verified web search.
         if (!localLock && nativeSupport.isCloudLike(aiMode)) {
             String nativeProvider = nativeSupport.preferredNativeProvider(aiMode);
             if (!nativeProvider.isBlank()) {
@@ -77,11 +78,23 @@ public class SearchOrchestrator {
                 if (decision.containsPrivateSignals()) {
                     warnings.add("Private content was generalized before any search");
                 }
+                warnings.add("Native tool requested — performed=true only after verified provider evidence");
                 warnings.add("Native provider search uses Exa/provider engines — not claimed as Google unless Serper is used");
-                return new SearchBundle(true, true, true, mode, nativeProvider, "",
-                        decision.sanitizedQuery(), "ok",
-                        "Provider-native web search enabled for this turn",
-                        List.of(), warnings, 0L, true, nativeProvider);
+                return new SearchBundle(
+                        true,
+                        true,
+                        false,
+                        mode,
+                        nativeProvider,
+                        "",
+                        decision.sanitizedQuery(),
+                        "native_tool_requested",
+                        "Provider-native web search tool will be requested; citations reported only if the provider returns usable evidence",
+                        List.of(),
+                        warnings,
+                        0L,
+                        true,
+                        nativeProvider);
             }
             // Fall through to Serper Google results if native unavailable and Serper enabled.
             if (serper.isConfigured()) {
@@ -125,9 +138,10 @@ public class SearchOrchestrator {
             return SearchBundle.unavailable(mode, "SearXNG is not configured");
         }
         String query = decision.sanitizedQuery();
-        ProviderSearchOutcome cached = cache.get("SEARXNG", query);
+        String lang = language == null ? "" : language;
+        ProviderSearchOutcome cached = cache.get("SEARXNG", query, lang, maxResults);
         if (cached != null) {
-            return toBundle(decision, mode, cached, "", false, "");
+            return toBundle(decision, mode, cached, "", false, "", maxResults);
         }
         if (!tryAcquire()) {
             return new SearchBundle(true, false, false, mode, "SEARXNG", "", query,
@@ -136,9 +150,9 @@ public class SearchOrchestrator {
         try {
             ProviderSearchOutcome outcome = searxng.search(query, language, maxResults);
             if (outcome.hasHits()) {
-                cache.put("SEARXNG", query, outcome);
+                cache.put("SEARXNG", query, lang, maxResults, outcome);
             }
-            return toBundle(decision, mode, outcome, "", false, "");
+            return toBundle(decision, mode, outcome, "", false, "", maxResults);
         } finally {
             concurrency.release();
         }
@@ -149,9 +163,9 @@ public class SearchOrchestrator {
             return SearchBundle.unavailable(mode, "Serper is not configured or budget is zero");
         }
         String query = decision.sanitizedQuery();
-        ProviderSearchOutcome cached = cache.get("SERPER", query);
+        ProviderSearchOutcome cached = cache.get("SERPER", query, "_", maxResults);
         if (cached != null) {
-            return toBundle(decision, mode, cached, fallbackReason, false, "");
+            return toBundle(decision, mode, cached, fallbackReason, false, "", maxResults);
         }
         if (!tryAcquire()) {
             return new SearchBundle(true, false, false, mode, "SERPER", fallbackReason, query,
@@ -160,9 +174,9 @@ public class SearchOrchestrator {
         try {
             ProviderSearchOutcome outcome = serper.search(query, maxResults);
             if (outcome.hasHits()) {
-                cache.put("SERPER", query, outcome);
+                cache.put("SERPER", query, "_", maxResults, outcome);
             }
-            return toBundle(decision, mode, outcome, fallbackReason, false, "");
+            return toBundle(decision, mode, outcome, fallbackReason, false, "", maxResults);
         } finally {
             concurrency.release();
         }
@@ -174,7 +188,8 @@ public class SearchOrchestrator {
             ProviderSearchOutcome outcome,
             String fallbackReason,
             boolean useNative,
-            String nativeProvider) {
+            String nativeProvider,
+            int maxResults) {
         List<String> warnings = new ArrayList<>();
         if (decision.containsPrivateSignals()) {
             warnings.add("Private signals were generalized before search");
@@ -184,7 +199,7 @@ public class SearchOrchestrator {
         }
         List<NormalizedSearchHit> sanitized = SearchResultSanitizer.sanitize(
                 outcome.results(),
-                Math.max(1, properties.getMaxResultsSmart()),
+                Math.max(1, maxResults),
                 properties.getMaxSnippetChars(),
                 warnings);
         boolean ok = outcome.hasHits() && !sanitized.isEmpty();

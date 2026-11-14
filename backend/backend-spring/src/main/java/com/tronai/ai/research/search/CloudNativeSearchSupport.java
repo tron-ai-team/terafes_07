@@ -4,12 +4,15 @@ import com.tronai.ai.gateway.AiMode;
 import com.tronai.ai.gateway.AiGatewayProperties;
 import org.springframework.stereotype.Component;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 
 /**
  * Capability matrix for provider-native web search tools.
  * Groq browser_search is Exa-backed and model-specific — not Google.
+ * Preferring a native tool must not be reported as a completed web search.
  */
 @Component
 public class CloudNativeSearchSupport {
@@ -40,27 +43,99 @@ public class CloudNativeSearchSupport {
         if (!properties.getGroqNative().isBrowserSearchEnabled()) {
             return false;
         }
+        if (!hasText(gatewayProperties.getGroqApiKey())) {
+            return false;
+        }
         if (modelId == null || modelId.isBlank()) {
             modelId = gatewayProperties.getGroqModelSmart();
         }
-        return GROQ_BROWSER_MODELS.contains(modelId.trim().toLowerCase(Locale.ROOT))
-                || GROQ_BROWSER_MODELS.contains(modelId.trim());
+        return isGroqBrowserCompatibleModel(modelId);
     }
 
     public boolean openRouterWebSearchAllowed() {
-        return properties.getOpenRouterNative().isWebSearchToolEnabled();
+        if (!properties.getOpenRouterNative().isWebSearchToolEnabled()) {
+            return false;
+        }
+        return hasText(gatewayProperties.getOpenrouterApiKey1())
+                || hasText(gatewayProperties.getOpenrouterApiKey2());
     }
 
+    /**
+     * Returns the native tool provider that may be requested for this mode,
+     * or empty when the configured inference chain cannot honestly support it.
+     */
     public String preferredNativeProvider(AiMode mode) {
-        // Prefer Groq when configured for cloud/smart paths; OpenRouter otherwise when enabled.
-        if (properties.getGroqNative().isBrowserSearchEnabled()
-                && groqBrowserSearchAllowed(gatewayProperties.getGroqModelSmart())) {
-            return "GROQ_BROWSER_SEARCH";
-        }
-        if (openRouterWebSearchAllowed()) {
-            return "OPENROUTER_WEB_SEARCH";
+        // Match AiModelRouter CLOUD preference: Groq first when preferGroqForSmart.
+        boolean preferGroq = gatewayProperties.isPreferGroqForSmart();
+        if (preferGroq) {
+            if (groqBrowserSearchAllowed(gatewayProperties.getGroqModelSmart())) {
+                return "GROQ_BROWSER_SEARCH";
+            }
+            if (openRouterWebSearchAllowed()) {
+                return "OPENROUTER_WEB_SEARCH";
+            }
+        } else {
+            if (openRouterWebSearchAllowed()) {
+                return "OPENROUTER_WEB_SEARCH";
+            }
+            if (groqBrowserSearchAllowed(gatewayProperties.getGroqModelSmart())) {
+                return "GROQ_BROWSER_SEARCH";
+            }
         }
         return "";
+    }
+
+    /**
+     * After inference, only treat native search as performed when usable citations exist.
+     */
+    public SearchBundle finalizeNativeBundle(SearchBundle requested, List<NormalizedSearchHit> verifiedHits) {
+        if (requested == null || !requested.useNativeCloudTool()) {
+            return requested;
+        }
+        List<String> warnings = new ArrayList<>(requested.warnings());
+        if (verifiedHits != null && !verifiedHits.isEmpty()) {
+            List<NormalizedSearchHit> sanitized = SearchResultSanitizer.sanitize(
+                    verifiedHits,
+                    Math.max(1, properties.getMaxResultsCloud()),
+                    properties.getMaxSnippetChars(),
+                    warnings);
+            if (!sanitized.isEmpty()) {
+                return new SearchBundle(
+                        true,
+                        true,
+                        true,
+                        requested.mode(),
+                        requested.nativeCloudProvider(),
+                        requested.fallbackReason(),
+                        requested.query(),
+                        "ok",
+                        "Provider returned usable web evidence via " + requested.nativeCloudProvider(),
+                        sanitized,
+                        warnings,
+                        requested.timingMs(),
+                        true,
+                        requested.nativeCloudProvider());
+            }
+        }
+        if (!warnings.contains("Native provider did not expose usable search evidence")) {
+            warnings.add("Native provider did not expose usable search evidence");
+        }
+        return new SearchBundle(
+                true,
+                true,
+                false,
+                requested.mode(),
+                requested.nativeCloudProvider(),
+                requested.fallbackReason(),
+                requested.query(),
+                "native_tool_unverified",
+                "Native web search tool was requested but the provider response did not include "
+                        + "verifiable citations or source URLs. No sources invented.",
+                List.of(),
+                warnings,
+                requested.timingMs(),
+                true,
+                requested.nativeCloudProvider());
     }
 
     public static boolean isGroqBrowserCompatibleModel(String modelId) {
@@ -69,5 +144,9 @@ public class CloudNativeSearchSupport {
         }
         String m = modelId.trim();
         return GROQ_BROWSER_MODELS.contains(m) || GROQ_BROWSER_MODELS.contains(m.toLowerCase(Locale.ROOT));
+    }
+
+    private static boolean hasText(String value) {
+        return value != null && !value.isBlank();
     }
 }

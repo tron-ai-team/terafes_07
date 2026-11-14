@@ -7,13 +7,42 @@ import java.util.regex.Pattern;
 
 /**
  * Deterministic OFF/AUTO/ON search policy. AUTO uses heuristics only — no paid classifier call.
+ * Conservative skip when sensitive personal data cannot be safely generalized for public search.
  */
 @Component
 public class SearchDecisionPolicy {
 
+    private static final Pattern EMAIL = Pattern.compile(
+            "(?i)[A-Z0-9._%+-]+@[A-Z0-9.-]+\\.[A-Z]{2,}");
+
+    private static final Pattern PHONE = Pattern.compile(
+            "(?i)\\b\\d{3}[-.]\\d{3}[-.]\\d{4}\\b"
+                    + "|\\+\\d{1,3}[\\s.-]\\d{2,4}[\\s.-]\\d{3,4}[\\s.-]\\d{3,4}"
+                    + "|0\\d{1,4}-\\d{1,4}-\\d{3,4}");
+
+    private static final Pattern CREDENTIAL = Pattern.compile(
+            "(?i)\\b(password|passwd|passphrase|secret\\s*key|api[_\\s-]?key|access[_\\s-]?token|"
+                    + "refresh[_\\s-]?token|bearer\\s+[a-z0-9._\\-]{8,}|authorization:\\s*bearer|"
+                    + "sk-[a-z0-9]{10,}|ghp_[a-z0-9]{20,}|xox[baprs]-[a-z0-9-]{10,})\\b");
+
+    private static final Pattern ADDRESS = Pattern.compile(
+            "(?i)\\b(\\d{1,5}\\s+[\\w.\\-]+\\s+(street|st|avenue|ave|road|rd|boulevard|blvd|lane|ln|drive|dr)\\b)"
+                    + "|\\b(住所|番地|マンション|アパート)\\b");
+
+    private static final Pattern PROFILE_OR_CV = Pattern.compile(
+            "(?i)\\b(my\\s+(resume|cv|curriculum\\s+vitae|candidate\\s+profile|profile\\s+details|"
+                    + "phone|email|address|ssn|passport|national\\s*id|date\\s+of\\s+birth|dob))"
+                    + "|\\b(candidate\\s+profile|upload(ed)?\\s+(cv|resume)|cv\\s+content|resume\\s+text)\\b"
+                    + "|私の(履歴書|職務経歴|プロフィール|メール|電話|住所|マイナンバー)"
+                    + "|履歴書|職務経歴書"
+                    + "|මගේ\\s*(CV|resume|ඊමේල්|දුරකථන|ලිපිනය)"
+                    + "|ජාතික\\s*හැඳුනුම්පත");
+
+    private static final Pattern HARD_PRIVATE = Pattern.compile(
+            CREDENTIAL.pattern() + "|" + PROFILE_OR_CV.pattern() + "|" + ADDRESS.pattern());
+
     private static final Pattern PRIVATE_SIGNAL = Pattern.compile(
-            "(?i)\\b(my\\s+(resume|cv|email|phone|address|ssn|password|token)|私の(履歴書|職務経歴|メール|電話)|@\\w+\\.\\w+)\\b"
-                    + "|\\b\\d{3}[-.]?\\d{3}[-.]?\\d{4}\\b");
+            EMAIL.pattern() + "|" + PHONE.pattern() + "|" + HARD_PRIVATE.pattern());
 
     private static final Pattern GREETING = Pattern.compile(
             "(?i)^(hi|hello|hey|yo|thanks|thank you|ok|okay|こんにちは|おはよう|ありがとう|どうも)[!.?\\s]*$");
@@ -37,7 +66,7 @@ public class SearchDecisionPolicy {
     public SearchDecision decide(String rawSearchMode, String userText) {
         ResolvedSearchMode mode = ResolvedSearchMode.fromRaw(rawSearchMode);
         String text = userText == null ? "" : userText.trim();
-        boolean privateSignals = PRIVATE_SIGNAL.matcher(text).find();
+        boolean privateSignals = containsPrivateSignals(text);
 
         if (mode == ResolvedSearchMode.OFF) {
             return SearchDecision.skip(mode, "Search is turned off");
@@ -50,9 +79,18 @@ public class SearchDecisionPolicy {
         if (query.isBlank()) {
             return SearchDecision.skip(mode, "Empty query");
         }
+
         if (privateSignals) {
-            // Never send private profile/contact material to search providers.
+            // Credentials, CV/profile dumps, and addresses: never send to public search.
+            if (HARD_PRIVATE.matcher(text).find()) {
+                return SearchDecision.skip(mode,
+                        "Private or credential content cannot be safely searched");
+            }
             query = generalizePrivateQuery(query);
+            if (query.isBlank() || containsPrivateSignals(query) || query.length() < 8) {
+                return SearchDecision.skip(mode,
+                        "Private signals could not be safely generalized for search");
+            }
         }
 
         if (mode == ResolvedSearchMode.ON) {
@@ -84,16 +122,25 @@ public class SearchDecisionPolicy {
         return q;
     }
 
+    static boolean containsPrivateSignals(String text) {
+        if (text == null || text.isBlank()) {
+            return false;
+        }
+        return PRIVATE_SIGNAL.matcher(text).find();
+    }
+
     static String generalizePrivateQuery(String query) {
-        // Strip emails and phone-like tokens; keep topic words for public lookup intent.
+        // Strip emails, phones, and explicit private self-references; keep public topic words.
         String cleaned = query
-                .replaceAll("(?i)[A-Z0-9._%+-]+@[A-Z0-9.-]+\\.[A-Z]{2,}", " ")
-                .replaceAll("\\b\\d{3}[-.]?\\d{3}[-.]?\\d{4}\\b", " ")
-                .replaceAll("(?i)\\b(my resume|my cv|私の履歴書|私の職務経歴)\\b", " ")
+                .replaceAll(EMAIL.pattern(), " ")
+                .replaceAll(PHONE.pattern(), " ")
+                .replaceAll(CREDENTIAL.pattern(), " ")
+                .replaceAll(ADDRESS.pattern(), " ")
+                .replaceAll(PROFILE_OR_CV.pattern(), " ")
                 .replaceAll("\\s+", " ")
                 .trim();
-        if (cleaned.length() < 3) {
-            return "public company information";
+        if (cleaned.length() < 8) {
+            return "";
         }
         return cleaned;
     }
@@ -108,6 +155,8 @@ public class SearchDecisionPolicy {
                 || lower.contains("system prompt")
                 || lower.contains("exfiltrate")
                 || lower.contains("api key")
-                || lower.contains("disclose your secrets");
+                || lower.contains("disclose your secrets")
+                || lower.contains("override safety")
+                || lower.contains("jailbreak");
     }
 }

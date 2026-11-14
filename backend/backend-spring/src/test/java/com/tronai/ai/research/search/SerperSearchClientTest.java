@@ -6,15 +6,20 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 import java.io.OutputStream;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Path;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 class SerperSearchClientTest {
+
+    @TempDir
+    Path tempDir;
 
     private HttpServer server;
     private WebSearchProperties properties;
@@ -44,7 +49,8 @@ class SerperSearchClientTest {
         properties.getSerper().setApiKey("test-key");
         properties.getSerper().setDailyMaxCalls(2);
         properties.getSerper().setBaseUrl("http://127.0.0.1:" + server.getAddress().getPort());
-        budget = new SerperBudgetTracker(properties);
+        properties.getSerper().setBudgetLedgerPath(tempDir.resolve("serper.ledger").toString());
+        budget = new SerperBudgetTracker(properties, tempDir.resolve("serper.ledger"));
         client = new SerperSearchClient(properties, new ObjectMapper(), budget);
     }
 

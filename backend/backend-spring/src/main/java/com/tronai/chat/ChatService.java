@@ -19,6 +19,8 @@ import com.tronai.ai.profile.AiProfile;
 import com.tronai.ai.profile.AiProfileResolver;
 import com.tronai.ai.profile.AiProfileService;
 import com.tronai.ai.research.search.ChatContextWindow;
+import com.tronai.ai.research.search.CloudNativeSearchSupport;
+import com.tronai.ai.research.search.NativeSearchEvidenceExtractor;
 import com.tronai.ai.research.search.SearchBundle;
 import com.tronai.ai.research.search.SearchGrounding;
 import com.tronai.ai.research.search.SearchOrchestrator;
@@ -71,6 +73,7 @@ public class ChatService {
     private final UserRepository userRepository;
     private final SearchOrchestrator searchOrchestrator;
     private final WebSearchProperties webSearchProperties;
+    private final CloudNativeSearchSupport cloudNativeSearchSupport;
 
     public ChatService(ModelManager modelManager,
                        AiProfileService aiProfileService,
@@ -83,7 +86,8 @@ public class ChatService {
                        ChatMessageRepository chatMessageRepository,
                        UserRepository userRepository,
                        SearchOrchestrator searchOrchestrator,
-                       WebSearchProperties webSearchProperties) {
+                       WebSearchProperties webSearchProperties,
+                       CloudNativeSearchSupport cloudNativeSearchSupport) {
         this.modelManager = modelManager;
         this.aiProfileService = aiProfileService;
         this.aiProfileResolver = aiProfileResolver;
@@ -96,6 +100,9 @@ public class ChatService {
         this.userRepository = userRepository;
         this.searchOrchestrator = searchOrchestrator;
         this.webSearchProperties = webSearchProperties != null ? webSearchProperties : new WebSearchProperties();
+        this.cloudNativeSearchSupport = cloudNativeSearchSupport != null
+                ? cloudNativeSearchSupport
+                : new CloudNativeSearchSupport(this.webSearchProperties, this.aiGatewayProperties);
     }
 
     public static int outputBudget(String text) {
@@ -300,6 +307,11 @@ public class ChatService {
             chatSessionRepository.save(persistedSession);
         }
 
+        if (searchBundle != null && searchBundle.useNativeCloudTool()) {
+            searchBundle = cloudNativeSearchSupport.finalizeNativeBundle(
+                    searchBundle,
+                    NativeSearchEvidenceExtractor.fromChatResult(result, searchBundle.nativeCloudProvider()));
+        }
         SearchInfo searchInfo = searchBundle.toSearchInfo();
 
         return ChatResponse.builder()

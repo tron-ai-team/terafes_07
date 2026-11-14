@@ -70,8 +70,21 @@ class SearchOrchestratorTest {
         assertThat(b.succeeded()).isTrue();
         assertThat(b.provider()).isEqualTo("SEARXNG");
         assertThat(b.toSearchInfo().getResults()).isNotEmpty();
-        verify(searxng).search(anyString(), eq("en"), anyInt());
+        verify(searxng).search(anyString(), eq("en"), eq(properties.getMaxResultsFast()));
         verify(serper, never()).search(anyString(), anyInt());
+    }
+
+    @Test
+    @DisplayName("SMART requests configured SMART result count")
+    void smartUsesConfiguredResultCount() {
+        when(searxng.isConfigured()).thenReturn(true);
+        when(searxng.search(anyString(), anyString(), anyInt())).thenReturn(new ProviderSearchOutcome(
+                "SEARXNG", "q", true, "ok", "ok",
+                List.of(new NormalizedSearchHit("T", "https://example.com", "S", "SEARXNG", "google", null, Instant.now(), null)),
+                12L, null));
+
+        orchestrator.orchestrate("on", "latest news today", "ja", AiProfile.SMART);
+        verify(searxng).search(anyString(), eq("ja"), eq(properties.getMaxResultsSmart()));
     }
 
     @Test
@@ -91,6 +104,7 @@ class SearchOrchestratorTest {
     void cloudNativeGroq() {
         properties.getGroqNative().setBrowserSearchEnabled(true);
         AiGatewayProperties gw = new AiGatewayProperties();
+        gw.setGroqApiKey("test-key");
         gw.setGroqModelSmart("openai/gpt-oss-120b");
         nativeSupport = new CloudNativeSearchSupport(properties, gw);
         orchestrator = new SearchOrchestrator(properties, policy, searxng, serper, cache, nativeSupport);
@@ -98,6 +112,9 @@ class SearchOrchestratorTest {
         SearchBundle b = orchestrator.orchestrate("on", "latest news today", "en", AiProfile.CLOUD);
         assertThat(b.useNativeCloudTool()).isTrue();
         assertThat(b.nativeCloudProvider()).isEqualTo("GROQ_BROWSER_SEARCH");
+        assertThat(b.succeeded()).isFalse();
+        assertThat(b.toSearchInfo().isPerformed()).isFalse();
+        assertThat(b.status()).isEqualTo("native_tool_requested");
         verifyNoInteractions(searxng, serper);
     }
 

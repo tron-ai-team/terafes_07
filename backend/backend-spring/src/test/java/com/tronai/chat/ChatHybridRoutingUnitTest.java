@@ -75,7 +75,8 @@ class ChatHybridRoutingUnitTest {
                 chatMessageRepository,
                 userRepository,
                 searchOrchestrator,
-                new WebSearchProperties());
+                new WebSearchProperties(),
+                null);
         localProfile = new ModelProfile();
         localProfile.setProvider(ModelProviderType.OLLAMA);
         localProfile.setProviderModelName("tron-fast");

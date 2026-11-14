@@ -6,7 +6,9 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Bounded chat history window: keep the system prompt and the most recent turns.
+ * Bounded chat history window: keep leading system/grounding messages and the most recent turns.
+ * Current-turn search evidence (system messages before the first user/assistant turn) is never
+ * discarded when truncating long conversations.
  */
 public final class ChatContextWindow {
 
@@ -22,24 +24,32 @@ public final class ChatContextWindow {
             return List.copyOf(messages);
         }
 
-        ChatMessage system = null;
-        List<ChatMessage> rest = new ArrayList<>();
+        List<ChatMessage> leadingSystems = new ArrayList<>();
+        List<ChatMessage> conversation = new ArrayList<>();
+        boolean seenConversation = false;
         for (ChatMessage m : messages) {
-            if (system == null && m != null && "system".equalsIgnoreCase(m.getRole())) {
-                system = m;
-            } else if (m != null) {
-                rest.add(m);
+            if (m == null) {
+                continue;
+            }
+            boolean system = "system".equalsIgnoreCase(m.getRole());
+            if (!seenConversation && system) {
+                leadingSystems.add(m);
+            } else {
+                seenConversation = true;
+                conversation.add(m);
             }
         }
-        int keep = system == null ? limit : Math.max(2, limit - 1);
-        if (rest.size() > keep) {
-            rest = rest.subList(rest.size() - keep, rest.size());
+
+        // Always preserve system prompt + current-turn search evidence.
+        int reserved = Math.max(1, leadingSystems.size());
+        int keepConversation = Math.max(2, limit - reserved);
+        if (conversation.size() > keepConversation) {
+            conversation = conversation.subList(conversation.size() - keepConversation, conversation.size());
         }
-        List<ChatMessage> out = new ArrayList<>(rest.size() + 1);
-        if (system != null) {
-            out.add(system);
-        }
-        out.addAll(rest);
+
+        List<ChatMessage> out = new ArrayList<>(reserved + conversation.size());
+        out.addAll(leadingSystems);
+        out.addAll(conversation);
         return out;
     }
 }

@@ -80,15 +80,24 @@ CI Docker/GHCR build remains the authoritative image check after push.
 | Item | SHA |
 |---|---|
 | Hardening implementation | `959979aee9b467e978811da65588ab44f7ef2db5` |
-| Branch tip (docs SHA pointer) | `0c029b249ab6611aaa010fe302cc3ba2ebd889dd` |
+| Branch tip | `b564bc9e723f29fe66f45a950bd65a1c7af1e318` |
 
 ---
 
 ## 5. CI status
 
-After push: check https://github.com/tron-ai-team/terafes_07/pull/28/checks  
+PR checks on tip `b564bc9e723f29fe66f45a950bd65a1c7af1e318` (all SUCCESS):
 
-Expected: normal PR CI only. **No production deploy workflow** should be triggered (branch ≠ `main`).
+- Deployment recovery tests
+- Frontend build
+- Backend Maven tests
+- Security checks
+- Docker image build (no push)
+- Vercel (preview)
+
+https://github.com/tron-ai-team/terafes_07/pull/28/checks  
+
+Normal PR CI only. **No production deploy workflow** triggered (branch ≠ `main`).
 
 ---
 

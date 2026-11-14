@@ -1,0 +1,13 @@
+{
+  "at": "2026-11-14T02:29:49.631Z",
+  "webOrigin": "https://tronai.tech",
+  "googleConfigured": true,
+  "interactiveGoogleLogin": "NOT_TESTED",
+  "emailPasswordLogin": "PASS",
+  "smartChatHttp": 200,
+  "smartReplyLen": 22,
+  "fastChatHttp": 503,
+  "fastDetail": "Local AI is unavailable and cloud fallback is disabled.",
+  "fastResult": "PASS_HONEST_OFFLINE",
+  "sessionAfterRefresh": "PASS"
+}

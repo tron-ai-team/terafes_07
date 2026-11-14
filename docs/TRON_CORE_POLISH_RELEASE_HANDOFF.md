@@ -8,7 +8,9 @@
 - **Production deployment performed by this mission:** **NO**
 - **Merge to main:** **NOT AUTHORIZED** — owner approval required
 - **Phase 2 report:** `docs/TRON_CORE_POLISH_PHASE2_REPORT.md`
+- **Phase 3 report:** `docs/TRON_CORE_POLISH_PHASE3_REPORT.md`
 - **Test matrix:** `docs/TRON_CORE_POLISH_TEST_MATRIX.md`
+- **FAST 503 root cause:** ChatService routed FAST to RTX ModelManager while GTX was healthy; fixed in branch — **deploy required** for live FAST PASS
 
 ## Risk assessment
 

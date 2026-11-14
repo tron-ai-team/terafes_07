@@ -12,7 +12,8 @@ Feature flags default **OFF** — production behavior unchanged until owner enab
 |---|---|
 | Verified base `origin/main` | `740d6b91df5c9cb08854efc5ebf57fef49bbba53` |
 | Feature branch | `feature/tron-backend-intelligence-v1` |
-| Feature tip | `7478a95b` (full SHA via `git rev-parse HEAD` on branch) |
+| Feature tip | `007b6fe38b63a0dd67b8297ddb60560a79b64fa3` |
+| DRAFT PR | https://github.com/tron-ai-team/terafes_07/pull/28 (NOT MERGED) |
 
 ## Worktree safety
 

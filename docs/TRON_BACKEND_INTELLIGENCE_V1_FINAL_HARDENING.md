@@ -77,9 +77,9 @@ CI Docker/GHCR build remains the authoritative image check after push.
 
 ## 4. Final commit SHA
 
-Recorded after push as branch tip (see PR #28). Placeholder until commit:
+Feature tip (Step 7 hardening):
 
-`PENDING_COMMIT_SHA` → updated in readiness pointer and PR body after push.
+`959979aee9b467e978811da65588ab44f7ef2db5`
 
 ---
 

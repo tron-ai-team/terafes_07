@@ -1,7 +1,7 @@
 # TRON Core Polish — Phase 3 Report
 
 **Branch:** `feature/tron-core-polish-20261114`  
-**Final SHA:** `2f2d9430a4587642b0d9f09765fd48d9b3f1d7a6`  
+**Final SHA:** `a8526f0cbab63d16819199a66876471525b888cd`  
 **PR:** https://github.com/tron-ai-team/terafes_07/pull/26 (**DRAFT**)  
 **CI:** Not asserted in this session (push completed; owner checks GitHub Actions).  
 **Production deploy / merge:** **NO**

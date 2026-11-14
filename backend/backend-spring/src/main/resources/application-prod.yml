@@ -140,6 +140,31 @@ tron:
       connect-timeout-ms: ${GOTENBERG_CONNECT_TIMEOUT_MS:5000}
       read-timeout-ms: ${GOTENBERG_READ_TIMEOUT_MS:120000}
       max-retries: ${GOTENBERG_MAX_RETRIES:1}
+  # ---------------------------------------------------------------------------
+  # SearXNG production activation (image-based; no /etc/tron-ai/tron-ai.env edit).
+  # Global application.yml keeps search OFF. This prod profile alone turns on
+  # private SearXNG for FAST/SMART grounding when SPRING_PROFILES_ACTIVE=prod.
+  #
+  # Explicit env overrides still win, e.g. TRON_WEB_SEARCH_V1_ENABLED=false is
+  # an immediate kill switch without rebuilding the image.
+  #
+  # Merging this change to main and deploying the resulting image via the
+  # protected release controller WILL enable web search in production.
+  # Paid search paths remain hard-off unless separately and explicitly enabled.
+  # ---------------------------------------------------------------------------
+  search:
+    web-search-v1-enabled: ${TRON_WEB_SEARCH_V1_ENABLED:true}
+    local-paid-fallback-enabled: ${TRON_SEARCH_LOCAL_PAID_FALLBACK_ENABLED:false}
+    searxng:
+      enabled: ${TRON_SEARCH_SEARXNG_ENABLED:true}
+      base-url: ${TRON_SEARCH_SEARXNG_BASE_URL:http://tron-searxng:8080}
+    serper:
+      enabled: ${TRON_SEARCH_SERPER_ENABLED:false}
+      daily-max-calls: ${TRON_SEARCH_SERPER_DAILY_MAX_CALLS:0}
+    groq-native:
+      browser-search-enabled: ${TRON_SEARCH_GROQ_BROWSER_ENABLED:false}
+    open-router-native:
+      web-search-tool-enabled: ${TRON_SEARCH_OPENROUTER_TOOL_ENABLED:false}
 
 oauth2:
   google:

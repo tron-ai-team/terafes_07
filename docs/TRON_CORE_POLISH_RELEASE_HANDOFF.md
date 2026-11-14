@@ -4,7 +4,7 @@
 
 - **Branch:** `feature/tron-core-polish-20261114`
 - **Base:** `origin/main` @ `d9df8dea…` (PR #25)
-- **PR:** (filled after `gh pr create`)
+- **PR:** https://github.com/tron-ai-team/terafes_07/pull/26 (**DRAFT**)
 - **Production deployment performed by this mission:** **NO**
 - **Merge to main:** **NOT AUTHORIZED** — owner approval required
 

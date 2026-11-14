@@ -156,7 +156,8 @@ tron:
     firecrawl:
       api-key: ${FIRECRAWL_API_KEY:}
       base-url: ${FIRECRAWL_BASE_URL:https://api.firecrawl.dev}
-  # Backend Intelligence V1 — all flags default OFF (identical legacy chat search stub).
+  # Backend Intelligence V1 — global/default OFF (dev/test/local).
+  # Production activation lives only in application-prod.yml (private SearXNG).
   search:
     web-search-v1-enabled: ${TRON_WEB_SEARCH_V1_ENABLED:false}
     max-queries-fast: ${TRON_SEARCH_MAX_QUERIES_FAST:1}

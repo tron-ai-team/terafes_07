@@ -12,7 +12,7 @@ Feature flags default **OFF** — production behavior unchanged until owner enab
 |---|---|
 | Verified base `origin/main` | `740d6b91df5c9cb08854efc5ebf57fef49bbba53` |
 | Feature branch | `feature/tron-backend-intelligence-v1` |
-| Feature tip | *(fill after push — see PR)* |
+| Feature tip | `7478a95b` (full SHA via `git rev-parse HEAD` on branch) |
 
 ## Worktree safety
 

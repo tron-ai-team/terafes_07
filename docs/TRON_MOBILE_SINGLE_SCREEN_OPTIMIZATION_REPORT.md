@@ -4,6 +4,7 @@
 
 - **Repository:** `tron-ai-team/terafes_07`
 - **Feature Branch:** `feature/tron-mobile-home-reference-20261114`
+- **Commit SHA:** `36a0b23b73fdbc5fce995a1d2ad63fbca06bdd27`
 - **Pull Request:** [PR #27](https://github.com/tron-ai-team/terafes_07/pull/27)
 - **Primary Objective Achieved:** Transformed the mobile homepage (`< lg`) from a vertically scrolling layout into an adaptive single-screen mobile experience. On all common supported mobile screens (360×740, 375×812, 390×844, 393×852, 412×915, 430×932), all 9 primary homepage elements fit naturally inside a single viewport without requiring vertical scrolling.
 - **Desktop Preservation:** 100% preserved. Zero visual or structural modifications to the desktop layout (1440×900, 1920×1080), preserving the cinematic 3-column layout, desktop navigation pills, holographic robot video placement, and bottom dock.

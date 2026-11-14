@@ -2,7 +2,7 @@
 
 **Branch:** `feature/tron-searxng-production-activation`  
 **Base:** `origin/main` @ `fbfad768b88280aff5d27e232f2f31364a0595ed` (current production release revision)  
-**Tip SHA:** _(updated after this safety-fix push; see PR #29 HEAD)_  
+**Tip SHA:** `68f8b1fe7f836d08e9d367be23184f05e3337129`  
 **Activation commit:** `604d34e1bfc37fd96b536a1ec11aef1254b3b5a5`  
 **PR:** https://github.com/tron-ai-team/terafes_07/pull/29 (DRAFT)  
 **PR status:** DRAFT — **DO NOT MERGE / DO NOT DEPLOY** from this agent session.

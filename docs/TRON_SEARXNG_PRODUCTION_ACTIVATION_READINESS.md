@@ -2,7 +2,8 @@
 
 **Branch:** `feature/tron-searxng-production-activation`  
 **Base:** `origin/main` @ `fbfad768b88280aff5d27e232f2f31364a0595ed` (current production release revision)  
-**Tip SHA:** `604d34e1bfc37fd96b536a1ec11aef1254b3b5a5`  
+**Tip SHA:** `8c53a15e0c47c7fdd36912d187951063fb0d3c2c`  
+**Activation commit:** `604d34e1bfc37fd96b536a1ec11aef1254b3b5a5`  
 **PR status:** DRAFT — **DO NOT MERGE / DO NOT DEPLOY** from this agent session.
 
 ---

@@ -958,6 +958,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           role: 'assistant',
           content: result.detail,
           createdAt: new Date().toISOString(),
+          truncated: result.truncated,
+          finishReason: result.finishReason,
+          search: result.search,
+          language: result.language,
         };
 
         setChatSessions((prev) =>

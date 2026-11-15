@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { Copy, Check, Terminal, Code2, AlertTriangle, Search, ExternalLink } from 'lucide-react';
-import { SearchStatus } from '../../types/chat';
+import { Copy, Check, Terminal, AlertTriangle, Search, ExternalLink } from 'lucide-react';
+import { SearchResultItem, SearchStatus } from '../../types/chat';
 
 interface MarkdownContentProps {
   content: string;
@@ -23,10 +23,8 @@ export const MarkdownContent: React.FC<MarkdownContentProps> = ({
   finishReason,
   search,
 }) => {
-  // Parse message into text blocks and fenced code blocks
   const parseBlocks = (text: string): ParsedBlock[] => {
     const blocks: ParsedBlock[] = [];
-    // Regex matches ```[optional language]\n[code]``` or unclosed fence if truncated
     const codeFenceRegex = /```([a-zA-Z0-9_-]*)\n([\s\S]*?)(?:```|$)/g;
 
     let lastIndex = 0;
@@ -54,13 +52,18 @@ export const MarkdownContent: React.FC<MarkdownContentProps> = ({
   };
 
   if (isUser) {
-    return <div className="whitespace-pre-wrap leading-relaxed">{content}</div>;
+    return (
+      <div className="whitespace-pre-wrap break-words [overflow-wrap:anywhere] leading-relaxed">
+        {content}
+      </div>
+    );
   }
 
   const blocks = parseBlocks(content);
+  const sources = search?.results?.filter((r) => r?.url) ?? [];
 
   return (
-    <div className="space-y-3 leading-relaxed text-slate-800">
+    <div className="space-y-3 leading-relaxed text-slate-800 break-words [overflow-wrap:anywhere] min-w-0">
       {blocks.map((block, idx) => {
         if (block.type === 'code') {
           return (
@@ -71,10 +74,15 @@ export const MarkdownContent: React.FC<MarkdownContentProps> = ({
             />
           );
         }
-        return <RichTextParagraph key={idx} text={block.content} />;
+        return (
+          <RichTextBlock
+            key={idx}
+            text={block.content}
+            sources={sources}
+          />
+        );
       })}
 
-      {/* Truncation warning banner if token cap was hit */}
       {(truncated || finishReason === 'length') && (
         <div className="mt-3 p-3 rounded-xl bg-amber-500/10 border border-amber-300 text-amber-900 text-xs flex items-center gap-2 font-medium">
           <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
@@ -85,30 +93,74 @@ export const MarkdownContent: React.FC<MarkdownContentProps> = ({
         </div>
       )}
 
-      {/* Web search status indicator if search was performed or unavailable */}
       {search && search.mode !== 'off' && (
-        <div className="mt-2 pt-2 border-t border-slate-100 text-[11px] text-slate-400 flex items-center justify-between">
-          <div className="flex items-center gap-1.5">
-            <Search className="w-3 h-3 text-slate-400" />
-            <span>Search ({search.mode}):</span>
-            {search.status === 'unavailable' ? (
-              <span className="text-amber-600 font-medium">Provider unavailable (no API configured)</span>
-            ) : search.status === 'ok' && search.results && search.results.length > 0 ? (
-              <span className="text-emerald-600 font-medium">{search.results.length} results referenced</span>
-            ) : (
-              <span className="text-slate-400">Skipped (general reasoning query)</span>
+        <div className="mt-2 pt-2 border-t border-slate-100 space-y-2">
+          <div className="text-[11px] text-slate-400 flex flex-wrap items-center gap-x-2 gap-y-1">
+            <div className="flex items-center gap-1.5 min-w-0">
+              <Search className="w-3 h-3 text-slate-400 shrink-0" />
+              <span>Search ({search.mode}):</span>
+              {search.status === 'unavailable' ? (
+                <span className="text-amber-600 font-medium">Provider unavailable</span>
+              ) : search.status === 'ok' && sources.length > 0 ? (
+                <span className="text-emerald-600 font-medium">{sources.length} sources</span>
+              ) : search.status === 'timeout' || search.status === 'error' ? (
+                <span className="text-amber-600 font-medium">{search.detail || search.status}</span>
+              ) : (
+                <span className="text-slate-400">Skipped (general reasoning query)</span>
+              )}
+            </div>
+            {search.query && (
+              <span className="italic truncate max-w-full sm:max-w-[220px]" title={search.query}>
+                &ldquo;{search.query}&rdquo;
+              </span>
             )}
           </div>
-          {search.query && (
-            <span className="italic truncate max-w-[200px]" title={search.query}>
-              "{search.query}"
-            </span>
+
+          {sources.length > 0 && (
+            <ul className="space-y-1.5" aria-label="Search sources">
+              {sources.map((result, i) => (
+                <li key={`${result.url}-${i}`}>
+                  <a
+                    href={result.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="group flex items-start gap-2 rounded-xl border border-slate-200/80 bg-slate-50/80 hover:bg-blue-50/70 hover:border-blue-200 px-2.5 py-2 transition-colors min-w-0"
+                  >
+                    <span className="shrink-0 mt-0.5 inline-flex items-center justify-center w-5 h-5 rounded-md bg-blue-100 text-blue-700 text-[10px] font-bold font-mono">
+                      {i + 1}
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="flex items-center gap-1 text-[11px] font-semibold text-slate-800 group-hover:text-blue-700">
+                        <span className="truncate">{result.title || hostFromUrl(result.url)}</span>
+                        <ExternalLink className="w-3 h-3 shrink-0 opacity-60" aria-hidden />
+                      </span>
+                      <span className="block text-[10px] text-blue-600/80 truncate mt-0.5">
+                        {result.url}
+                      </span>
+                      {result.snippet && (
+                        <span className="block text-[10px] text-slate-500 mt-0.5 line-clamp-2">
+                          {result.snippet}
+                        </span>
+                      )}
+                    </span>
+                  </a>
+                </li>
+              ))}
+            </ul>
           )}
         </div>
       )}
     </div>
   );
 };
+
+function hostFromUrl(url: string): string {
+  try {
+    return new URL(url).hostname;
+  } catch {
+    return url;
+  }
+}
 
 interface CodeBlockCardProps {
   language: string;
@@ -127,7 +179,6 @@ const CodeBlockCard: React.FC<CodeBlockCardProps> = ({ language, code }) => {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch {
-      // Honest failure — do not claim copied.
       setCopied(false);
     }
   };
@@ -135,22 +186,22 @@ const CodeBlockCard: React.FC<CodeBlockCardProps> = ({ language, code }) => {
   const lineCount = code.split('\n').length;
 
   return (
-    <div className="rounded-2xl border border-slate-800 bg-[#0d131f] text-slate-100 shadow-xl overflow-hidden my-2.5">
-      {/* Code Header Bar */}
-      <div className="flex items-center justify-between px-4 py-2 bg-[#090d16] border-b border-slate-800 text-[11px]">
-        <div className="flex items-center gap-2">
-          <Terminal className="w-3.5 h-3.5 text-[#00DFFF]" />
-          <span className="font-mono font-bold uppercase tracking-wider text-slate-300">
+    <div className="rounded-2xl border border-slate-800 bg-[#0d131f] text-slate-100 shadow-xl overflow-hidden my-2.5 max-w-full min-w-0">
+      <div className="flex items-center justify-between px-3 sm:px-4 py-2 bg-[#090d16] border-b border-slate-800 text-[11px] gap-2">
+        <div className="flex items-center gap-2 min-w-0">
+          <Terminal className="w-3.5 h-3.5 text-[#00DFFF] shrink-0" />
+          <span className="font-mono font-bold uppercase tracking-wider text-slate-300 truncate">
             {language}
           </span>
-          <span className="text-[10px] text-slate-500 font-mono">
+          <span className="text-[10px] text-slate-500 font-mono shrink-0">
             {lineCount} {lineCount === 1 ? 'line' : 'lines'}
           </span>
         </div>
 
         <button
+          type="button"
           onClick={handleCopy}
-          className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-800/80 hover:bg-slate-700 hover:text-white text-slate-300 transition-colors text-[11px] font-semibold"
+          className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-800/80 hover:bg-slate-700 hover:text-white text-slate-300 transition-colors text-[11px] font-semibold shrink-0"
           title="Copy full code"
         >
           {copied ? (
@@ -161,15 +212,14 @@ const CodeBlockCard: React.FC<CodeBlockCardProps> = ({ language, code }) => {
           ) : (
             <>
               <Copy className="w-3.5 h-3.5 text-slate-400" />
-              <span>Copy Code</span>
+              <span>Copy</span>
             </>
           )}
         </button>
       </div>
 
-      {/* Code Body with Highlighting and Scrollbars */}
-      <div className="p-4 overflow-x-auto max-h-[500px] overflow-y-auto font-mono text-[12px] leading-relaxed text-slate-200">
-        <pre className="m-0 font-inherit">
+      <div className="p-3 sm:p-4 overflow-x-auto max-h-[min(500px,55vh)] overflow-y-auto font-mono text-[11px] sm:text-[12px] leading-relaxed text-slate-200">
+        <pre className="m-0 font-inherit min-w-0">
           <code>{highlightCode(code, language)}</code>
         </pre>
       </div>
@@ -177,19 +227,15 @@ const CodeBlockCard: React.FC<CodeBlockCardProps> = ({ language, code }) => {
   );
 };
 
-/**
- * Lightweight, zero-dependency syntax highlighter for Python, TypeScript, JS, HTML/CSS, JSON, SQL.
- */
 function highlightCode(code: string, _language: string): React.ReactNode[] {
   const lines = code.split('\n');
 
   return lines.map((line, lineIdx) => {
-    // Regex for comments, strings, keywords, numbers, types
     const tokens = tokenizeLine(line);
 
     return (
       <div key={lineIdx} className="table-row">
-        <span className="table-cell pr-4 select-none text-slate-600 text-right text-[11px] w-8">
+        <span className="table-cell pr-3 sm:pr-4 select-none text-slate-600 text-right text-[11px] w-8">
           {lineIdx + 1}
         </span>
         <span className="table-cell whitespace-pre">{tokens}</span>
@@ -199,16 +245,13 @@ function highlightCode(code: string, _language: string): React.ReactNode[] {
 }
 
 function tokenizeLine(line: string): React.ReactNode[] {
-  // If line is empty
   if (!line) return ['\n'];
 
-  // Check for whole line comment
   const trimmed = line.trim();
   if (trimmed.startsWith('#') || trimmed.startsWith('//')) {
     return [<span key={0} className="text-slate-500 italic">{line}</span>];
   }
 
-  // Tokenize words, strings, symbols
   const regex = /(".*?"|'.*?'|`.*?`|\b(?:def|class|return|import|from|export|const|let|var|function|async|await|if|else|elif|for|while|try|except|catch|finally|with|as|in|of|switch|case|default|break|continue|type|interface|extends|implements|new|this|throw)\b|\b(?:str|int|float|bool|list|dict|Promise|Array|Record|string|number|boolean|any|void|null|undefined|true|false|None|True|False)\b|\b\d+\b|[{}()[\].,;:+\-*/%=<>!&|^~]+|\s+|[a-zA-Z_$][a-zA-Z0-9_$]*)/g;
 
   const nodes: React.ReactNode[] = [];
@@ -245,21 +288,136 @@ function tokenizeLine(line: string): React.ReactNode[] {
   return nodes.length > 0 ? nodes : [line];
 }
 
+type RichSegment =
+  | { kind: 'paragraph'; text: string }
+  | { kind: 'heading'; level: 1 | 2 | 3; text: string }
+  | { kind: 'ul'; items: string[] }
+  | { kind: 'ol'; items: string[] };
+
 /**
- * Formats rich text paragraphs with inline code blocks, bold text, and line breaks.
+ * Split assistant text into paragraphs, headings, and lists while preserving
+ * fenced-code-free markdown structure.
  */
-const RichTextParagraph: React.FC<{ text: string }> = ({ text }) => {
-  const paragraphs = text.split('\n\n');
+export function segmentRichText(text: string): RichSegment[] {
+  const lines = text.replace(/\r\n/g, '\n').split('\n');
+  const segments: RichSegment[] = [];
+  let paragraphBuf: string[] = [];
+  let listBuf: { type: 'ul' | 'ol'; items: string[] } | null = null;
+
+  const flushParagraph = () => {
+    if (paragraphBuf.length) {
+      segments.push({ kind: 'paragraph', text: paragraphBuf.join('\n') });
+      paragraphBuf = [];
+    }
+  };
+
+  const flushList = () => {
+    if (listBuf && listBuf.items.length) {
+      segments.push({ kind: listBuf.type, items: listBuf.items });
+    }
+    listBuf = null;
+  };
+
+  for (const rawLine of lines) {
+    const line = rawLine;
+    const headingMatch = /^(#{1,3})\s+(.+)$/.exec(line.trim());
+    const ulMatch = /^[-*]\s+(.+)$/.exec(line.trim());
+    const olMatch = /^(\d+)\.\s+(.+)$/.exec(line.trim());
+
+    if (headingMatch) {
+      flushParagraph();
+      flushList();
+      const level = Math.min(headingMatch[1].length, 3) as 1 | 2 | 3;
+      segments.push({ kind: 'heading', level, text: headingMatch[2] });
+      continue;
+    }
+
+    if (ulMatch) {
+      flushParagraph();
+      if (!listBuf || listBuf.type !== 'ul') {
+        flushList();
+        listBuf = { type: 'ul', items: [] };
+      }
+      listBuf.items.push(ulMatch[1]);
+      continue;
+    }
+
+    if (olMatch) {
+      flushParagraph();
+      if (!listBuf || listBuf.type !== 'ol') {
+        flushList();
+        listBuf = { type: 'ol', items: [] };
+      }
+      listBuf.items.push(olMatch[2]);
+      continue;
+    }
+
+    if (!line.trim()) {
+      flushParagraph();
+      flushList();
+      continue;
+    }
+
+    flushList();
+    paragraphBuf.push(line);
+  }
+
+  flushParagraph();
+  flushList();
+  return segments;
+}
+
+const RichTextBlock: React.FC<{ text: string; sources: SearchResultItem[] }> = ({
+  text,
+  sources,
+}) => {
+  const segments = segmentRichText(text);
 
   return (
-    <div className="space-y-2">
-      {paragraphs.map((p, pIdx) => {
-        if (!p.trim()) return null;
-        // Format inline code and bold
-        const parts = formatInlineElements(p);
+    <div className="space-y-2 min-w-0">
+      {segments.map((segment, idx) => {
+        if (segment.kind === 'heading') {
+          const Tag = (`h${segment.level + 2}` as 'h3' | 'h4' | 'h5');
+          const size =
+            segment.level === 1
+              ? 'text-sm sm:text-base font-extrabold'
+              : segment.level === 2
+                ? 'text-xs sm:text-sm font-bold'
+                : 'text-xs font-bold';
+          return (
+            <Tag key={idx} className={`${size} text-slate-900 tracking-tight`}>
+              {formatInlineElements(segment.text, sources)}
+            </Tag>
+          );
+        }
+
+        if (segment.kind === 'ul') {
+          return (
+            <ul key={idx} className="list-disc pl-4 space-y-1 text-slate-800">
+              {segment.items.map((item, i) => (
+                <li key={i} className="leading-relaxed">
+                  {formatInlineElements(item, sources)}
+                </li>
+              ))}
+            </ul>
+          );
+        }
+
+        if (segment.kind === 'ol') {
+          return (
+            <ol key={idx} className="list-decimal pl-4 space-y-1 text-slate-800">
+              {segment.items.map((item, i) => (
+                <li key={i} className="leading-relaxed">
+                  {formatInlineElements(item, sources)}
+                </li>
+              ))}
+            </ol>
+          );
+        }
+
         return (
-          <p key={pIdx} className="whitespace-pre-wrap leading-relaxed">
-            {parts}
+          <p key={idx} className="whitespace-pre-wrap leading-relaxed break-words [overflow-wrap:anywhere]">
+            {formatInlineElements(segment.text, sources)}
           </p>
         );
       })}
@@ -267,9 +425,17 @@ const RichTextParagraph: React.FC<{ text: string }> = ({ text }) => {
   );
 };
 
-function formatInlineElements(text: string): React.ReactNode[] {
-  // Matches inline code `code` or bold **bold**
-  const regex = /(`[^`]+`|\*\*[^*]+\*\*)/g;
+/**
+ * Inline formatting: code, bold, markdown links, bare URLs, and citation markers.
+ * Citation forms: [1], [Source][1], [[1]] mapped to search.results[n-1] when present.
+ */
+export function formatInlineElements(
+  text: string,
+  sources: SearchResultItem[] = [],
+): React.ReactNode[] {
+  // Groups: 1=code, 2=bold, 3=md-label, 4=md-url, 5=source-n, 6=dbl-n, 7=bare-n, 8=bare-url
+  const regex =
+    /(`[^`]+`)|\*\*([^*]+)\*\*|\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)|\[Source\]\s*\[(\d+)\]|\[\[(\d+)\]\]|\[(\d+)\]|(https?:\/\/[^\s<>()\[\]"]+)/gi;
   const nodes: React.ReactNode[] = [];
   let lastIndex = 0;
   let match: RegExpExecArray | null;
@@ -280,21 +446,51 @@ function formatInlineElements(text: string): React.ReactNode[] {
     }
 
     const token = match[0];
-    if (token.startsWith('`') && token.endsWith('`')) {
+
+    if (match[1]) {
       nodes.push(
         <code
           key={nodes.length}
-          className="px-1.5 py-0.5 rounded-md bg-blue-50 border border-blue-200/60 font-mono text-[11px] text-blue-700 font-semibold"
+          className="px-1.5 py-0.5 rounded-md bg-blue-50 border border-blue-200/60 font-mono text-[11px] text-blue-700 font-semibold break-all"
         >
-          {token.slice(1, -1)}
-        </code>
+          {match[1].slice(1, -1)}
+        </code>,
       );
-    } else if (token.startsWith('**') && token.endsWith('**')) {
+    } else if (match[2]) {
       nodes.push(
         <strong key={nodes.length} className="font-bold text-slate-900">
-          {token.slice(2, -2)}
-        </strong>
+          {match[2]}
+        </strong>,
       );
+    } else if (match[3] && match[4]) {
+      nodes.push(
+        <a
+          key={nodes.length}
+          href={match[4]}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-blue-600 hover:text-blue-700 underline underline-offset-2 break-all"
+        >
+          {match[3]}
+        </a>,
+      );
+    } else if (match[5] || match[6] || match[7]) {
+      const n = Number(match[5] || match[6] || match[7]);
+      nodes.push(<CitationChip key={nodes.length} index={n} sources={sources} />);
+    } else if (match[8]) {
+      nodes.push(
+        <a
+          key={nodes.length}
+          href={match[8]}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-blue-600 hover:text-blue-700 underline underline-offset-2 break-all"
+        >
+          {match[8]}
+        </a>,
+      );
+    } else {
+      nodes.push(token);
     }
 
     lastIndex = match.index + token.length;
@@ -306,3 +502,33 @@ function formatInlineElements(text: string): React.ReactNode[] {
 
   return nodes.length > 0 ? nodes : [text];
 }
+
+const CitationChip: React.FC<{ index: number; sources: SearchResultItem[] }> = ({
+  index,
+  sources,
+}) => {
+  const source = Number.isFinite(index) && index >= 1 ? sources[index - 1] : undefined;
+
+  if (source?.url) {
+    return (
+      <a
+        href={source.url}
+        target="_blank"
+        rel="noopener noreferrer"
+        title={source.title || source.url}
+        className="inline-flex items-center justify-center mx-0.5 px-1.5 py-0.5 rounded-md bg-blue-100 text-blue-700 text-[10px] font-bold font-mono hover:bg-blue-200 align-baseline no-underline"
+      >
+        [{index}]
+      </a>
+    );
+  }
+
+  return (
+    <span
+      className="inline-flex items-center justify-center mx-0.5 px-1.5 py-0.5 rounded-md bg-slate-100 text-slate-600 text-[10px] font-bold font-mono align-baseline"
+      title="Source metadata unavailable"
+    >
+      [{index}]
+    </span>
+  );
+};

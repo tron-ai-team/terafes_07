@@ -277,7 +277,7 @@ export const ChatModePage: React.FC = () => {
               )}
 
               <div
-                className={`group relative p-3 sm:p-4 rounded-2xl text-xs leading-relaxed max-w-[92%] sm:max-w-[85%] ${
+                className={`group relative p-3 sm:p-4 rounded-2xl text-xs leading-relaxed max-w-[92%] sm:max-w-[85%] min-w-0 break-words [overflow-wrap:anywhere] ${
                   msg.role === 'user'
                     ? 'bg-gradient-to-r from-[#008CFF] to-[#0066FF] text-white shadow-sm shadow-blue-500/20'
                     : 'bg-white/95 border border-[#E2EEF8] text-slate-800 shadow-xs'
@@ -422,11 +422,12 @@ export const ChatModePage: React.FC = () => {
           {/* Paperclip / attachment icon (Mobile only, matching reference) */}
           <button
             type="button"
-            className="md:hidden text-slate-400 hover:text-slate-600 transition-colors shrink-0 p-1 cursor-default"
+            disabled
+            className="md:hidden text-slate-300 shrink-0 p-1 cursor-not-allowed opacity-60"
             aria-label="Attachments not supported"
             title="File attachments are currently unavailable"
           >
-            <Paperclip className="w-4 h-4" />
+            <Paperclip className="w-4 h-4" aria-hidden />
           </button>
 
           {/* Desktop in-bar AI Model Selector */}

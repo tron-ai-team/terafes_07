@@ -119,7 +119,7 @@ export const MobileBottomNav: React.FC = () => {
             onClick={item.onClick}
             aria-label={item.label}
             aria-current={item.active ? "page" : undefined}
-            className={`flex flex-col items-center justify-center w-full py-0.5 px-0.5 rounded-xl transition-all duration-200 cursor-pointer ${
+            className={`flex flex-col items-center justify-center w-full min-h-[44px] py-0.5 px-0.5 rounded-xl transition-all duration-200 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/50 ${
               item.active
                 ? "text-blue-600 font-bold"
                 : "text-slate-500 hover:text-slate-800 font-medium"
@@ -127,7 +127,7 @@ export const MobileBottomNav: React.FC = () => {
           >
             {/* Active Pill container around Icon */}
             <div
-              className={`flex items-center justify-center w-8 h-6 rounded-full transition-all duration-200 ${
+              className={`flex items-center justify-center w-9 h-7 rounded-full transition-all duration-200 ${
                 item.active
                   ? "bg-blue-100/90 text-blue-600 shadow-2xs border border-blue-200/80"
                   : "text-slate-600 hover:bg-slate-100/60"
@@ -138,7 +138,7 @@ export const MobileBottomNav: React.FC = () => {
 
             {/* Label below Icon */}
             <span
-              className={`text-[8.5px] sm:text-[9px] tracking-tight leading-none mt-0.5 truncate max-w-full ${
+              className={`text-[9px] sm:text-[9.5px] tracking-tight leading-none mt-0.5 truncate max-w-full ${
                 item.active ? "text-blue-600 font-bold" : "text-slate-600"
               }`}
             >

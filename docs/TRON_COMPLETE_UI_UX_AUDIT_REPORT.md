@@ -205,8 +205,8 @@ Skipped cases are intentional desktop↔mobile `test.skip` scopes, not weakened 
 |---|---|
 | Branch | `fix/tron-complete-responsive-ui-ux-audit` |
 | Worktree | `C:\Users\Thushan\Projects\tron-complete-responsive-ui-ux-audit` |
-| Draft PR | _(filled after `gh pr create`)_ |
-| CI / Vercel | _(monitor after push)_ |
+| Draft PR | https://github.com/tron-ai-team/terafes_07/pull/32 |
+| CI / Vercel | Monitoring after push (Draft) |
 | Merge | **Do not merge** without owner approval (`TRON_BACKEND_CD_ENABLED=true`) |
 
 ### Primary files changed

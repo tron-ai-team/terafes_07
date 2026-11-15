@@ -2,7 +2,8 @@
 
 **Date:** 2026-11-15  
 **Integration branch:** `feature/tron-mobile-ui-final-integration`  
-**Worktree:** `C:\Users\Thushan\Projects\tron-mobile-ui-final-integration`
+**Worktree:** `C:\Users\Thushan\Projects\tron-mobile-ui-final-integration`  
+**Status:** MERGED + PRODUCTION VERIFIED
 
 ---
 
@@ -25,9 +26,9 @@ Legacy draft PR #27 (`feature/tron-mobile-home-reference-20261114`) remains open
 
 | Item | Value |
 |---|---|
-| Merge commit | `ac7edc64750bdff51ca75120c65586ec11404740` |
+| Integration merge on branch | `ac7edc64750bdff51ca75120c65586ec11404740` |
 | Evidence/docs commit | `0548cb3c922a1658f0f236c93fa993bed73e3ce2` |
-| Tip at report authoring | `0548cb3c922a1658f0f236c93fa993bed73e3ce2` |
+| PR tip before merge | `d109de02c8d2ef9680d045e23ee9ec04b584488d` |
 
 Integration method: non-fast-forward merge of Core tip onto latest `origin/main` (preserves stacked ancestry). Frontend-only scope confirmed.
 
@@ -36,13 +37,14 @@ Integration method: non-fast-forward merge of Core tip onto latest `origin/main`
 ## 3. PR URL
 
 https://github.com/tron-ai-team/terafes_07/pull/30  
-Draft PR against `main` from `feature/tron-mobile-ui-final-integration`.
+Merged into `main` (marked ready after CI; merge commit method).
 
 ---
 
 ## 4. Merge commit SHA (production)
 
-Not merged yet at report authoring time. Will be recorded after protected merge gates pass.
+`8326507940909cd75d3fdc547f01df260749631c`  
+Merged at `2026-11-15T04:11:13Z`.
 
 ---
 
@@ -63,7 +65,7 @@ The Core tip also carried **obfuscated runtime payloads** that must never ship:
 | `frontend/init` | Obfuscated payload appended after a benign stub; introduced in docs commit `cbd37803`. `package.json` ran `node init` on `dev`/`build`. | **Removed** from integration tree. Restored main `package.json` scripts (`vite` / contracts+tsc+vite). |
 | `frontend/tailwind.config.js` | Legitimate Tailwind config followed by large obfuscated payload + `createRequire` wrapper. Theme content matched main. | **Restored clean main Tailwind config.** |
 
-HEAD tree verification: `frontend/init` absent; no `var bx` / obfuscation markers under `frontend/` at tip.
+Release tip verification: `frontend/init` absent; no obfuscation markers under `frontend/` at shipped tip.
 
 ---
 
@@ -85,7 +87,7 @@ Skipped cases are intentional (`test.skip` for desktop-only vs mobile-only asser
 
 Frontend contract scripts (AI mode, safe-return, core-nav, chat-error mapping) passed. No backend Java/Flyway/Compose changes in this integration.
 
-**Unverified here (requires live authenticated credentials):** production login, Google Sign-In end-to-end, live FAST/SMART GPU inference, live SearXNG search round-trips, PDF/Excel export against production Gotenberg, full Interview session with TTS. Contract + UI routing compatibility preserved; live production feature smoke was not claimed as PASS without credentials.
+**Unverified with live credentials (not claimed PASS):** Google Sign-In end-to-end, live FAST/SMART GPU inference latency, live SearXNG citation round-trips, PDF/Excel export against production Gotenberg, full Interview TTS session.
 
 ---
 
@@ -93,7 +95,7 @@ Frontend contract scripts (AI mode, safe-return, core-nav, chat-error mapping) p
 
 Directory: `docs/tron-mobile-final-integration-evidence/`
 
-Viewports captured: `320×568`, `360×740`, `390×844`, `430×932`, `768×1024`, `1440×900`, `1920×1080`
+Viewports: `320×568`, `360×740`, `390×844`, `430×932`, `768×1024`, `1440×900`, `1920×1080`
 
 Routes: `/`, `/chat`, `/voice`, `/career/interview`, `/career/cv-builder`, `/career/profile`, `/auth`, `/settings`, `/help`
 
@@ -103,15 +105,7 @@ Routes: `/`, `/chat`, `/voice`, `/career/interview`, `/career/cv-builder`, `/car
 | Overflow JSON | `docs/tron-mobile-final-integration-evidence/overflow-report.json` |
 | Capture script | `frontend/scripts/capture-final-integration-viewports.mjs` |
 
-Visual spot-check:
-
-- Mobile home `390×844`: branding, robot hero, JP copy, 2×2 feature cards, bottom dock — OK
-- Mobile chat `390×844`: mobile chrome + auth gate — OK
-- Mobile CV builder `390×844`: mode workspace auth gate + bottom dock — OK
-- Desktop home `1440×900`: cinematic desktop hero preserved — OK
-- Desktop chat `1440×900`: left sidebar + topbar preserved — OK
-
-Prior stacked evidence under `docs/tron-mobile-*-evidence/` retained from source branches.
+Production live captures: `docs/tron-mobile-final-integration-evidence/production/` (home/chat/voice/cv × mobile 390 + desktop 1440; overflow=false).
 
 ---
 
@@ -119,8 +113,8 @@ Prior stacked evidence under `docs/tron-mobile-*-evidence/` retained from source
 
 | Area | Result |
 |---|---|
-| Homepage desktop layout (1440) | PASS (Playwright + screenshot) |
-| Chat desktop sidebar/topbar/composer | PASS (Playwright desktop project) |
+| Homepage desktop layout (1440) | PASS (Playwright + screenshot + live production) |
+| Chat desktop sidebar/topbar/composer | PASS (Playwright desktop project + live production) |
 | Mobile bottom nav scoped `lg:hidden` | Confirmed in `LandingMobileBottomNav.tsx` |
 | Tailwind theme tokens | Unchanged vs production main |
 
@@ -128,58 +122,79 @@ Prior stacked evidence under `docs/tron-mobile-*-evidence/` retained from source
 
 ## 9. CI results
 
-*(filled after PR checks complete)*
+PR #30 required checks (all SUCCESS):
 
-Required branch-protection contexts:
+| Check | Result |
+|---|---|
+| Frontend build | PASS |
+| Backend Maven tests | PASS |
+| Security checks | PASS |
+| Deployment recovery tests | PASS |
+| Docker image build (no push) | PASS |
+| Vercel Preview | PASS |
 
-- Backend Maven tests
-- Frontend build
-- Docker image build (no push)
-- Security checks
-- Deployment recovery tests
+CI run: https://github.com/tron-ai-team/terafes_07/actions/runs/43675195446
 
 ---
 
 ## 10. Vercel deployment status
 
-Production currently tracks main tip `a834e09f` (Vercel status success for that SHA).  
-Preview deployment status will be recorded after PR creation.  
-Production www redeploy expected only after protected merge.
+| Context | Result |
+|---|---|
+| Preview (PR tip) | SUCCESS |
+| Production for merge `83265079` | SUCCESS — “Deployment has completed” |
+| Production URL | https://www.tronai.tech |
+| Vercel deploy | https://vercel.com/tron-ai2/tron-ai/DMRYMHbybJdBJcswjrnrQX76QmPy |
 
 ---
 
 ## 11. Backend production impact
 
-**Scope:** No `backend/`, `deploy/`, workflow, Compose, Flyway, SearXNG, RTX/GTX, or secret changes in this PR.
+**Scope:** No `backend/`, `deploy/`, workflow, Compose, Flyway, SearXNG, RTX/GTX, or secret changes in PR #30.
 
-**CD implication:** Repository variable `TRON_BACKEND_CD_ENABLED=true`. A merge to protected `main` **will trigger** `.github/workflows/backend-production.yml` even for frontend-only changes. That workflow rebuilds/publishes a backend image from main sources and can deploy over Tailscale SSH after smoke + target verification.
+**CD outcome:** `TRON_BACKEND_CD_ENABLED=true` triggered protected backend release on merge.
 
-Recent successful CD runs after PR #28 / #29 establish this as the protected path. Frontend-only merge still causes a new SHA-tagged backend rebuild/redeploy of unchanged Spring sources — accepted production behavior for this repository, with smoke + digest deploy safeguards intact. **Safeguards were not disabled.**
+| Step | Result |
+|---|---|
+| Backend production release run | SUCCESS — https://github.com/tron-ai-team/terafes_07/actions/runs/43675644987 |
+| required-checks (nested CI) | SUCCESS |
+| verify-target | SUCCESS |
+| publish | SUCCESS |
+| deploy | SUCCESS |
+| Duration | ~9m51s |
+
+Safeguards were not disabled. Frontend-only change still rebuilt/redeployed unchanged Spring sources via the protected digest path — completed successfully.
+
+API health after deploy: `https://api.tronai.tech/actuator/health` → HTTP 200.
 
 ---
 
 ## 12. Known limitations
 
 1. Guest screenshots of Chat/CV/Interview show auth gates (expected without credentials).
-2. Live production GPU/search/export not re-proven in this run.
-3. Draft PR #27 left open; should be closed after this integration lands to avoid confusion.
-4. Historical mobile commits still contain the obfuscated payloads; only the sanitized integration tip is release-safe.
-5. Physical iOS WebKit / device lab not run (Chromium mobile emulation only, matching existing Playwright projects).
+2. Live authenticated GPU/search/export sessions not re-proven in this release run.
+3. Draft PR #27 left open; recommend closing to avoid confusion.
+4. Historical mobile commits still contain obfuscated payloads; only the sanitized integration tip was shipped.
+5. Physical iOS WebKit / device lab not run (Chromium mobile emulation only).
 
 ---
 
 ## 13. Final production verification
 
-Pending protected merge + Vercel production deploy. Checklist after merge:
+| Check | Result |
+|---|---|
+| Merge SHA on `main` | `8326507940909cd75d3fdc547f01df260749631c` |
+| Vercel production for that SHA | SUCCESS |
+| `GET https://www.tronai.tech/` | 200 |
+| `GET /chat` `/voice` `/career/interview` `/career/cv-builder` `/auth` | 200 |
+| `GET https://api.tronai.tech/actuator/health` | 200 |
+| Live mobile+desktop screenshots overflow | none |
+| Backend-production workflow | SUCCESS (publish + deploy) |
 
-- [ ] Confirm merge SHA on `main`
-- [ ] Confirm Vercel production deployment for that SHA
-- [ ] Spot-check https://www.tronai.tech home/chat/voice/interview/cv on mobile + desktop
-- [ ] Confirm auth entry points without exposing credentials
-- [ ] Monitor backend-production workflow if triggered; do not alter secrets or Ubuntu host manually
+Auth-gated product flows (login, Google, live AI, exports) were **not** exercised with credentials in this verification pass.
 
 ---
 
 ## Implementation summary
 
-Integrated stacked mobile Home → Chat → Core Pages onto latest production main with frontend-only scope, desktop protection retained, SearXNG/backend untouched, malware payloads stripped, contracts/tsc/build/Playwright green, and responsive overflow evidence captured.
+Integrated stacked mobile Home → Chat → Core Pages onto production main with frontend-only scope, desktop protection retained, SearXNG/backend untouched, malware payloads stripped, contracts/tsc/build/Playwright green, CI green, protected merge completed, Vercel production deployed, and protected backend CD redeploy succeeded.

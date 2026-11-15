@@ -135,10 +135,13 @@ This is **not** a force-push and does not modify MySQL. Residual operational ris
 | Item | Value |
 |---|---|
 | PR title | `hotfix(frontend): restore pre-mobile stable UI and preserve SearXNG` |
-| PR URL | _(filled after create)_ |
-| CI | _(filled after checks)_ |
-| Vercel preview | _(filled after deploy)_ |
-| Production merge | Proceed only after required checks PASS |
+| PR URL | https://github.com/tron-ai-team/terafes_07/pull/33 |
+| CI | All required checks SUCCESS (Frontend, Security, Maven, Docker no-push, Deployment recovery) |
+| Vercel preview | SUCCESS — `https://tron-ai-git-hotfix-tron-restore-pre-mobile-ui-tron-ai2.vercel.app` (SSO-gated) |
+| Production merge | **MERGED** `07ede197` at 2026-11-15T06:57:23Z |
+| Production frontend verify | **PASS** — full-bleed video 1920×1080 playing; desktop Main Navigation restored |
+| Backend CD after merge | Triggered (expected); run https://github.com/tron-ai-team/terafes_07/actions/runs/43687752583 |
+| Live API health | **HTTP 530** — outstanding separate incident |
 
 ---
 
@@ -159,4 +162,5 @@ This is **not** a force-push and does not modify MySQL. Residual operational ris
 | Homepage video working (verified locally) | YES |
 | Frontend API client compatibility preserved | YES (unchanged vs target) |
 | SearXNG-era backend tree preserved | YES |
-| Production site healthy | **BLOCKED on API 530** until origin recovered; frontend deploy path ready |
+| Production frontend restored | **YES** (video + desktop UI verified live) |
+| Production API healthy | **NO** — `api.tronai.tech` still HTTP 530 (separate) |

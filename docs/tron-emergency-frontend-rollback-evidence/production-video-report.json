@@ -1,0 +1,21 @@
+﻿{
+  "baseURL": "https://www.tronai.tech",
+  "pass": true,
+  "checkedAt": "2026-11-15T07:02:00Z",
+  "mergeCommit": "07ede197c47012551dd2c943908e60fabb38a30b",
+  "pr": "https://github.com/tron-ai-team/terafes_07/pull/33",
+  "report": {
+    "className": "landing-background-video fixed lg:absolute inset-0 ...",
+    "src": "https://www.tronai.tech/videos/tron-ai-hero.mp4",
+    "readyState": 4,
+    "paused": false,
+    "videoWidth": 1920,
+    "videoHeight": 1080,
+    "advanced": true,
+    "rect": { "w": 1440, "h": 900 },
+    "opacity": "1",
+    "visibility": "visible"
+  },
+  "desktopNavRestored": true,
+  "apiHealth": { "status": 530, "note": "Cloudflare origin error — separate from frontend restore" }
+}

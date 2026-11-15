@@ -1179,6 +1179,23 @@ export const CandidateProfilePage: React.FC = () => {
           )}
         </div>
       </div>
+
+      {/* Mobile Sticky Save Bar (< lg) */}
+      {dirty && (
+        <div className="fixed bottom-[calc(3.5rem+env(safe-area-inset-bottom,0px))] inset-x-0 z-30 lg:hidden p-3 bg-white/95 backdrop-blur-xl border-t border-slate-200 shadow-lg flex items-center justify-between gap-3 animate-in fade-in slide-in-from-bottom duration-200">
+          <span className="text-xs font-semibold text-amber-700 truncate">
+            {ja ? '未保存の変更があります' : 'Unsaved changes'}
+          </span>
+          <div className="flex gap-2 shrink-0">
+            <NeonButton size="sm" variant="secondary" onClick={handleCancel}>
+              {ja ? '取消' : 'Cancel'}
+            </NeonButton>
+            <NeonButton size="sm" onClick={() => void handleSave()} disabled={saving} isLoading={saving} icon={<Save className="w-3.5 h-3.5" />}>
+              {saving ? (ja ? '保存中…' : 'Saving…') : ja ? '保存' : 'Save'}
+            </NeonButton>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

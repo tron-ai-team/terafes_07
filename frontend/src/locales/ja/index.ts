@@ -15,7 +15,7 @@ export const ja: TranslationSchema = {
     logOut: 'ログアウト',
   },
   hero: {
-    badge: '★ オールインワン AI アシスタント',
+    badge: 'オールインワン AI アシスタント',
     titlePart1: '学習・面接・キャリア準備を',
     titleHighlight1: 'AIでトータルサポート',
     titlePart2: '',
@@ -25,7 +25,7 @@ export const ja: TranslationSchema = {
     watchDemo: 'デモを見る',
     demoOverview: '2分の紹介動画',
     exploreTron: 'TRON AI を探る',
-    badgeLocalCloud: '100% 無料',
+    badgeLocalCloud: '無料で始める',
     badgeJapaneseInterview: '日英バイリンガルAI',
     badgeMultilingual: '4つの主要AI機能',
   },

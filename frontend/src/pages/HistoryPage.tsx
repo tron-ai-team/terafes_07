@@ -42,8 +42,8 @@ export const HistoryPage: React.FC = () => {
               : r.startedAt
               ? new Date(r.startedAt).toLocaleDateString('ja-JP')
               : new Date().toLocaleDateString('ja-JP'),
-            companyName: r.companyName || 'LINEヤフー株式会社',
-            jobPosition: r.jobPosition || 'Software Engineer',
+            companyName: r.companyName || (uiLanguage === 'ja' ? '模擬面接（企業未指定）' : 'Mock Interview (Unspecified)'),
+            jobPosition: r.jobPosition || (uiLanguage === 'ja' ? '職種未指定' : 'Role Unspecified'),
             interviewType: r.interviewType || 'technical',
             difficulty: r.difficulty || 'intermediate',
             score: r.overallScore || 0,

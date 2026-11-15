@@ -1,9 +1,11 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useApp } from "../context/AppContext";
 import { LandingNavbar } from "../components/landing/LandingNavbar";
 import { HeroSection } from "../components/landing/HeroSection";
 import { LandingSecondaryNav } from "../components/landing/LandingSecondaryNav";
+import { LandingMobileBottomNav } from "../components/landing/LandingMobileBottomNav";
+import { MobileBackgroundWaves } from "../components/landing/MobileBackgroundWaves";
 import { DemoVideoModal } from "../components/landing/DemoVideoModal";
 
 interface LandingPageProps {
@@ -13,7 +15,6 @@ interface LandingPageProps {
 export const LandingPage: React.FC<LandingPageProps> = ({ defaultSection }) => {
   const navigate = useNavigate();
   const { isAuthenticated } = useApp();
-  const videoRef = useRef<HTMLVideoElement>(null);
   const [isDemoModalOpen, setIsDemoModalOpen] = useState(false);
 
   const handleSignIn = () => {
@@ -37,50 +38,23 @@ export const LandingPage: React.FC<LandingPageProps> = ({ defaultSection }) => {
     }
   }, [defaultSection]);
 
-  // Robust HTML5 video autoplay initializer
-  useEffect(() => {
-    const video = videoRef.current;
-    if (!video) return;
-
-    video.muted = true;
-    const playPromise = video.play();
-    if (playPromise !== undefined) {
-      playPromise.catch(() => {
-        // Browser autoplay fallback (muted plays automatically on user touch/visibility)
-      });
-    }
-  }, []);
-
   return (
-    <div className="landing-page relative min-h-screen min-h-[100dvh] overflow-x-hidden lg:overflow-hidden isolate bg-[#EEFAFF] text-slate-900 font-sans antialiased selection:bg-cyan-500/20 selection:text-blue-600">
-      {/* ── MASTER CINEMATIC VIDEO BACKGROUND (Single Layer, No Duplicates) ── */}
-      <video
-        ref={videoRef}
-        className="landing-background-video fixed lg:absolute inset-0 w-full h-full object-cover object-[center_32%] lg:object-center pointer-events-none z-0"
-        autoPlay
-        muted
-        loop
-        playsInline
-        preload="auto"
-        poster="/images/tron-ai-hero-poster.webp"
-        aria-hidden="true"
-        tabIndex={-1}
-      >
-        <source src="/videos/tron-ai-hero.mp4" type="video/mp4" />
-      </video>
+    <div className="landing-page relative min-h-screen min-h-[100dvh] overflow-x-hidden overflow-y-auto lg:overflow-hidden isolate bg-[#EEFAFF] text-slate-900 font-sans antialiased selection:bg-cyan-500/20 selection:text-blue-600">
+      {/* ── MOBILE BACKGROUND WAVES (Clean subtle cyan/blue waves, mobile-only) ── */}
+      <MobileBackgroundWaves />
 
-      {/* ── SUBTLE CONTRAST GRADIENTS (Preserves bright TRON AI aesthetic without dimming the robot or globe) ── */}
-      {/* Left side gentle scrim: guarantees crystal-clear headline & body contrast */}
+      {/* ── DESKTOP SUBTLE CONTRAST GRADIENTS (Desktop only, preserves bright aesthetic) ── */}
+      {/* Left side gentle scrim: guarantees crystal-clear headline & body contrast on desktop */}
       <div
-        className="absolute inset-y-0 left-0 w-full lg:w-[48%] pointer-events-none z-[1]"
+        className="hidden lg:block absolute inset-y-0 left-0 w-[48%] pointer-events-none z-[1]"
         style={{
           background:
             "linear-gradient(to right, rgba(238, 250, 255, 0.72) 0%, rgba(238, 250, 255, 0.42) 50%, rgba(238, 250, 255, 0.08) 85%, transparent 100%)",
         }}
       />
-      {/* Bottom subtle floor gradient: anchors the Quick Launch bar and bottom dock */}
+      {/* Bottom subtle floor gradient: anchors the desktop bottom dock */}
       <div
-        className="absolute inset-x-0 bottom-0 h-28 pointer-events-none z-[1]"
+        className="hidden lg:block absolute inset-x-0 bottom-0 h-28 pointer-events-none z-[1]"
         style={{
           background:
             "linear-gradient(to top, rgba(238, 250, 255, 0.65) 0%, rgba(238, 250, 255, 0.15) 60%, transparent 100%)",
@@ -88,11 +62,11 @@ export const LandingPage: React.FC<LandingPageProps> = ({ defaultSection }) => {
       />
 
       {/* ── FOREGROUND USER INTERFACE LAYER ── */}
-      <div className="landing-content relative z-10 flex flex-col min-h-screen min-h-[100dvh] justify-between">
+      <div className="landing-content relative z-10 flex flex-col min-h-screen min-h-[100dvh] justify-between pb-[calc(3.4rem+env(safe-area-inset-bottom,0px))] lg:pb-0">
         {/* Floating Translucent Futuristic Navigation */}
         <LandingNavbar onSignIn={handleSignIn} onGetStarted={handleGetStarted} />
 
-        {/* Main Single-Viewport Cinematic Experience */}
+        {/* Main Experience (HeroSection houses the master single video element) */}
         <main className="w-full flex-1 flex flex-col justify-between min-w-0">
           <HeroSection
             onStartForFree={handleGetStarted}
@@ -100,9 +74,14 @@ export const LandingPage: React.FC<LandingPageProps> = ({ defaultSection }) => {
           />
         </main>
 
-        {/* Secondary Bottom Dock Navigation */}
-        <LandingSecondaryNav onOpenDemos={() => navigate("/career/interview")} />
+        {/* Secondary Bottom Dock Navigation (Desktop only) */}
+        <div className="hidden lg:block">
+          <LandingSecondaryNav onOpenDemos={() => navigate("/career/interview")} />
+        </div>
       </div>
+
+      {/* ── FIXED MOBILE BOTTOM NAVIGATION BAR (< lg) ── */}
+      <LandingMobileBottomNav />
 
       {/* Interactive Platform Demo Modal */}
       <DemoVideoModal

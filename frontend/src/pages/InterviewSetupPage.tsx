@@ -211,34 +211,33 @@ export const InterviewSetupPage: React.FC = () => {
               </h2>
             </div>
 
-            <label className="block space-y-1.5">
-              <span className="text-xs font-semibold text-slate-600">
-                {uiLanguage === 'ja' ? '企業分析（任意）' : 'Company analysis (optional)'}
-              </span>
-              <select
-                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm"
-                value={selectedAnalysisId}
-                onChange={(e) => {
-                  const id = e.target.value;
-                  setSelectedAnalysisId(id);
-                  const found = companyAnalyses.find((a) => a.id === id);
-                  if (found?.companyName) setCompanyName(found.companyName);
-                  if (id) setInterviewType('company-specific');
-                }}
-              >
-                <option value="">
-                  {uiLanguage === 'ja' ? 'なし（通常面接）' : 'None (standard interview)'}
-                </option>
-                {companyAnalyses.map((a) => (
-                  <option key={a.id} value={a.id}>
-                    {(a.companyName || a.id) + (a.status ? ` · ${a.status}` : '')}
+            {companyAnalyses.length > 0 && (
+              <label className="block space-y-1.5">
+                <span className="text-xs font-semibold text-slate-600">
+                  {uiLanguage === 'ja' ? '企業分析（任意）' : 'Company analysis (optional)'}
+                </span>
+                <select
+                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm"
+                  value={selectedAnalysisId}
+                  onChange={(e) => {
+                    const id = e.target.value;
+                    setSelectedAnalysisId(id);
+                    const found = companyAnalyses.find((a) => a.id === id);
+                    if (found?.companyName) setCompanyName(found.companyName);
+                    if (id) setInterviewType('company-specific');
+                  }}
+                >
+                  <option value="">
+                    {uiLanguage === 'ja' ? 'なし（通常面接）' : 'None (standard interview)'}
                   </option>
-                ))}
-              </select>
-              <Link to="/career/company-analysis" className="text-xs font-semibold text-indigo-600 hover:underline">
-                {uiLanguage === 'ja' ? '企業分析を作成する' : 'Create company analysis'}
-              </Link>
-            </label>
+                  {companyAnalyses.map((a) => (
+                    <option key={a.id} value={a.id}>
+                      {(a.companyName || a.id) + (a.status ? ` · ${a.status}` : '')}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <FuturisticInput

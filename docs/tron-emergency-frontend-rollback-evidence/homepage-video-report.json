@@ -1,0 +1,24 @@
+﻿{
+  "baseURL": "http://127.0.0.1:4173",
+  "pass": true,
+  "checkedAt": "2026-11-15T06:49:00Z",
+  "method": "cursor-ide-browser CDP Runtime.evaluate",
+  "report": {
+    "src": "http://127.0.0.1:4173/videos/tron-ai-hero.mp4",
+    "readyState": 4,
+    "paused": false,
+    "muted": true,
+    "videoWidth": 1920,
+    "videoHeight": 1080,
+    "advanced": true,
+    "t0": 7.052374,
+    "t1": 7.853625,
+    "opacity": "1",
+    "visibility": "visible",
+    "display": "block",
+    "rect": { "w": 1440, "h": 900, "top": 0, "left": 0 },
+    "className": "landing-background-video fixed lg:absolute inset-0 ..."
+  },
+  "assetHttp": { "localPreview": 200, "productionWwwVideo": 200, "productionWwwSizeBytes": 8006843 },
+  "productionApiHealth": { "url": "https://api.tronai.tech/health", "status": 530, "note": "Cloudflare origin error — independent of frontend tree restore; api.ts unchanged by PR #30" }
+}

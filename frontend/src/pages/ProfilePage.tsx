@@ -128,10 +128,10 @@ export const ProfilePage: React.FC = () => {
             </div>
           )}
           <div>
-            <h3 className="font-bold text-lg text-slate-900">{displayName}</h3>
-            <p className="text-xs text-slate-500">Signed in as: {authEmail}</p>
+            <h3 className="font-bold text-lg text-slate-900 break-words">{displayName}</h3>
+            <p className="text-xs text-slate-500 break-all">Signed in as: {authEmail}</p>
             {cp?.contactEmail && cp.contactEmail !== authEmail && (
-              <p className="text-xs text-slate-400 mt-1">Candidate contact: {cp.contactEmail}</p>
+              <p className="text-xs text-slate-400 mt-1 break-all">Candidate contact: {cp.contactEmail}</p>
             )}
           </div>
           <div className="pt-2 space-y-1.5">

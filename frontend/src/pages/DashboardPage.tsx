@@ -52,28 +52,37 @@ export const DashboardPage: React.FC = () => {
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      addToast(`Selected CV file: ${file.name}. Navigating to CV Management...`, 'info');
-      setTimeout(() => navigate('/career/cv'), 600);
+      addToast(
+        uiLanguage === 'ja'
+          ? `選択された履歴書: ${file.name}（AI履歴書ビルダーへ移動します）`
+          : `Selected CV: ${file.name}. Opening CV Builder...`,
+        'info'
+      );
+      setTimeout(() => navigate('/career/cv-builder'), 600);
     }
   };
 
   return (
-    <div className="relative flex-1 flex flex-col justify-between max-w-6xl mx-auto w-full py-4 select-none">
+    <div className="relative flex-1 flex flex-col justify-between max-w-6xl mx-auto w-full py-2 sm:py-4 select-none">
       {/* Top spacing */}
-      <div className="h-2 md:h-6" />
+      <div className="h-1 md:h-6" />
 
       {/* Main Hero Section matching Reference Screenshot */}
       <div className="relative flex flex-col items-center justify-center text-center my-auto pt-1">
         {/* Animated HUD Circles and TRON Logo Centerpiece */}
-        <div className="relative flex items-center justify-center mb-3 md:mb-4">
-          <HUDCircle size={240} className="w-[200px] h-[200px] md:w-[240px] md:h-[240px]" />
+        <div className="relative flex items-center justify-center mb-2 sm:mb-4">
+          <HUDCircle
+            size={240}
+            className="w-[140px] h-[140px] sm:w-[180px] sm:h-[180px] md:w-[240px] md:h-[240px]"
+          />
           <div className="absolute inset-0 flex items-center justify-center">
-            <TronLogo size="xl" showGlow />
+            <TronLogo size="lg" className="sm:hidden" showGlow />
+            <TronLogo size="xl" className="hidden sm:block" showGlow />
           </div>
         </div>
 
         {/* Main Title matching reference: WHERE SHOULD YOUR JOURNEY BEGIN? */}
-        <h1 className="font-display text-2xl md:text-4xl font-extrabold tracking-tight text-slate-900 uppercase">
+        <h1 className="font-display text-xl sm:text-2xl md:text-4xl font-extrabold tracking-tight text-slate-900 uppercase">
           WHERE SHOULD YOUR{' '}
           <span className="bg-gradient-to-r from-[#008CFF] to-[#0066FF] bg-clip-text text-transparent drop-shadow-xs">
             JOURNEY
@@ -82,14 +91,14 @@ export const DashboardPage: React.FC = () => {
         </h1>
 
         {/* Subtitle */}
-        <p className="mt-2 text-xs md:text-sm text-slate-500 max-w-xl font-medium leading-relaxed">
+        <p className="mt-1 sm:mt-2 text-xs md:text-sm text-slate-500 max-w-xl font-medium leading-relaxed px-2">
           {uiLanguage === 'ja'
             ? 'AIと実践する日本の就職・転職面接。自信と合格を掴み取りましょう。'
             : 'Practice Japanese job interviews with AI and build your confidence.'}
         </p>
 
         {/* Three Action Cards matching Reference Screenshot */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4 w-full max-w-4xl mt-5 md:mt-7">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5 sm:gap-3 md:gap-4 w-full max-w-4xl mt-3 sm:mt-5 md:mt-7 px-1">
           {/* Card 1: Start AI Interview */}
           <GlassCard
             hoverEffect

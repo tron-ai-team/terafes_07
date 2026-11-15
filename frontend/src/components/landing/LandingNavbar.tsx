@@ -38,6 +38,7 @@ export const LandingNavbar: React.FC<LandingNavbarProps> = ({
   const [langMenuOpen, setLangMenuOpen] = useState(false);
 
   const langMenuRef = useRef<HTMLDivElement>(null);
+  const mobileLangMenuRef = useRef<HTMLDivElement>(null);
   const featuresMenuRef = useRef<HTMLDivElement>(null);
 
   const currentLang = selectedLanguage || lang;
@@ -50,10 +51,13 @@ export const LandingNavbar: React.FC<LandingNavbarProps> = ({
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
-      if (langMenuRef.current && !langMenuRef.current.contains(e.target as Node)) {
+      const target = e.target as Node;
+      const clickedDesktop = langMenuRef.current && langMenuRef.current.contains(target);
+      const clickedMobile = mobileLangMenuRef.current && mobileLangMenuRef.current.contains(target);
+      if (!clickedDesktop && !clickedMobile) {
         setLangMenuOpen(false);
       }
-      if (featuresMenuRef.current && !featuresMenuRef.current.contains(e.target as Node)) {
+      if (featuresMenuRef.current && !featuresMenuRef.current.contains(target)) {
         setFeaturesOpen(false);
       }
     };
@@ -102,12 +106,12 @@ export const LandingNavbar: React.FC<LandingNavbarProps> = ({
           }}
         >
           {/* ── LEFT: TRON AI BRANDING ── */}
-          <div className="flex items-center gap-3 shrink-0">
+          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
             <a
               href="#hero"
-              className="flex items-center gap-2.5 group focus:outline-none focus:ring-2 focus:ring-blue-500/30 rounded-xl"
+              className="flex items-center gap-2 sm:gap-2.5 group focus:outline-none focus:ring-2 focus:ring-blue-500/30 rounded-xl"
             >
-              <div className="relative w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center group-hover:scale-105 transition-transform">
+              <div className="relative w-7 h-7 sm:w-9 sm:h-9 flex items-center justify-center group-hover:scale-105 transition-transform shrink-0">
                 <img
                   src="/images/assets/tron-logo.png"
                   alt="TRON AI Logo"
@@ -115,13 +119,12 @@ export const LandingNavbar: React.FC<LandingNavbarProps> = ({
                 />
               </div>
 
-              <div className="flex items-center gap-2 sm:gap-2.5 text-left">
-                <span className="text-base sm:text-lg font-black font-heading tracking-tight text-slate-900 group-hover:text-blue-600 transition-colors leading-none">
+              <div className="flex flex-col justify-center text-left leading-none">
+                <span className="text-sm sm:text-base lg:text-lg font-black font-heading tracking-tight text-slate-900 group-hover:text-blue-600 transition-colors leading-none">
                   TRON <span className="text-blue-600">AI</span>
                 </span>
-                <div className="hidden xl:block w-[1.5px] h-3.5 bg-slate-300/80 mx-0.5" />
-                <span className="text-[11px] text-slate-500 font-medium tracking-tight hidden xl:inline leading-none">
-                  Your AI Partner for a Brighter Future
+                <span className="text-[9px] sm:text-[10px] text-slate-500 font-medium tracking-tight leading-none mt-0.5">
+                  Your AI Partner
                 </span>
               </div>
             </a>
@@ -217,8 +220,8 @@ export const LandingNavbar: React.FC<LandingNavbarProps> = ({
             </button>
           </nav>
 
-          {/* ── RIGHT: LANGUAGE SELECTOR & SIGN IN ── */}
-          <div className="hidden sm:flex items-center gap-2.5 shrink-0">
+          {/* ── DESKTOP RIGHT: LANGUAGE SELECTOR & SIGN IN (lg:flex) ── */}
+          <div className="hidden lg:flex items-center gap-2.5 shrink-0">
             {/* Language Selector */}
             <div className="relative" ref={langMenuRef}>
               <button
@@ -307,8 +310,65 @@ export const LandingNavbar: React.FC<LandingNavbarProps> = ({
             )}
           </div>
 
-          {/* ── MOBILE MENU TOGGLE ── */}
-          <div className="flex items-center gap-2 lg:hidden shrink-0">
+          {/* ── MOBILE RIGHT CONTROLS: LANGUAGE SELECTOR & HAMBURGER (lg:hidden) ── */}
+          <div className="flex items-center gap-1.5 sm:gap-2 lg:hidden shrink-0">
+            {/* Mobile Language Selector Pill */}
+            <div className="relative" ref={mobileLangMenuRef}>
+              <button
+                type="button"
+                id="tron-landing-language-button-mobile"
+                onClick={() => setLangMenuOpen(!langMenuOpen)}
+                aria-label="Select Language"
+                aria-haspopup="listbox"
+                aria-expanded={langMenuOpen}
+                className="flex items-center gap-1 px-2.5 sm:px-3 py-1.5 rounded-full tron-liquid-pill text-[11px] sm:text-xs font-semibold text-slate-700 hover:text-blue-600 cursor-pointer"
+              >
+                <Globe className="w-3.5 h-3.5 text-blue-500 shrink-0" />
+                <span className="font-medium text-[11px] sm:text-xs">{currentLangObj.nativeName}</span>
+                <ChevronDown
+                  className={`w-3 h-3 text-slate-400 transition-transform ${
+                    langMenuOpen ? "rotate-180" : ""
+                  }`}
+                />
+              </button>
+
+              {langMenuOpen && (
+                <div
+                  role="listbox"
+                  className="absolute right-0 mt-2 w-44 rounded-2xl tron-liquid-glass p-1.5 shadow-2xl z-50 text-xs animate-fadeIn"
+                  style={{
+                    background: "rgba(255, 255, 255, 0.95)",
+                    backdropFilter: "blur(24px)",
+                  }}
+                >
+                  <div className="px-3 py-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100">
+                    Language / 言語
+                  </div>
+                  {LANGUAGES.map((l) => (
+                    <button
+                      key={l.code}
+                      id={`tron-landing-mobile-lang-${l.code}`}
+                      type="button"
+                      role="option"
+                      aria-selected={currentLang === l.code}
+                      onClick={() => handleSelectLang(l.code)}
+                      className={`w-full flex items-center justify-between px-3.5 py-2 rounded-xl text-left hover:bg-blue-50/80 transition-colors cursor-pointer ${
+                        currentLang === l.code
+                          ? "font-bold text-blue-600 bg-blue-50/60"
+                          : "text-slate-700 font-medium"
+                      }`}
+                    >
+                      <span className="text-xs">{l.nativeName}</span>
+                      {currentLang === l.code && (
+                        <Check className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                      )}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Mobile Hamburger Button */}
             <button
               type="button"
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}

@@ -1070,15 +1070,20 @@ export const CvBuilderPage: React.FC = () => {
       ) : (
         /* Active Draft Workspace */
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-          {/* Left Sidebar: 3 cols on 12-col grid */}
-          <div className="lg:col-span-4 xl:col-span-3 space-y-4">
+          {/* Left Sidebar: on desktop (>= lg) always shown in left 3-4 cols; on mobile (< lg) shown only when activeTab === 'drafts' */}
+          <div className={`${activeTab === 'drafts' ? 'block' : 'hidden lg:block'} lg:col-span-4 xl:col-span-3 space-y-4`}>
             <CvDraftsSidebar
               drafts={drafts}
               activeDraft={draft}
               versions={versions}
               validation={validation}
               isBusy={busy}
-              onSelectDraft={(id) => void handleSelectDraft(id)}
+              onSelectDraft={(id) => {
+                void handleSelectDraft(id);
+                if (typeof window !== 'undefined' && window.innerWidth < 1024) {
+                  setActiveTab('editor');
+                }
+              }}
               onCreateDraft={() => void handleCreateDraft()}
               onDeleteDraftClick={handleOpenDeleteModal}
               onSaveSnapshot={() => void handleSaveSnapshot()}
@@ -1088,7 +1093,25 @@ export const CvBuilderPage: React.FC = () => {
           </div>
 
           {/* Right Workspace: Dynamic based on activeTab */}
-          {activeTab === 'split' ? (
+          {activeTab === 'drafts' ? (
+            /* On desktop when drafts tab is selected, show editor on right */
+            <div className="hidden lg:block lg:col-span-8 xl:col-span-9 space-y-6">
+              <CvEditor
+                payload={payload}
+                draft={draft}
+                validation={validation}
+                photoThumbUrl={photoThumbUrl}
+                isBusy={busy}
+                onFieldChange={handleFieldChange}
+                onUploadPhoto={(file) => void handleUploadPhoto(file)}
+                onUseProfilePhoto={() => void handleUseProfilePhoto()}
+                onRemovePhoto={() => void handleRemovePhoto()}
+                onOpenSingleAi={handleOpenSingleAi}
+                onSanitizeEducation={() => void handleSanitizeEducation()}
+                ja={ja}
+              />
+            </div>
+          ) : activeTab === 'split' ? (
             /* Split View: Editor (4 cols) + Live Preview (5 cols) */
             <>
               <div className="lg:col-span-4 xl:col-span-4 space-y-6">

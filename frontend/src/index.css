@@ -296,4 +296,19 @@ button:hover .tron-wave-bar-4 {
   animation: voiceWavePulse 0.9s ease-in-out infinite 0.16s;
 }
 
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  .tron-liquid-card:hover,
+  .tron-liquid-pill:hover {
+    transform: none;
+  }
+}
 

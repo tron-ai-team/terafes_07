@@ -1182,7 +1182,7 @@ export const CandidateProfilePage: React.FC = () => {
 
       {/* Mobile Sticky Save Bar (< lg) */}
       {dirty && (
-        <div className="fixed bottom-[calc(3.5rem+env(safe-area-inset-bottom,0px))] inset-x-0 z-30 lg:hidden p-3 bg-white/95 backdrop-blur-xl border-t border-slate-200 shadow-lg flex items-center justify-between gap-3 animate-in fade-in slide-in-from-bottom duration-200">
+        <div className="fixed bottom-[calc(4.25rem+env(safe-area-inset-bottom,0px))] inset-x-0 z-30 lg:hidden p-3 bg-white/95 backdrop-blur-xl border-t border-slate-200 shadow-lg flex items-center justify-between gap-3 animate-in fade-in slide-in-from-bottom duration-200">
           <span className="text-xs font-semibold text-amber-700 truncate">
             {ja ? '未保存の変更があります' : 'Unsaved changes'}
           </span>

@@ -1019,7 +1019,7 @@ export const CvBuilderPage: React.FC = () => {
       {/* 4. Main Body: Drafts Sidebar + (Editor / Preview / Split) */}
       {!draft ? (
         /* Empty State: No Draft Selected */
-        <GlassCard className="p-16 text-center space-y-5 max-w-2xl mx-auto my-12">
+        <GlassCard className="p-6 sm:p-10 md:p-16 text-center space-y-5 max-w-2xl mx-auto my-6 sm:my-12">
           <div className="w-20 h-20 mx-auto rounded-3xl bg-blue-50 text-blue-600 flex items-center justify-center shadow-inner">
             <FileText className="w-10 h-10" />
           </div>

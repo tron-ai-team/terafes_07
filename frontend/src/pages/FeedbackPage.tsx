@@ -199,7 +199,7 @@ export const FeedbackPage: React.FC = () => {
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex items-center gap-2.5">
           <NeonButton
             variant="secondary"
             size="sm"

@@ -11,7 +11,6 @@ import {
   RefreshCw,
   CheckCircle2,
   AlertTriangle,
-  FileText,
   Zap,
 } from 'lucide-react';
 import { NeonButton } from '../common/NeonButton';
@@ -164,20 +163,6 @@ export const CvBuilderHeader: React.FC<CvBuilderHeaderProps> = ({
       {/* View Switcher Tabs (Desktop & Mobile) */}
       <div className="flex items-center justify-between pt-3 border-t border-slate-100">
         <div className="flex items-center bg-slate-100 p-1 rounded-2xl border border-slate-200">
-          {/* Mobile Drafts Tab */}
-          <button
-            type="button"
-            onClick={() => onTabChange('drafts')}
-            className={`lg:hidden inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition ${
-              activeTab === 'drafts'
-                ? 'bg-white text-slate-900 shadow-sm'
-                : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            <FileText className="w-3.5 h-3.5" />
-            <span>{ja ? '下書き' : 'Drafts'}</span>
-          </button>
-
           <button
             type="button"
             onClick={() => onTabChange('editor')}
@@ -188,7 +173,7 @@ export const CvBuilderHeader: React.FC<CvBuilderHeaderProps> = ({
             }`}
           >
             <Edit3 className="w-3.5 h-3.5" />
-            <span>{ja ? '編集フォーム' : 'Editor'}</span>
+            <span>{ja ? '編集フォーム' : 'Editor Form'}</span>
           </button>
 
           <button
@@ -201,7 +186,7 @@ export const CvBuilderHeader: React.FC<CvBuilderHeaderProps> = ({
             }`}
           >
             <Eye className="w-3.5 h-3.5" />
-            <span>{ja ? 'プレビュー' : 'Preview'}</span>
+            <span>{ja ? 'A4 プレビュー' : 'A4 Preview'}</span>
           </button>
 
           {/* Split view visible on desktop screens (>= 1280px) */}

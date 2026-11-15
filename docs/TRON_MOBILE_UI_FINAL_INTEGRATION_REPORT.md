@@ -26,8 +26,8 @@ Legacy draft PR #27 (`feature/tron-mobile-home-reference-20261114`) remains open
 | Item | Value |
 |---|---|
 | Merge commit | `ac7edc64750bdff51ca75120c65586ec11404740` |
-| Evidence/docs commit | *(filled after evidence commit)* |
-| Tip at report authoring | `ac7edc64750bdff51ca75120c65586ec11404740` (+ pending evidence commit) |
+| Evidence/docs commit | `0548cb3c922a1658f0f236c93fa993bed73e3ce2` |
+| Tip at report authoring | `0548cb3c922a1658f0f236c93fa993bed73e3ce2` |
 
 Integration method: non-fast-forward merge of Core tip onto latest `origin/main` (preserves stacked ancestry). Frontend-only scope confirmed.
 
@@ -35,7 +35,8 @@ Integration method: non-fast-forward merge of Core tip onto latest `origin/main`
 
 ## 3. PR URL
 
-*(filled after `gh pr create`)*
+https://github.com/tron-ai-team/terafes_07/pull/30  
+Draft PR against `main` from `feature/tron-mobile-ui-final-integration`.
 
 ---
 
